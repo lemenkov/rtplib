@@ -119,16 +119,16 @@ decode_rblocks(Padding, 0, Result) ->
 	Result;
 
 % Create and fill with values new #rblocks{...} structure and proceed with next one (decreasing
-% ReportBlocks counted (RC1) by 1)
-% * SSRC1 - SSRC of the source
+% ReportBlocks counted (RC) by 1)
+% * SSRC - SSRC of the source
 % * FL - fraction lost
 % * CNPL - cumulative number of packets lost
 % * EHSNR - extended highest sequence number received
 % * IJ - interarrival jitter
 % * LSR - last SR timestamp
 % * DLSR - delay since last SR
-decode_rblocks(<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32, Rest/binary>>, RC1, Result) ->
-	decode_rblocks(Rest, RC1-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]).
+decode_rblocks(<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32, Rest/binary>>, RC, Result) ->
+	decode_rblocks(Rest, RC-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]).
 
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, _SC, Result) ->
