@@ -26,6 +26,7 @@
 -define(PADDING_NO, 0).
 
 -record(fir, {ssrc}).
+-record(nack, {ssrc, fsn, blp}).
 -record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks}).
 -record(rr, {ssrc, rblocks}).
 -record(sdes, {list}).

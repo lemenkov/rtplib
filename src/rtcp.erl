@@ -60,9 +60,23 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 		?RTCP_FIR ->
 			case {PaddingFlag, RC, Length} of
 				% No padding for these packets, RC *should* be 1, 1 32-bit word of payload
+				% FIXME - check proper RC value
 				{?PADDING_NO, 1, 1} ->
 					<<SSRC:32>> = Payload,
 					#fir{ssrc=SSRC};
+				_ ->
+					% FIXME say something about malformed RTCP or die
+					{error, unknown_type}
+			end;
+
+		% Negative ACKnowledgements (h.261 specific)
+		?RTCP_NACK ->
+			case {PaddingFlag, RC, Length} of
+				% No padding for these packets, RC *should* be 1 and two 32-bit words of payload
+				% FIXME - check proper RC value
+				{?PADDING_NO, 1, 2} ->
+					<<SSRC:32, FSN:16, BLP:16>> = Payload,
+					#nack{ssrc=SSRC, fsn=FSN, blp=BLP};
 				_ ->
 					% FIXME say something about malformed RTCP or die
 					{error, unknown_type}
