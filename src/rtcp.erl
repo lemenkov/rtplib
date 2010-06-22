@@ -56,6 +56,18 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 
 	Rtcp = case PacketType of
 
+		% Full INTRA-frame Request (h.261 specific)
+		?RTCP_FIR ->
+			case {PaddingFlag, RC, Length} of
+				% No padding for these packets, RC *should* be 1, 1 32-bit word of payload
+				{?PADDING_NO, 1, 1} ->
+					<<SSRC:32>> = Payload,
+					#fir{ssrc=SSRC};
+				_ ->
+					% FIXME say something about malformed RTCP or die
+					{error, unknown_type}
+			end;
+
 		% Sender Report
 		?RTCP_SR ->
 			% * NTPSec - NTP timestamp, most significant word
@@ -213,6 +225,9 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 %%% Encoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+encode_fir(SSRC) ->
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_FIR:8, 1:16, SSRC/binary>>.
 
 encode_bye(#bye{message = null, ssrc = SSRCs}) ->
 	SC = size(SSRCs) div 4,
