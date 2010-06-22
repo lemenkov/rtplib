@@ -277,6 +277,54 @@ encode_receiver_report(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, RB/binary>>.
 
+encode_sdes(SSRCs, SdesItemsListOfLists) when is_list(SSRCs), is_list (SdesItemsListOfLists) ->
+	RC = length(SSRCs),
+
+	SdesData = list_to_binary ([encode_sdes_items(X, Y) || {X,Y} <- lists:zip(SSRCs, SdesItemsListOfLists)]),
+
+	Length = size(SdesData) div 4,
+
+	% TODO ensure that this list is null-terminated and no null-terminator
+	% exists in the middle of the list
+
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SDES:8, Length:16, SdesData/binary>>;
+
+% Simple case - only one SSRC and correscponding SDES
+encode_sdes(SSRC, SdesItems) when is_list (SdesItems) ->
+	encode_sdes([SSRC], [SdesItems]).
+
+encode_sdes_items(SSRC, SdesItems) when is_list (SdesItems) ->
+	SdesChunkData = list_to_binary ([ rtcp:encode_sdes_item(X,Y) || {X,Y} <- SdesItems]),
+
+	PaddingSize = case size(SdesChunkData) rem 4 of
+		0 -> 0;
+		Rest -> (4 - Rest) * 8
+	end,
+
+	Padding = <<0:PaddingSize>>,
+	<<SSRC:32, SdesChunkData/binary, Padding/binary>>.
+
+encode_sdes_item(?SDES_NULL, _Value) ->
+	encode_sdes_item(?SDES_NULL);
+
+encode_sdes_item(SdesType, Value) when is_list (Value) ->
+	encode_sdes_item(SdesType, list_to_binary(Value));
+
+encode_sdes_item(SdesType, Value) when is_binary (Value) ->
+	L = size(Value),
+	<<SdesType:8, L:8, Value:L/binary>>.
+
+encode_sdes_item(?SDES_NULL) ->
+	% This is NULL terminator - must be the last SDES object
+	<<?SDES_NULL:8>>.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Different helper functions
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 frac(Int) ->
 	frac(trunc((Int*(2 bsl 32))/1000000), 32, 0).
 frac(_, 0, Result) ->
