@@ -22,6 +22,9 @@
 -define(SDES_NOTE,  7).
 -define(SDES_PRIV,  8).
 
+-define(PADDING_YES, 1).
+-define(PADDING_NO, 0).
+
 -record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks}).
 -record(rr, {ssrc, rblocks}).
 -record(sdes, {list}).

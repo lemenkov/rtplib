@@ -96,6 +96,12 @@ decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
 	DecodedRtcps.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Decoding helpers
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % We're creating function for decoding ReportBlocks, which present in both SenderReport's (SR)
 % and ReceiverReport's (RR) packets
 decode_rblocks(Data, RC) ->
@@ -195,4 +201,32 @@ decode_bye(<<L:8, Text:L/binary, _/binary>>, 0, Ret) ->
 decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 	% SSRC of stream, which just ends
 	decode_bye(Tail, RC-1, Ret ++ [SSRC]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Encoding helpers
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+encode_bye(#bye{message = null, ssrc = SSRCs}) ->
+	SC = size(SSRCs) div 4,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, SC:16, SSRCs/binary>>;
+
+encode_bye(#bye{message = Message, ssrc = SSRCs}) ->
+	SC = size(SSRCs) div 4,
+	% FIXME no more than 255 symbols
+	TextLength = size(Message),
+	case (TextLength + 1) rem 4 of
+		0 ->
+			<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1) div 4)):16, SSRCs/binary, TextLength:8, Message/binary>>;
+		Pile ->
+			Padding = <<0:((4-Pile)*8)>>,
+			<<?RTCP_VERSION:2, ?PADDING_YES:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1 + 4 - Pile) div 4)):16, SSRCs/binary, TextLength:8, Message/binary, Padding/binary>>
+	end;
+
+encode_bye(SSRCs) when is_list(SSRCs) ->
+	encode_bye(#bye{message=null, ssrc=list_to_binary([<<S:32>> || S <- SSRCs])}).
+
+encode_bye(SSRCs, Message) when is_list(SSRCs), is_list(Message) ->
+	encode_bye(#bye{message=list_to_binary(Message), ssrc=list_to_binary([<<S:32>> || S <- SSRCs])}).
 
