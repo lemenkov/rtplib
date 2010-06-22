@@ -23,20 +23,21 @@
 %%% OTHER DEALINGS IN THE SOFTWARE.
 %%%----------------------------------------------------------------------
 
-% see this RFC for further details:
+% See these RFCs for further details:
+
+% http://www.ietf.org/rfc/rfc2032.txt
 % http://www.ietf.org/rfc/rfc3550.txt
 
 -module(rtcp).
 -author('lemenkov@gmail.com').
 
+% FIXME - don't forget to remove from final version!
+-compile(export_all).
+
 -export([encode/1]).
 -export([decode/1]).
 
 -include("rtcp.hrl").
-
-encode(Packets) ->
-	% TODO
-	ok.
 
 decode(Data) ->
 	decode(Data, []).
