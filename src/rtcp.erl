@@ -230,3 +230,58 @@ encode_bye(SSRCs) when is_list(SSRCs) ->
 encode_bye(SSRCs, Message) when is_list(SSRCs), is_list(Message) ->
 	encode_bye(#bye{message=list_to_binary(Message), ssrc=list_to_binary([<<S:32>> || S <- SSRCs])}).
 
+
+% * SSRC - SSRC of the source
+% * FL - fraction lost
+% * CNPL - cumulative number of packets lost
+% * EHSNR - extended highest sequence number received
+% * IJ - interarrival jitter
+% * LSR - last SR timestamp
+% * DLSR - delay since last SR
+encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
+	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
+
+% TODO profile-specific extensions
+encode_sender_report(SSRC, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
+
+	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
+	Now2Ntp = fun () ->
+		{MegaSecs, Secs, MicroSecs} = now(),
+	        NTPSec1 = MegaSecs*1000000 + Secs + 2208988800,
+		{NTPSec1, frac(MicroSecs)}
+	end,
+
+	% Number of ReportBlocks
+	RC = length(ReportBlocks),
+
+	% TODO profile-specific extensions' size
+	% sizeof(SSRC) + sizeof(Sender's Info) + RC * sizeof(ReportBlock) in 32-bit words
+	Length = 1 + 5 + RC * 6,
+
+	{NtpSec, NtpFrac} = Now2Ntp(),
+
+	RB = list_to_binary(ReportBlocks),
+
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NtpSec:32, NtpFrac:32, TimeStamp:32, Packets:32, Octets:32, RB/binary>>.
+
+% TODO profile-specific extensions
+encode_receiver_report(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
+	% Number of ReportBlocks
+	RC = length(ReportBlocks),
+
+	% TODO profile-specific extensions' size
+	% sizeof(SSRC) + RC * sizeof(ReportBlock) in 32-bit words
+	Length = 1 + RC * 6,
+
+	RB = list_to_binary(ReportBlocks),
+
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, RB/binary>>.
+
+frac(Int) ->
+	frac(trunc((Int*(2 bsl 32))/1000000), 32, 0).
+frac(_, 0, Result) ->
+	Result;
+frac(Int, X, Acc) ->
+	Div = Int div (2 bsl X-1),
+	Rem = Int rem (2 bsl X-1),
+	frac(Rem, X-1, Acc bor (Div bsl X)).
