@@ -189,14 +189,14 @@ decode_bye(<<>>, _RC, Ret) ->
 	% If no data was left, then we should ignore the RC value and return what we already decoded
 	#bye{ssrc=Ret};
 
+decode_bye(<<L:8, Text:L/binary, _/binary>>, 0, Ret) ->
+	% Text message is always the last data chunk in BYE packet
+	#bye{message=binary_to_list(Text), ssrc=Ret};
+
 decode_bye(Padding, 0, Ret) ->
 	% No text, no SSRC left, so just returning what we already have
 	error_logger:warning_msg("BYE padding [~p]~n", [Padding]),
 	#bye{ssrc=Ret};
-
-decode_bye(<<L:8, Text:L/binary, _/binary>>, 0, Ret) ->
-	% Text message is always the last data chunk in BYE packet
-	#bye{message=binary_to_list(Text), ssrc=Ret};
 
 decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 	% SSRC of stream, which just ends
