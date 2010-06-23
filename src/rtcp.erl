@@ -128,7 +128,13 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 
 		?RTCP_APP ->
 			<<SSRC:32, Name:32, Data/binary>> = Payload,
-			#app{ssrc=SSRC, subtype=RC, name=Name, data=Data};
+			case (size(Data) rem 4) of
+				0 ->
+					#app{ssrc=SSRC, subtype=RC, name=Name, data=Data};
+				_ ->
+
+					{error, malformed}
+			end;
 
 		_ ->
 			% FIXME add more RTCP packet types
