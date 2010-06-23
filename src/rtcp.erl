@@ -263,9 +263,20 @@ encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, oct
 encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
 	encode_rr(SSRC, ReportBlocks);
 
-encode(#sdes{list=SdesItemsListOfLists}) ->
-	{SSRCs, SdesItems} = lists:unzip(SdesItemsListOfLists),
-	encode_sdes(SSRCs, SdesItems);
+encode(#sdes{list=SdesItemsList}) ->
+	SdesItemsListOfLists = [ {X#sdes_items.ssrc,
+			[
+				{?SDES_CNAME, X#sdes_items.cname},
+				{?SDES_NAME,  X#sdes_items.name},
+				{?SDES_EMAIL, X#sdes_items.email},
+				{?SDES_PHONE, X#sdes_items.phone},
+				{?SDES_LOC,   X#sdes_items.loc},
+				{?SDES_TOOL,  X#sdes_items.tool},
+				{?SDES_NOTE,  X#sdes_items.note},
+				{?SDES_PRIV,  X#sdes_items.priv},
+				{?SDES_NULL,  X#sdes_items.eof}
+			]} || X <- SdesItemsList ],
+	encode_sdes(SdesItemsListOfLists);
 
 encode(#bye{message = Message, ssrc = SSRCs}) ->
 	encode_bye(SSRCs, Message).
@@ -320,21 +331,21 @@ encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, RB/binary>>.
 
-encode_sdes(SSRCs, SdesItemsListOfLists) when is_list(SSRCs), is_list (SdesItemsListOfLists) ->
-	RC = length(SSRCs),
+% Simple case - only one SSRC and correscponding SDES
+encode_sdes(SSRC, SdesItemsList) when is_list (SdesItemsList) ->
+	encode_sdes([{SSRC, SdesItemsList}]).
 
-	SdesData = list_to_binary ([encode_sdes_items(X, Y) || {X,Y} <- lists:zip(SSRCs, SdesItemsListOfLists)]),
+encode_sdes(SdesItemsList) when is_list (SdesItemsList) ->
+	RC = length(SdesItemsList),
+
+	SdesData = list_to_binary ([encode_sdes_items(X, Y) || {X,Y} <- SdesItemsList]),
 
 	Length = size(SdesData) div 4,
 
 	% TODO ensure that this list is null-terminated and no null-terminator
 	% exists in the middle of the list
 
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SDES:8, Length:16, SdesData/binary>>;
-
-% Simple case - only one SSRC and correscponding SDES
-encode_sdes(SSRC, SdesItems) when is_list (SdesItems) ->
-	encode_sdes([SSRC], [SdesItems]).
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SDES:8, Length:16, SdesData/binary>>.
 
 encode_bye(SSRCsList, null) when is_list(SSRCsList) ->
 	SSRCs=list_to_binary([<<S:32>> || S <- SSRCsList]),
@@ -379,6 +390,9 @@ encode_sdes_items(SSRC, SdesItems) when is_list (SdesItems) ->
 
 encode_sdes_item(?SDES_NULL, _Value) ->
 	encode_sdes_item(?SDES_NULL);
+
+encode_sdes_item(_, null) ->
+	<<>>;
 
 encode_sdes_item(SdesType, Value) when is_list (Value) ->
 	encode_sdes_item(SdesType, list_to_binary(Value));
