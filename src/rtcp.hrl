@@ -27,8 +27,8 @@
 
 -record(fir, {ssrc}).
 -record(nack, {ssrc, fsn, blp}).
--record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks}).
--record(rr, {ssrc, rblocks}).
+-record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks=[]}).
+-record(rr, {ssrc, rblocks=[]}).
 -record(sdes, {list}).
 -record(bye, {message=[], ssrc=[]}).
 
