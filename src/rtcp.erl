@@ -43,6 +43,12 @@
 
 -include("rtcp.hrl").
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Decoding functions
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 decode(Data) ->
 	decode(Data, []).
 
@@ -241,48 +247,45 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
+%%% Encoding functions
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+encode(#fir{ssrc = SSRC}) ->
+	encode_fir(SSRC);
+
+encode(#nack{ssrc = SSRC, fsn = FSN, blp = BLP}) ->
+	encode_nack(SSRC, FSN, BLP);
+
+encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, octets = Octets, rblocks = ReportBlocks}) ->
+	encode_sender_report(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks);
+
+encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
+	encode_receiver_report(SSRC, ReportBlocks);
+
+encode(#sdes{list=SdesItemsListOfLists}) ->
+	{SSRCs, SdesItems} = lists:unzip(SdesItemsListOfLists),
+	encode_sdes(SSRCs, SdesItems);
+
+encode(#bye{message = Message, ssrc = SSRCs}) ->
+	encode_bye(SSRCs, Message).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
 %%% Encoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 encode_fir(SSRC) ->
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_FIR:8, 1:16, SSRC/binary>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_FIR:8, 1:16, SSRC:32>>.
 
-encode_bye(#bye{message = null, ssrc = SSRCs}) ->
-	SC = size(SSRCs) div 4,
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, SC:16, SSRCs/binary>>;
+encode_nack(SSRC, FSN, BLP) ->
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16>>.
 
-encode_bye(#bye{message = Message, ssrc = SSRCs}) ->
-	SC = size(SSRCs) div 4,
-	% FIXME no more than 255 symbols
-	TextLength = size(Message),
-	case (TextLength + 1) rem 4 of
-		0 ->
-			<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1) div 4)):16, SSRCs/binary, TextLength:8, Message/binary>>;
-		Pile ->
-			Padding = <<0:((4-Pile)*8)>>,
-			<<?RTCP_VERSION:2, ?PADDING_YES:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1 + 4 - Pile) div 4)):16, SSRCs/binary, TextLength:8, Message/binary, Padding/binary>>
-	end;
-
-encode_bye(SSRCs) when is_list(SSRCs) ->
-	encode_bye(#bye{message=null, ssrc=list_to_binary([<<S:32>> || S <- SSRCs])}).
-
-encode_bye(SSRCs, Message) when is_list(SSRCs), is_list(Message) ->
-	encode_bye(#bye{message=list_to_binary(Message), ssrc=list_to_binary([<<S:32>> || S <- SSRCs])}).
-
-
-% * SSRC - SSRC of the source
-% * FL - fraction lost
-% * CNPL - cumulative number of packets lost
-% * EHSNR - extended highest sequence number received
-% * IJ - interarrival jitter
-% * LSR - last SR timestamp
-% * DLSR - delay since last SR
-encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
-	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
-
+% TODO restore original ntp value
 % TODO profile-specific extensions
-encode_sender_report(SSRC, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
+encode_sender_report(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
 	Now2Ntp = fun () ->
@@ -332,6 +335,36 @@ encode_sdes(SSRCs, SdesItemsListOfLists) when is_list(SSRCs), is_list (SdesItems
 % Simple case - only one SSRC and correscponding SDES
 encode_sdes(SSRC, SdesItems) when is_list (SdesItems) ->
 	encode_sdes([SSRC], [SdesItems]).
+
+encode_bye(SSRCsList, null) when is_list(SSRCsList) ->
+	SSRCs=list_to_binary([<<S:32>> || S <- SSRCsList]),
+	SC = size(SSRCs) div 4,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, SC:16, SSRCs/binary>>;
+
+encode_bye(SSRCsList, MessageList) when is_list(SSRCsList), is_list(MessageList) ->
+	Message = list_to_binary(MessageList),
+	SSRCs = list_to_binary([<<S:32>> || S <- SSRCsList]),
+	SC = size(SSRCs) div 4,
+	% FIXME no more than 255 symbols
+	TextLength = size(Message),
+	case (TextLength + 1) rem 4 of
+		0 ->
+			<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1) div 4)):16, SSRCs/binary, TextLength:8, Message/binary>>;
+		Pile ->
+			Padding = <<0:((4-Pile)*8)>>,
+			<<?RTCP_VERSION:2, ?PADDING_YES:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1 + 4 - Pile) div 4)):16, SSRCs/binary, TextLength:8, Message/binary, Padding/binary>>
+	end.
+
+
+% * SSRC - SSRC of the source
+% * FL - fraction lost
+% * CNPL - cumulative number of packets lost
+% * EHSNR - extended highest sequence number received
+% * IJ - interarrival jitter
+% * LSR - last SR timestamp
+% * DLSR - delay since last SR
+encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
+	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
 
 encode_sdes_items(SSRC, SdesItems) when is_list (SdesItems) ->
 	SdesChunkData = list_to_binary ([ rtcp:encode_sdes_item(X,Y) || {X,Y} <- SdesItems]),
