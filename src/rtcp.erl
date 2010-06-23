@@ -126,6 +126,10 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 		?RTCP_BYE ->
 			decode_bye(Payload, RC, []);
 
+		?RTCP_APP ->
+			<<SSRC:32, Name:32, Data/binary>> = Payload,
+			#app{ssrc=SSRC, subtype=RC, name=Name, data=Data};
+
 		_ ->
 			% FIXME add more RTCP packet types
 			{error, unknown_type}
@@ -279,7 +283,10 @@ encode(#sdes{list=SdesItemsList}) ->
 	encode_sdes(SdesItemsListOfLists);
 
 encode(#bye{message = Message, ssrc = SSRCs}) ->
-	encode_bye(SSRCs, Message).
+	encode_bye(SSRCs, Message);
+
+encode(#app{subtype = Subtype, ssrc = SSRC, name = Name, data = Data}) ->
+	encode_app(Subtype, SSRC, Name, Data).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -364,6 +371,22 @@ encode_bye(SSRCsList, MessageList) when is_list(SSRCsList), is_list(MessageList)
 		Pile ->
 			Padding = <<0:((4-Pile)*8)>>,
 			<<?RTCP_VERSION:2, ?PADDING_YES:1, SC:5, ?RTCP_BYE:8, (SC + ((TextLength + 1 + 4 - Pile) div 4)):16, SSRCs/binary, TextLength:8, Message/binary, Padding/binary>>
+	end.
+
+encode_app(Subtype, SSRC, Name, Data) when is_list(Name), is_binary(Data) ->
+	encode_app(Subtype, SSRC, list_to_binary(Name), Data);
+
+encode_app(Subtype, SSRC, Name, Data) when is_integer(Name), is_binary(Data) ->
+	encode_app(Subtype, SSRC, <<Name:32>>, Data);
+
+encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
+	case {(size(Data) rem 4) == 0, (size(Name) == 4)} of
+		{true, true} ->
+			% sizeof(SSRC)/4 + sizeof(Name)/4 + sizeof(Data)/4
+			Length = 1 + 1 + size(Data) div 4,
+			<<?RTCP_VERSION:2, ?PADDING_NO:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC:32, Name/binary, Data/binary>>;
+		_ ->
+			{error, bad_data}
 	end.
 
 
