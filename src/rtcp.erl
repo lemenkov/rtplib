@@ -258,10 +258,10 @@ encode(#nack{ssrc = SSRC, fsn = FSN, blp = BLP}) ->
 	encode_nack(SSRC, FSN, BLP);
 
 encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, octets = Octets, rblocks = ReportBlocks}) ->
-	encode_sender_report(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks);
+	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks);
 
 encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
-	encode_receiver_report(SSRC, ReportBlocks);
+	encode_rr(SSRC, ReportBlocks);
 
 encode(#sdes{list=SdesItemsListOfLists}) ->
 	{SSRCs, SdesItems} = lists:unzip(SdesItemsListOfLists),
@@ -285,7 +285,7 @@ encode_nack(SSRC, FSN, BLP) ->
 
 % TODO restore original ntp value
 % TODO profile-specific extensions
-encode_sender_report(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
+encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
 	Now2Ntp = fun () ->
@@ -308,7 +308,7 @@ encode_sender_report(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when i
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NtpSec:32, NtpFrac:32, TimeStamp:32, Packets:32, Octets:32, RB/binary>>.
 
 % TODO profile-specific extensions
-encode_receiver_report(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
+encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 	% Number of ReportBlocks
 	RC = length(ReportBlocks),
 
