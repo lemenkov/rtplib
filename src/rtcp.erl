@@ -60,10 +60,10 @@ decode(<<>>, DecodedRtcps) ->
 % so we suppose, that each packet starts from the standart header
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
-	% number of bits we need to multiply it by 32
-	BitLength = Length*32,
+	% number of bytes we need to multiply it by 4
+	ByteLength = Length*4,
 
-	<<Payload:BitLength/binary, Next/binary>> = Tail,
+	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
 
