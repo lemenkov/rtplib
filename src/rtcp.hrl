@@ -32,7 +32,9 @@
 -record(sdes, {list}).
 -record(bye, {message=[], ssrc=[]}).
 -record(app, {subtype, ssrc=[], name=[], data=null}).
+-record(xr, {ssrc, xrblocks=[]}).
 
 -record(rblock, {ssrc, fraction, lost, last_seq, jitter, lsr, dlsr}).
+-record(xrblock, {type, ts, data}).
 -record(sdes_items, {ssrc, cname, name=null, email=null, phone=null, loc=null, tool=null, note=null, priv=null, eof=false}).
 

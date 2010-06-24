@@ -136,6 +136,12 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 					{error, malformed}
 			end;
 
+		% eXtended Report
+		% TODO padding
+		?RTCP_XR ->
+			<<SSRC:32, XReportBlocks/binary>> = Payload,
+			XRBlocks = decode_xrblocks(XReportBlocks, Length),
+			#xr{ssrc=SSRC, xrblocks=XRBlocks};
 		_ ->
 			% FIXME add more RTCP packet types
 			{error, unknown_type}
@@ -182,6 +188,24 @@ decode_rblocks(Padding, 0, Result) ->
 % * DLSR - delay since last SR
 decode_rblocks(<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32, Rest/binary>>, RC, Result) ->
 	decode_rblocks(Rest, RC-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]).
+
+decode_xrblocks(Data, Length) ->
+	decode_xrblocks(Data, Length, []).
+
+decode_xrblocks(<<>>, _Length, XRBlocks) ->
+	XRBlocks;
+
+% The packets can contain padding filling space up to 32-bit boundaries
+% If RC value (number of ReportBlocks left) = 0, then we return what we already decoded
+decode_xrblocks(Padding, 0, XRBlocks) ->
+	% We should report about padding since it may be also malformed RTCP packet
+	error_logger:warning_msg("eXtended ReportBlocks padding [~p]~n", [Padding]),
+	XRBlocks;
+
+decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
+	BitLength = BlockLength * 32,
+	<<BlockData:BitLength/binary, Next/binary>> = Rest,
+	decode_xrblocks(Next, Length - BlockLength, Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
 
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, _SC, Result) ->
@@ -292,7 +316,10 @@ encode(#bye{message = Message, ssrc = SSRCs}) ->
 	encode_bye(SSRCs, Message);
 
 encode(#app{subtype = Subtype, ssrc = SSRC, name = Name, data = Data}) ->
-	encode_app(Subtype, SSRC, Name, Data).
+	encode_app(Subtype, SSRC, Name, Data);
+
+encode(#xr{ssrc = SSRC, xrblocks = XRBlocks}) ->
+	encode_xr(SSRC, XRBlocks).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -395,6 +422,13 @@ encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
 			{error, bad_data}
 	end.
 
+encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
+	% FIXME correct Reserved value
+	Reserved = 0,
+	XRBlocksData = encode_xr_blocks(XRBlocks),
+	Length = 1 + size(XRBlocksData) div 4,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, Reserved:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
+
 
 % * SSRC - SSRC of the source
 % * FL - fraction lost
@@ -433,6 +467,17 @@ encode_sdes_item(SdesType, Value) when is_binary (Value) ->
 encode_sdes_item(?SDES_NULL) ->
 	% This is NULL terminator - must be the last SDES object
 	<<?SDES_NULL:8>>.
+
+encode_xr_blocks(XRBlocks) when is_list (XRBlocks) ->
+	encode_xr_blocks(XRBlocks, <<>>).
+
+encode_xr_blocks([],  EncodedBlocks) ->
+	EncodedBlocks;
+
+encode_xr_blocks([ #xrblock{type = BT, ts = TS, data = Data} | Rest],  EncodedBlocks) ->
+	BlockLength = size(Data) div 4,
+	encode_xr_blocks(Rest, EncodedBlocks ++ <<BT:8, TS:8, BlockLength:16, Data/binary>>).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
