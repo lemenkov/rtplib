@@ -127,7 +127,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 			decode_bye(Payload, RC, []);
 
 		?RTCP_APP ->
-			<<SSRC:32, Name:32, Data/binary>> = Payload,
+			<<SSRC:32, Name:4/binary, Data/binary>> = Payload,
 			case (size(Data) rem 4) of
 				0 ->
 					#app{ssrc=SSRC, subtype=RC, name=Name, data=Data};
@@ -408,9 +408,6 @@ encode_bye(SSRCsList, MessageList) when is_list(SSRCsList), is_list(MessageList)
 
 encode_app(Subtype, SSRC, Name, Data) when is_list(Name), is_binary(Data) ->
 	encode_app(Subtype, SSRC, list_to_binary(Name), Data);
-
-encode_app(Subtype, SSRC, Name, Data) when is_integer(Name), is_binary(Data) ->
-	encode_app(Subtype, SSRC, <<Name:32>>, Data);
 
 encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
 	case {(size(Data) rem 4) == 0, (size(Name) == 4)} of
