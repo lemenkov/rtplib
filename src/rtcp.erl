@@ -120,7 +120,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 		?RTCP_SDES ->
 			% There may be RC number of chunks (we call them Chunks), containing of their own SSRC 32-bit identificator
 			% and arbitrary number of SDES-items.
-			decode_sdes_items(Payload, RC, []);
+			#sdes{list=decode_sdes_items(Payload, RC, [])};
 
 		% End of stream (but not necessary the end of communication, since there may be many streams within)
 		?RTCP_BYE ->
@@ -188,12 +188,12 @@ decode_sdes_items(<<>>, _SC, Result) ->
 	% Disregard SDES items count (SC) if no data remaining
 	% simply construct #sdes{} from the resulting list of
 	% SDES-items (Result) and return
-	#sdes{list=Result};
+	Result;
 decode_sdes_items(Padding, 0, Result) ->
 	% SDES may contain padding (should be noted by PaddingFlag)
 	% Likewise.
 	error_logger:warning_msg("SDES padding [~p]~n", [Padding]),
-	#sdes{list=Result};
+	Result;
 decode_sdes_items(<<SSRC:32, RawData/binary>>, SC, Result) when SC>0 ->
 	% Each SDES-item followed by their own SSRC value (they are not necessary the same)
 	% and the arbitrary raw data
