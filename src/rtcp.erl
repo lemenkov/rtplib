@@ -59,6 +59,17 @@ decode(<<>>, DecodedRtcps) ->
 
 % We, currently, decoding only unencrypted RTCP (enclyption is in my TODO-list),
 % so we suppose, that each packet starts from the standart header
+
+% Full INTRA-frame Request (h.261 specific)
+% No padding for these packets, one 32-bit word of payload
+decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32, Tail/binary>>, DecodedRtcps) ->
+	decode(Tail, DecodedRtcps ++ [#fir{ssrc=SSRC}]);
+
+% Negative ACKnowledgements (h.261 specific)
+% No padding for these packets, two 32-bit words of payload
+decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16, Tail/binary>>, DecodedRtcps) ->
+	decode(Tail, DecodedRtcps ++ [#nack{ssrc=SSRC, fsn=FSN, blp=BLP}]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -67,32 +78,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		% Full INTRA-frame Request (h.261 specific)
-		?RTCP_FIR ->
-			case {PaddingFlag, RC, Length} of
-				% No padding for these packets, RC *should* be 1, 1 32-bit word of payload
-				% FIXME - check proper RC value
-				{?PADDING_NO, 1, 1} ->
-					<<SSRC:32>> = Payload,
-					#fir{ssrc=SSRC};
-				_ ->
-					% FIXME say something about malformed RTCP or die
-					{error, unknown_type}
-			end;
-
-		% Negative ACKnowledgements (h.261 specific)
-		?RTCP_NACK ->
-			case {PaddingFlag, RC, Length} of
-				% No padding for these packets, RC *should* be 1 and two 32-bit words of payload
-				% FIXME - check proper RC value
-				{?PADDING_NO, 1, 2} ->
-					<<SSRC:32, FSN:16, BLP:16>> = Payload,
-					#nack{ssrc=SSRC, fsn=FSN, blp=BLP};
-				_ ->
-					% FIXME say something about malformed RTCP or die
-					{error, unknown_type}
-			end;
 
 		% Sender Report
 		?RTCP_SR ->

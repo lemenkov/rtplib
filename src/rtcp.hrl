@@ -25,6 +25,9 @@
 -define(PADDING_YES, 1).
 -define(PADDING_NO, 0).
 
+% Must be zero
+-define(MBZ, 0).
+
 -record(fir, {ssrc}).
 -record(nack, {ssrc, fsn, blp}).
 -record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks=[]}).
