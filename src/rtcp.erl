@@ -143,6 +143,17 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 			<<SSRC:32, XReportBlocks/binary>> = Payload,
 			XRBlocks = decode_xrblocks(XReportBlocks, Length),
 			#xr{ssrc=SSRC, xrblocks=XRBlocks};
+
+		% Transport layer feedback message
+		?RTCP_RTPFB ->
+			% FIXME add more RTCP packet types
+			{error, not_implemented};
+
+		% Payload-specific feedback message
+		?RTCP_PSFB ->
+			% FIXME add more RTCP packet types
+			{error, not_implemented};
+
 		_ ->
 			% FIXME add more RTCP packet types
 			{error, unknown_type}
