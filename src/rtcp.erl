@@ -95,6 +95,12 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/bin
 	% and arbitrary number of SDES-items.
 	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, RC, [])}]);
 
+% End of stream (but not necessary the end of communication, since there may be many streams within)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4,
+	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
+	decode(Tail, DecodedRtcps ++ [decode_bye(Payload, RC, [])]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -103,10 +109,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		% End of stream (but not necessary the end of communication, since there may be many streams within)
-		?RTCP_BYE ->
-			decode_bye(Payload, RC, []);
 
 		?RTCP_APP ->
 			<<SSRC:32, Name:4/binary, Data/binary>> = Payload,
