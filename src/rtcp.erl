@@ -101,6 +101,12 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/bina
 	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [decode_bye(Payload, RC, [])]);
 
+% Application-specific data
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC:32, Name:4/binary, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 4,
+	<<Data:ByteLength/binary, Tail>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -109,16 +115,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		?RTCP_APP ->
-			<<SSRC:32, Name:4/binary, Data/binary>> = Payload,
-			case (size(Data) rem 4) of
-				0 ->
-					#app{ssrc=SSRC, subtype=RC, name=Name, data=Data};
-				_ ->
-
-					{error, malformed}
-			end;
 
 		% eXtended Report
 		% TODO padding
