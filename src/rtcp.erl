@@ -83,7 +83,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, N
 
 % Receiver Report
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
-	ByteLength = Length*4 - 1,
+	ByteLength = Length*4 - 4,
 	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
