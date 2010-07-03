@@ -81,6 +81,12 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, N
 	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=rtp_utils:ntp2now(NTPSec, NTPFrac), timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
+% Receiver Report
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 1,
+	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -89,11 +95,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		% Receiver Report
-		?RTCP_RR ->
-			<<SSRC:32, ReportBlocks/binary>> = Payload,
-			#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)};
 
 		% Source DEScription.
 		?RTCP_SDES ->
