@@ -328,13 +328,6 @@ encode_nack(SSRC, FSN, BLP) ->
 % TODO profile-specific extensions
 encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
-	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
-	Now2Ntp = fun () ->
-		{MegaSecs, Secs, MicroSecs} = now(),
-	        NTPSec1 = MegaSecs*1000000 + Secs + 2208988800,
-		{NTPSec1, frac(MicroSecs)}
-	end,
-
 	% Number of ReportBlocks
 	RC = length(ReportBlocks),
 
@@ -342,7 +335,7 @@ encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(Repo
 	% sizeof(SSRC) + sizeof(Sender's Info) + RC * sizeof(ReportBlock) in 32-bit words
 	Length = 1 + 5 + RC * 6,
 
-	{NtpSec, NtpFrac} = Now2Ntp(),
+	{NtpSec, NtpFrac} = rtp_utils:now2ntp(),
 
 	RB = list_to_binary(ReportBlocks),
 
@@ -465,19 +458,3 @@ encode_xr_blocks([ #xrblock{type = BT, ts = TS, data = Data} | Rest],  EncodedBl
 	BlockLength = size(Data) div 4,
 	encode_xr_blocks(Rest, EncodedBlocks ++ <<BT:8, TS:8, BlockLength:16, Data/binary>>).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%% Different helper functions
-%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-frac(Int) ->
-	frac(trunc((Int*(2 bsl 32))/1000000), 32, 0).
-frac(_, 0, Result) ->
-	Result;
-frac(Int, X, Acc) ->
-	Div = Int div (2 bsl X-1),
-	Rem = Int rem (2 bsl X-1),
-	frac(Rem, X-1, Acc bor (Div bsl X)).

@@ -32,13 +32,14 @@
 
 -export([dump_packet/3]).
 -export([ntp2now/2]).
+-export([now2ntp/0]).
 
 dump_packet(Node, Pid, Packet) ->
 	{H,M,Ms} = now(),
 	% later we may try to decode these rtcp packets and to fix decoding errors:
 	% lists:map(fun(X) -> io:format("FILE: ~p~n", [X]), {ok, Rtcp} = file:read_file(X), rtcp:decode(Rtcp) end, filelib:wildcard("/tmp/rtcp_err.*.bin")).
 	file:write_file("/tmp/rtcp_err." ++ atom_to_list(Node) ++ "." ++ pid_to_list(Pid) ++ "." ++ integer_to_list(H) ++ "_" ++ integer_to_list(M) ++ "_" ++ integer_to_list(Ms) ++ ".bin", Packet).
-	
+
 ntp2now (NTPSec, NTPFrac) ->
 	MegaSecs = NTPSec div 1000000,
 	Secs = NTPSec rem 1000000,
@@ -46,3 +47,25 @@ ntp2now (NTPSec, NTPFrac) ->
 	MicroSecs = trunc(1000000*R),
 	{MegaSecs, Secs, MicroSecs}.
 
+now2ntp () ->
+	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
+	{MegaSecs, Secs, MicroSecs} = now(),
+	NTPSec = MegaSecs*1000000 + Secs + 2208988800,
+	{NTPSec, frac(MicroSecs)}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Different helper functions
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+frac(Int) ->
+	frac(trunc((Int*(2 bsl 32))/1000000), 32, 0).
+frac(_, 0, Result) ->
+	Result;
+frac(Int, X, Acc) ->
+	Div = Int div (2 bsl X-1),
+	Rem = Int rem (2 bsl X-1),
+	frac(Rem, X-1, Acc bor (Div bsl X)).
