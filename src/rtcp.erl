@@ -103,7 +103,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/bina
 
 % Application-specific data
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC:32, Name:4/binary, Rest/binary>>, DecodedRtcps) ->
-	ByteLength = Length*4 - 4,
+	ByteLength = Length*4 - 8,
 	<<Data:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}]);
 
