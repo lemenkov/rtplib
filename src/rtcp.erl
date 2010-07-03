@@ -87,6 +87,14 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, R
 	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
+% Source DEScription
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4,
+	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
+	% There may be RC number of chunks (we call them Chunks), containing of their own SSRC 32-bit identificator
+	% and arbitrary number of SDES-items.
+	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, RC, [])}]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -95,12 +103,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		% Source DEScription.
-		?RTCP_SDES ->
-			% There may be RC number of chunks (we call them Chunks), containing of their own SSRC 32-bit identificator
-			% and arbitrary number of SDES-items.
-			#sdes{list=decode_sdes_items(Payload, RC, [])};
 
 		% End of stream (but not necessary the end of communication, since there may be many streams within)
 		?RTCP_BYE ->
