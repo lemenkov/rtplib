@@ -70,6 +70,17 @@ decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32, Tai
 decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16, Tail/binary>>, DecodedRtcps) ->
 	decode(Tail, DecodedRtcps ++ [#nack{ssrc=SSRC, fsn=FSN, blp=BLP}]);
 
+% Sender Report
+% * NTPSec - NTP timestamp, most significant word
+% * NTPFrac - NTP timestamp, least significant word
+% * TimeStamp - RTP timestamp
+% * Packets - sender's packet count
+% * Octets - sender's octet count
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NTPSec:32, NTPFrac:32, TimeStamp:32, Packets:32, Octets:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length * 4 - (4 * 6),
+	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=rtp_utils:ntp2now(NTPSec, NTPFrac), timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
+
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
 	% Length is calculated in 32-bit units, so in order to calculate
 	% number of bytes we need to multiply it by 4
@@ -78,24 +89,6 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/bin
 	<<Payload:ByteLength/binary, Next/binary>> = Tail,
 
 	Rtcp = case PacketType of
-
-		% Sender Report
-		?RTCP_SR ->
-			% * NTPSec - NTP timestamp, most significant word
-			% * NTPFrac - NTP timestamp, least significant word
-			% * TimeStamp - RTP timestamp
-			% * Packets - sender's packet count
-			% * Octets - sender's octet count
-			<<SSRC:32, NTPSec:32, NTPFrac:32, TimeStamp:32, Packets:32, Octets:32, ReportBlocks/binary>> = Payload,
-
-			Ntp2Now = fun(NTPSec1, NTPFrac1) ->
-				MegaSecs = NTPSec1 div 1000000,
-				Secs = NTPSec1 rem 1000000,
-				R = lists:foldl(fun(X, Acc) -> Acc + ((NTPFrac1 bsr (X-1)) band 1)/(2 bsl (32-X)) end, 0, lists:seq(1, 32)),
-				MicroSecs = trunc(1000000*R),
-				{MegaSecs, Secs, MicroSecs}
-			end,
-			#sr{ssrc=SSRC, ntp=Ntp2Now(NTPSec, NTPFrac), timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)};
 
 		% Receiver Report
 		?RTCP_RR ->
