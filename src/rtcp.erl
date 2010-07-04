@@ -114,7 +114,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC
 	decode(Tail, DecodedRtcps ++ [#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}]);
 
 % eXtended Report
-decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_XR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 4,
 	<<XReportBlocks:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, Length)}]);
