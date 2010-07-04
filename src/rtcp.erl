@@ -300,7 +300,7 @@ encode_fir(SSRC) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32>>.
 
 encode_nack(SSRC, FSN, BLP) ->
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16>>.
 
 % TODO restore original ntp value
 % TODO profile-specific extensions
