@@ -60,6 +60,12 @@ decode(<<>>, DecodedRtcps) ->
 % We, currently, decoding only unencrypted RTCP (enclyption is in my TODO-list),
 % so we suppose, that each packet starts from the standart header
 
+% Length is calculated in 32-bit units, so in order to calculate
+% number of bytes we need to multiply it by 4
+
+% There can be multiple RTCP packets stacked, and there is no way to determine reliably how many packets we received
+% so we need recursively process them one by one
+
 % Full INTRA-frame Request (h.261 specific)
 % No padding for these packets, one 32-bit word of payload
 decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32, Tail/binary>>, DecodedRtcps) ->
@@ -107,40 +113,11 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC
 	<<Data:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}]);
 
-decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, PacketType:8, Length:16, Tail/binary>>, DecodedRtcps) ->
-	% Length is calculated in 32-bit units, so in order to calculate
-	% number of bytes we need to multiply it by 4
-	ByteLength = Length*4,
-
-	<<Payload:ByteLength/binary, Next/binary>> = Tail,
-
-	Rtcp = case PacketType of
-
-		% eXtended Report
-		% TODO padding
-		?RTCP_XR ->
-			<<SSRC:32, XReportBlocks/binary>> = Payload,
-			XRBlocks = decode_xrblocks(XReportBlocks, Length),
-			#xr{ssrc=SSRC, xrblocks=XRBlocks};
-
-		% Transport layer feedback message
-		?RTCP_RTPFB ->
-			% FIXME add more RTCP packet types
-			{error, not_implemented};
-
-		% Payload-specific feedback message
-		?RTCP_PSFB ->
-			% FIXME add more RTCP packet types
-			{error, not_implemented};
-
-		_ ->
-			% FIXME add more RTCP packet types
-			{error, unknown_type}
-	end,
-
-	% There can be multiple RTCP packets stacked, and there is no way to determine reliably how many packets we received
-	% so we need recursively process them one by one
-	decode(Next, DecodedRtcps ++ [Rtcp]);
+% eXtended Report
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_XR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 4,
+	<<XReportBlocks:ByteLength/binary, Tail>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, Length)}]);
 
 decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
