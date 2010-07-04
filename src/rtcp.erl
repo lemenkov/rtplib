@@ -50,7 +50,7 @@
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-decode(Data) ->
+decode(Data) when is_binary(Data) ->
 	decode(Data, []).
 
 decode(<<>>, DecodedRtcps) ->
