@@ -381,11 +381,9 @@ encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
 	end.
 
 encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
-	% FIXME correct Reserved value
-	Reserved = 0,
 	XRBlocksData = encode_xr_blocks(XRBlocks),
 	Length = 1 + size(XRBlocksData) div 4,
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, Reserved:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
 
 
 % * SSRC - SSRC of the source
