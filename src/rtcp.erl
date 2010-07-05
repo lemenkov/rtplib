@@ -84,13 +84,13 @@ decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, _Mbz:5, ?RTCP_NACK:8, 2:16, SSRC:32, FS
 % * Octets - sender's octet count
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NTPSec:32, NTPFrac:32, TimeStamp:32, Packets:32, Octets:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length * 4 - (4 * 6),
-	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
+	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=rtp_utils:ntp2now(NTPSec, NTPFrac), timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
 % Receiver Report
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 4,
-	<<ReportBlocks:ByteLength/binary, Tail>> = Rest,
+	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
 % Source DEScription
@@ -110,13 +110,13 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/bina
 % Application-specific data
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC:32, Name:4/binary, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 8,
-	<<Data:ByteLength/binary, Tail>> = Rest,
+	<<Data:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}]);
 
 % eXtended Report
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_XR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 4,
-	<<XReportBlocks:ByteLength/binary, Tail>> = Rest,
+	<<XReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, Length)}]);
 
 decode(Padding, DecodedRtcps) ->
