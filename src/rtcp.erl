@@ -99,7 +99,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/bin
 	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
 	% There may be RC number of chunks (we call them Chunks), containing of their own SSRC 32-bit identificator
 	% and arbitrary number of SDES-items.
-	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, RC, [])}]);
+	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, [])}]);
 
 % End of stream (but not necessary the end of communication, since there may be many streams within)
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/binary>>, DecodedRtcps) ->
@@ -176,17 +176,9 @@ decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
 	decode_xrblocks(Next, Length - BlockLength, Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
 
 % Recursively process each chunk and return list of SDES-items
-decode_sdes_items(<<>>, _SC, Result) ->
-	% Disregard SDES items count (SC) if no data remaining
-	% simply construct #sdes{} from the resulting list of
-	% SDES-items (Result) and return
+decode_sdes_items(<<>>, Result) ->
 	Result;
-decode_sdes_items(Padding, 0, Result) ->
-	% SDES may contain padding (should be noted by PaddingFlag)
-	% Likewise.
-	error_logger:warning_msg("SDES padding [~p]~n", [Padding]),
-	Result;
-decode_sdes_items(<<SSRC:32, RawData/binary>>, SC, Result) when SC>0 ->
+decode_sdes_items(<<SSRC:32, RawData/binary>>, Result) ->
 	% Each SDES-item followed by their own SSRC value (they are not necessary the same)
 	% and the arbitrary raw data
 	{Items, RawDataRest} = decode_sdes_item(RawData, #sdes_items{ssrc=SSRC}),
@@ -194,7 +186,7 @@ decode_sdes_items(<<SSRC:32, RawData/binary>>, SC, Result) when SC>0 ->
 	% - We decrease SDES count (SC) by one, since we already proccessed one SDES chunk
 	% - We add previously decoded and pack into #sdes{} SDES-items to the list of
 	%   already processed SDES chunks
-	decode_sdes_items(RawDataRest, SC-1, Result ++ [Items]).
+	decode_sdes_items(RawDataRest, Result ++ [Items]).
 
 % All items are ItemID:8_bit, Lenght:8_bit, ItemData:Length_bit
 decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
