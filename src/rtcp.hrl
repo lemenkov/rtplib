@@ -1,8 +1,12 @@
+% http://www.iana.org/assignments/rtp-parameters
+
 % Version is always 2
 -define(RTCP_VERSION, 2).
 
 -define(RTCP_FIR,  192). % RFC 2032
 -define(RTCP_NACK, 193). % RFC 2032
+-define(RTCP_SMPTETC, 194). % RFC 5484
+-define(RTCP_IJ,   195). % RFC 5450
 -define(RTCP_SR,   200). % RFC 3550
 -define(RTCP_RR,   201). % RFC 3550
 -define(RTCP_SDES, 202). % RFC 3550
@@ -11,6 +15,8 @@
 -define(RTCP_RTPFB,205). % RFC 4585
 -define(RTCP_PSFB, 206). % RFC 4585
 -define(RTCP_XR,   207). % RFC 3611
+-define(RTCP_AVB,  208). % IEEE 1733
+-define(RTCP_RSI,  209). % RFC 5760
 
 -define(SDES_NULL,  0).
 -define(SDES_CNAME, 1).
