@@ -42,6 +42,7 @@
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% FIXME 0 <= CC <=15
 decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) ->
 	{ok, Data0, CSRCs} = decode_csrc(Rest, CC, []),
 	{ok, Data1, Extension} = decode_extension(Data0, ExtensionFlag),
