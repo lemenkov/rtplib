@@ -8,6 +8,6 @@
 		ssrc,
 		csrcs = [],
 		extension = null,
-		payload}).
+		payload = <<>>}).
 
 -record(extension, {type, payload}).
