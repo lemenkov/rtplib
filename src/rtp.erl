@@ -47,7 +47,7 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 	{ok, Data0, CSRCs} = decode_csrc(Rest, CC, []),
 	{ok, Data1, Extension} = decode_extension(Data0, ExtensionFlag),
 	{ok, Payload} = remove_padding(Data1, Padding),
-	#rtp{
+	{ok, #rtp{
 		padding = Padding,
 		marker = Marker,
 		payload_type = PayloadType,
@@ -57,7 +57,7 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		csrcs = CSRCs,
 		extension = Extension,
 		payload = Payload
-	}.
+	}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -90,11 +90,11 @@ remove_padding(Data, 1) when Data /= <<>> ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % TODO Padding
-encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = P}) ->
+encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}) ->
 	CC = length(CSRCs),
 	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
-	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, P/binary>>.
+	{ok, <<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
