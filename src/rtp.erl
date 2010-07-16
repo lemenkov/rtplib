@@ -59,6 +59,12 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		payload = Payload
 	}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Decoding helpers
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 decode_csrc(Data, 0, CSRCs) ->
 	{ok, Data, CSRCs};
 decode_csrc(<<CSRC:32, Data/binary>>, CC, CSRCs) ->
