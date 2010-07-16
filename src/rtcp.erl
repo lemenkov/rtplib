@@ -287,7 +287,6 @@ encode(#xr{ssrc = SSRC, xrblocks = XRBlocks}) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 encode_fir(SSRC) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32>>.
 
@@ -376,7 +375,6 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 	XRBlocksData = encode_xr_blocks(XRBlocks),
 	Length = 1 + size(XRBlocksData) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
-
 
 % * SSRC - SSRC of the source
 % * FL - fraction lost
