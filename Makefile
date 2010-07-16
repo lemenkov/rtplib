@@ -13,5 +13,8 @@ $(EBIN_DIR)/%.$(EMULATOR): ./src/%.erl
 $(EBIN_DIR):
 	mkdir -p $(EBIN_DIR)
 
+check: all
+	@./test/run
+
 clean:
-	rm -f $(ERL_OBJECTS) src/*~ *~
+	rm -f $(ERL_OBJECTS) src/*~ test/*~ *~

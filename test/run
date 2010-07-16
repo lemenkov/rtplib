@@ -1,0 +1,4 @@
+#!/bin/sh
+export ERL_FLAGS="$ERL_FLAGS -pa ebin/ -pz .."
+
+prove `pwd`/test/rtcp-*.t
