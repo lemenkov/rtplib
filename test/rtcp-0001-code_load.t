@@ -1,7 +1,7 @@
 #!/usr/bin/escript
 %% -*- erlang -*-
 
-% Test that we can load necessary module.
+% Test that we can load necessary modules.
 
 main(_) ->
     etap:plan(2),
