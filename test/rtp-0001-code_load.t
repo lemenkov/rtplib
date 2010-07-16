@@ -7,7 +7,7 @@ main(_) ->
     etap:plan(2),
 
     Modules = [
-	rtcp,
+	rtp,
 	rtp_utils
     ],
 
