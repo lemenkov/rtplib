@@ -82,3 +82,15 @@ remove_padding(Data, 1) when Data /= <<>> ->
 	<<_:L/binary, C>> = Data,
 	{Payload, _} = split_binary(Data, L+1-C),
 	{ok, Payload}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Encoding functions
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO Padding, Extension
+encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = P}) ->
+	CC = length(CSRCs),
+	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
+	<<?RTP_VERSION:2, P:1, X:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, P/binary>>.
