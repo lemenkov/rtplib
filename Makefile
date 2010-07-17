@@ -17,4 +17,4 @@ check: all
 	@./test/run $(shell basename `pwd`)
 
 clean:
-	rm -f $(ERL_OBJECTS) src/*~ test/*~ *~
+	rm -f $(ERL_OBJECTS) ebin/*~ src/*~ test/*~ *~
