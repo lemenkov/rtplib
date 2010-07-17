@@ -1,6 +1,5 @@
 #!/usr/bin/escript
 %% -*- erlang -*-
-%%! -pz ../rtplib ebin
 
 % Test FIR codec.
 

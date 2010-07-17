@@ -14,7 +14,7 @@ $(EBIN_DIR):
 	mkdir -p $(EBIN_DIR)
 
 check: all
-	@./test/run
+	@./test/run $(shell basename `pwd`)
 
 clean:
 	rm -f $(ERL_OBJECTS) src/*~ test/*~ *~
