@@ -55,7 +55,7 @@ decode(Data) when is_binary(Data) ->
 
 decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
-	DecodedRtcps;
+	{ok, DecodedRtcps};
 
 % We, currently, decoding only unencrypted RTCP (enclyption is in my TODO-list),
 % so we suppose, that each packet starts from the standart header
@@ -121,7 +121,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_XR:8, Length:16, SSRC:32,
 
 decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
-	DecodedRtcps.
+	{ok, DecodedRtcps}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
