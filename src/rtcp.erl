@@ -371,7 +371,7 @@ encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
 	end.
 
 encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
-	XRBlocksData = encode_xr_blocks(XRBlocks),
+	XRBlocksData = encode_xrblocks(XRBlocks),
 	Length = 1 + size(XRBlocksData) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
 
@@ -415,13 +415,13 @@ encode_sdes_item(?SDES_NULL) ->
 	% This is NULL terminator - must be the last SDES object
 	<<?SDES_NULL:8>>.
 
-encode_xr_blocks(XRBlocks) when is_list (XRBlocks) ->
-	encode_xr_blocks(XRBlocks, <<>>).
+encode_xrblocks(XRBlocks) when is_list (XRBlocks) ->
+	encode_xrblocks(XRBlocks, <<>>).
 
-encode_xr_blocks([],  EncodedBlocks) ->
+encode_xrblocks([],  EncodedBlocks) ->
 	EncodedBlocks;
 
-encode_xr_blocks([ #xrblock{type = BT, ts = TS, data = Data} | Rest],  EncodedBlocks) ->
+encode_xrblocks([ #xrblock{type = BT, ts = TS, data = Data} | Rest],  EncodedBlocks) ->
 	BlockLength = size(Data) div 4,
-	encode_xr_blocks(Rest, EncodedBlocks ++ <<BT:8, TS:8, BlockLength:16, Data/binary>>).
+	encode_xrblocks(Rest, EncodedBlocks ++ <<BT:8, TS:8, BlockLength:16, Data/binary>>).
 
