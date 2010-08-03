@@ -255,7 +255,7 @@ encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, oct
 	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, [encode_rblock(Rb) || Rb <- ReportBlocks]);
 
 encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
-	encode_rr(SSRC, ReportBlocks);
+	encode_rr(SSRC, [encode_rblock(Rb) || Rb <- ReportBlocks]);
 
 encode(#sdes{list=SdesItemsList}) ->
 	SdesItemsListOfLists = [ {X#sdes_items.ssrc,
