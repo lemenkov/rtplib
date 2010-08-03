@@ -171,9 +171,9 @@ decode_xrblocks(Padding, 0, XRBlocks) ->
 	XRBlocks;
 
 decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
-	BitLength = BlockLength * 32,
-	<<BlockData:BitLength/binary, Next/binary>> = Rest,
-	decode_xrblocks(Next, Length - BlockLength, Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
+	ByteLength = BlockLength * 4,
+	<<BlockData:ByteLength/binary, Next/binary>> = Rest,
+	decode_xrblocks(Next, Length - (BlockLength * 4 + 4) , Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
 
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, Result) ->
