@@ -293,7 +293,6 @@ encode_fir(SSRC) ->
 encode_nack(SSRC, FSN, BLP) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16>>.
 
-% TODO restore original ntp value
 % TODO profile-specific extensions
 encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
