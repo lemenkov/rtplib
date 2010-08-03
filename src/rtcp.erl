@@ -427,12 +427,23 @@ encode_sdes_item(?SDES_NULL) ->
 	<<?SDES_NULL:8>>.
 
 encode_xrblocks(XRBlocks) when is_list (XRBlocks) ->
-	encode_xrblocks(XRBlocks, <<>>).
+	encode_xrblocks(XRBlocks, []).
 
-encode_xrblocks([],  EncodedBlocks) ->
-	EncodedBlocks;
+encode_xrblocks([],  EncodedXRBlocks) ->
+	list_to_binary(EncodedXRBlocks);
+encode_xrblocks([ XRBlock | Rest],  EncodedXRBlocks) ->
+	encode_xrblocks(Rest, EncodedXRBlocks ++ [encode_xrblock(XRBlock)]).
 
-encode_xrblocks([ #xrblock{type = BT, ts = TS, data = Data} | Rest],  EncodedBlocks) ->
-	BlockLength = size(Data) div 4,
-	encode_xrblocks(Rest, EncodedBlocks ++ <<BT:8, TS:8, BlockLength:16, Data/binary>>).
+encode_xrblock(#xrblock{type = BT, ts = TS, data = Data}) ->
+	encode_xrblock(BT, TS,  Data);
+encode_xrblock({BT, TS,  Data}) ->
+	encode_xrblock(BT, TS,  Data).
 
+encode_xrblock(BT, TS,  Data) ->
+	case size(Data) rem 4 of
+		0 ->
+			BlockLength = size(Data) div 4,
+			<<BT:8, TS:8, BlockLength:16, Data/binary>>;
+		_ ->
+			throw ({error, "Please, normalize data first"})
+	end.
