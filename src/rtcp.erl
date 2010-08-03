@@ -252,10 +252,10 @@ encode(#nack{ssrc = SSRC, fsn = FSN, blp = BLP}) ->
 	encode_nack(SSRC, FSN, BLP);
 
 encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, octets = Octets, rblocks = ReportBlocks}) ->
-	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, [encode_rblock(Rb) || Rb <- ReportBlocks]);
+	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks);
 
 encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
-	encode_rr(SSRC, [encode_rblock(Rb) || Rb <- ReportBlocks]);
+	encode_rr(SSRC, ReportBlocks);
 
 encode(#sdes{list=SdesItemsList}) ->
 	SdesItemsListOfLists = [ {X#sdes_items.ssrc,
@@ -305,7 +305,7 @@ encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportB
 
 	{NtpSec, NtpFrac} = rtp_utils:now2ntp({MegaSecs, Secs, MicroSecs}),
 
-	RB = list_to_binary(ReportBlocks),
+	RB = encode_rblocks(ReportBlocks),
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NtpSec:32, NtpFrac:32, TimeStamp:32, Packets:32, Octets:32, RB/binary>>.
 
@@ -318,7 +318,7 @@ encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 	% sizeof(SSRC) + RC * sizeof(ReportBlock) in 32-bit words
 	Length = 1 + RC * 6,
 
-	RB = list_to_binary(ReportBlocks),
+	RB = encode_rblocks(ReportBlocks),
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, RB/binary>>.
 
@@ -375,6 +375,15 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 	Length = 1 + size(XRBlocksData) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
 
+encode_rblocks(RBlocks) when is_list (RBlocks) ->
+	encode_rblocks(RBlocks, []).
+
+encode_rblocks([],  EncodedRBlocks) ->
+	list_to_binary(EncodedRBlocks);
+
+encode_rblocks([ RBlock | Rest],  EncodedRBlocks) ->
+	encode_rblocks(Rest, EncodedRBlocks ++ [encode_rblock(RBlock)]).
+
 % * SSRC - SSRC of the source
 % * FL - fraction lost
 % * CNPL - cumulative number of packets lost
@@ -383,6 +392,8 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 % * LSR - last SR timestamp
 % * DLSR - delay since last SR
 encode_rblock(#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}) ->
+	encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR);
+encode_rblock({SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR}) ->
 	encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR).
 encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
 	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
