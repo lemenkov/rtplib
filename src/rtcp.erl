@@ -373,7 +373,7 @@ encode_app(Subtype, SSRC, Name, Data) when is_binary(Name), is_binary(Data) ->
 encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 	XRBlocksData = encode_xrblocks(XRBlocks),
 	Length = 1 + size(XRBlocksData) div 4,
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC/binary, XRBlocksData/binary>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC:32, XRBlocksData/binary>>.
 
 encode_rblocks(RBlocks) when is_list (RBlocks) ->
 	encode_rblocks(RBlocks, []).
