@@ -252,7 +252,7 @@ encode(#nack{ssrc = SSRC, fsn = FSN, blp = BLP}) ->
 	encode_nack(SSRC, FSN, BLP);
 
 encode(#sr{ssrc = SSRC, ntp = Ntp, timestamp = TimeStamp, packets = Packets, octets = Octets, rblocks = ReportBlocks}) ->
-	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks);
+	encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, [encode_rblock(Rb) || Rb <- ReportBlocks]);
 
 encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
 	encode_rr(SSRC, ReportBlocks);
@@ -295,7 +295,7 @@ encode_nack(SSRC, FSN, BLP) ->
 
 % TODO restore original ntp value
 % TODO profile-specific extensions
-encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
+encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
 	% Number of ReportBlocks
 	RC = length(ReportBlocks),
@@ -304,7 +304,7 @@ encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(Repo
 	% sizeof(SSRC) + sizeof(Sender's Info) + RC * sizeof(ReportBlock) in 32-bit words
 	Length = 1 + 5 + RC * 6,
 
-	{NtpSec, NtpFrac} = rtp_utils:now2ntp(),
+	{NtpSec, NtpFrac} = rtp_utils:now2ntp({MegaSecs, Secs, MicroSecs}),
 
 	RB = list_to_binary(ReportBlocks),
 
@@ -383,6 +383,8 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 % * IJ - interarrival jitter
 % * LSR - last SR timestamp
 % * DLSR - delay since last SR
+encode_rblock(#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}) ->
+	encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR).
 encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
 	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
 
