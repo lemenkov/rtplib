@@ -117,7 +117,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, Subtype:5, ?RTCP_APP:8, Length:16, SSRC
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_XR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 4,
 	<<XReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
-	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, Length)}]);
+	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, ByteLength)}]);
 
 decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
