@@ -42,11 +42,12 @@ dump_packet(Node, Pid, Packet) ->
 	file:write_file("/tmp/rtcp_err." ++ atom_to_list(Node) ++ "." ++ pid_to_list(Pid) ++ "." ++ integer_to_list(H) ++ "_" ++ integer_to_list(M) ++ "_" ++ integer_to_list(Ms) ++ ".bin", Packet).
 
 ntp2now (NTPSec, NTPFrac) ->
-	MegaSecs = NTPSec div 1000000,
-	Secs = NTPSec rem 1000000,
+	MegaSecs = (NTPSec - 2208988800) div 1000000,
+	Secs = (NTPSec - 2208988800) rem 1000000,
 	R = lists:foldl(fun(X, Acc) -> Acc + ((NTPFrac bsr (X-1)) band 1)/(2 bsl (32-X)) end, 0, lists:seq(1, 32)),
 	MicroSecs = trunc(1000000*R),
 	{MegaSecs, Secs, MicroSecs}.
+
 
 now2ntp () ->
 	now2ntp (now()).
