@@ -33,6 +33,7 @@
 -export([dump_packet/3]).
 -export([ntp2now/2]).
 -export([now2ntp/0]).
+-export([now2ntp/1]).
 
 dump_packet(Node, Pid, Packet) ->
 	{H,M,Ms} = now(),
@@ -48,8 +49,10 @@ ntp2now (NTPSec, NTPFrac) ->
 	{MegaSecs, Secs, MicroSecs}.
 
 now2ntp () ->
+	now2ntp (now()).
+
+now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
-	{MegaSecs, Secs, MicroSecs} = now(),
 	NTPSec = MegaSecs*1000000 + Secs + 2208988800,
 	{NTPSec, frac(MicroSecs)}.
 
