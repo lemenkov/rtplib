@@ -1,5 +1,7 @@
 ERLC := erlc
 EMULATOR := beam
+ERLLIBDIR=$(shell erl -eval 'io:format("~s~n", [code:lib_dir()])' -s init stop -noshell)
+VERSION=0.3.1
 
 EBIN_DIR := ./ebin
 ERL_SOURCES  := $(wildcard src/*.erl)
@@ -15,6 +17,9 @@ $(EBIN_DIR):
 
 check: all
 	@./test/run $(shell basename `pwd`)
+
+install:
+	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(prefix)$(ERLLIBDIR)/rtplib-$(VERSION)/$$i ; done
 
 clean:
 	rm -f $(ERL_OBJECTS) ebin/*~ src/*~ test/*~ *~
