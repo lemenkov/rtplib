@@ -19,7 +19,7 @@ check: all
 	@./test/run $(shell basename `pwd`)
 
 install:
-	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(prefix)$(ERLLIBDIR)/rtplib-$(VERSION)/$$i ; done
+	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLLIBDIR)/rtplib-$(VERSION)/$$i ; done
 
 clean:
 	rm -f $(ERL_OBJECTS) ebin/*~ src/*~ test/*~ *~
