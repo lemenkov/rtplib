@@ -34,7 +34,7 @@
 % FIXME - don't forget to remove from final version!
 -compile(export_all).
 
--include("rtp.hrl").
+-include("../include/rtp.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%

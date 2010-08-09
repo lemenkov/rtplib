@@ -3,7 +3,7 @@
 
 % Test XR codec.
 
--include_lib("rtplib/src/rtcp.hrl").
+-include_lib("rtplib/include/rtcp.hrl").
 
 main(_) ->
 	etap:plan(4),

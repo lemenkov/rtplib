@@ -42,7 +42,7 @@
 -export([encode/1]).
 -export([decode/1]).
 
--include("rtcp.hrl").
+-include("../include/rtcp.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%

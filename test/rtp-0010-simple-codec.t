@@ -3,7 +3,7 @@
 
 % Test RTP codec.
 
--include_lib("rtplib/src/rtp.hrl").
+-include_lib("rtplib/include/rtp.hrl").
 
 main(_) ->
 	etap:plan(2),
