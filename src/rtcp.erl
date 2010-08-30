@@ -57,7 +57,7 @@ decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
 	{ok, DecodedRtcps};
 
-% We, currently, decoding only unencrypted RTCP (enclyption is in my TODO-list),
+% We, currently, decoding only unencrypted RTCP (encryption is in my TODO-list),
 % so we suppose, that each packet starts from the standart header
 
 % Length is calculated in 32-bit units, so in order to calculate
