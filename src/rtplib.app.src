@@ -3,7 +3,7 @@
 {application, rtplib,
  [
   {description, "RTP/RTCP codec library"},
-  {vsn, "0.1"},
+  {vsn, "%VSN%"},
   {id, "rtplib"},
   {modules, [
              rtcp
