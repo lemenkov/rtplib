@@ -63,8 +63,9 @@ decode(<<>>, DecodedRtcps) ->
 % Length is calculated in 32-bit units, so in order to calculate
 % number of bytes we need to multiply it by 4
 
-% There can be multiple RTCP packets stacked, and there is no way to determine reliably how many packets we received
-% so we need recursively process them one by one
+% There can be multiple RTCP packets stacked, and there is no way to determine
+% reliably how many packets we received so we need recursively process them one
+% by one
 
 % Full INTRA-frame Request (h.261 specific)
 % No padding for these packets, one 32-bit word of payload
@@ -97,11 +98,12 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, R
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4,
 	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
-	% There may be RC number of chunks (we call them Chunks), containing of their own SSRC 32-bit identificator
-	% and arbitrary number of SDES-items.
+	% There may be RC number of chunks (we call them Chunks), containing of
+	% their own SSRC 32-bit identificator and arbitrary number of SDES-items
 	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, [])}]);
 
-% End of stream (but not necessary the end of communication, since there may be many streams within)
+% End of stream (but not necessary the end of communication, since there may be
+% many streams within)
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_BYE:8, Length:16, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4,
 	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
@@ -129,24 +131,26 @@ decode(Padding, DecodedRtcps) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% We're creating function for decoding ReportBlocks, which present in both SenderReport's (SR)
-% and ReceiverReport's (RR) packets
+% We're creating function for decoding ReportBlocks, which present in both
+% SenderReport's (SR) and ReceiverReport's (RR) packets
 decode_rblocks(Data, RC) ->
 	decode_rblocks(Data, RC, []).
 
-% If no data was left, then we ignore the RC value and return what we already decoded
+% If no data was left, then we ignore the RC value and return what we already
+% decoded
 decode_rblocks(<<>>, _RC, Rblocks) ->
 	Rblocks;
 
 % The packets can contain padding filling space up to 32-bit boundaries
-% If RC value (number of ReportBlocks left) = 0, then we return what we already decoded
+% If RC value (number of ReportBlocks left) = 0, then we return what we already
+% decoded
 decode_rblocks(Padding, 0, Result) ->
 	% We should report about padding since it may be also malformed RTCP packet
 	error_logger:warning_msg("ReportBlocks padding [~p]~n", [Padding]),
 	Result;
 
-% Create and fill with values new #rblocks{...} structure and proceed with next one (decreasing
-% ReportBlocks counted (RC) by 1)
+% Create and fill with values new #rblocks{...} structure and proceed with next
+% one (decreasing ReportBlocks counted (RC) by 1)
 % * SSRC - SSRC of the source
 % * FL - fraction lost
 % * CNPL - cumulative number of packets lost
@@ -164,7 +168,8 @@ decode_xrblocks(<<>>, _Length, XRBlocks) ->
 	XRBlocks;
 
 % The packets can contain padding filling space up to 32-bit boundaries
-% If RC value (number of ReportBlocks left) = 0, then we return what we already decoded
+% If RC value (number of ReportBlocks left) = 0, then we return what we already
+% decoded
 decode_xrblocks(Padding, 0, XRBlocks) ->
 	% We should report about padding since it may be also malformed RTCP packet
 	error_logger:warning_msg("eXtended ReportBlocks padding [~p]~n", [Padding]),
@@ -179,18 +184,20 @@ decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
 decode_sdes_items(<<>>, Result) ->
 	Result;
 decode_sdes_items(<<SSRC:32, RawData/binary>>, Result) ->
-	% Each SDES-item followed by their own SSRC value (they are not necessary the same)
-	% and the arbitrary raw data
+	% Each SDES-item followed by their own SSRC value (they are not
+	% necessary the same) and the arbitrary raw data
 	{Items, RawDataRest} = decode_sdes_item(RawData, #sdes_items{ssrc=SSRC}),
 	% We're processing next possible SDES chunk
-	% - We decrease SDES count (SC) by one, since we already proccessed one SDES chunk
-	% - We add previously decoded and pack into #sdes{} SDES-items to the list of
-	%   already processed SDES chunks
+	% - We decrease SDES count (SC) by one, since we already proccessed one
+	% SDES chunk
+	% - We add previously decoded and pack into #sdes{} SDES-items to the
+	% list of already processed SDES chunks
 	decode_sdes_items(RawDataRest, Result ++ [Items]).
 
 % All items are ItemID:8_bit, Lenght:8_bit, ItemData:Length_bit
 decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	% AddPac SIP device sends us wrongly produced CNAME item (with 2-byte arbitrary padding inserted):
+	% AddPac SIP device sends us wrongly produced CNAME item (with 2-byte
+	% arbitrary padding inserted):
 	% <<?SDES_CNAME:8, 19:8, ArbitraryPadding:16, "AddPac VoIP Gateway":(19*8)/binary>>
 	% I don't think that we need to fix it.
 	decode_sdes_item(Tail, Items#sdes_items{cname=binary_to_list(V)});
@@ -210,7 +217,8 @@ decode_sdes_item(<<?SDES_PRIV:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 	decode_sdes_item(Tail, Items#sdes_items{priv=V});
 decode_sdes_item(<<?SDES_NULL:8, Tail/binary>>, Items) ->
 	% This is NULL terminator
-	% Let's calculate how many bits we need to skip (padding up to 32-bit boundaries)
+	% Let's calculate how many bits we need to skip (padding up to 32-bit
+	% boundaries)
 	R = 8 * (size(Tail) rem 4),
 	<<_PaddingBits:R, Rest/binary>> = Tail,
 	% mark this SDES chunk as null-terminated properly and return
@@ -219,11 +227,13 @@ decode_sdes_item(<<_:8, L:8, _:L/binary, Tail/binary>>, Items) ->
 	% unknown SDES item - just skip it and proceed to the next one
 	decode_sdes_item(Tail, Items);
 decode_sdes_item(Rest, Items) ->
-	% possibly, next SDES chunk - just stop and return what was already decoded
+	% possibly, next SDES chunk - just stop and return what was already
+	% decoded
 	{Items, Rest}.
 
 decode_bye(<<>>, _RC, Ret) ->
-	% If no data was left, then we should ignore the RC value and return what we already decoded
+	% If no data was left, then we should ignore the RC value and return
+	% what we already decoded
 	#bye{ssrc=Ret};
 
 decode_bye(<<L:8, Text:L/binary, _/binary>>, 0, Ret) ->
@@ -300,7 +310,8 @@ encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportB
 	RC = length(ReportBlocks),
 
 	% TODO profile-specific extensions' size
-	% sizeof(SSRC) + sizeof(Sender's Info) + RC * sizeof(ReportBlock) in 32-bit words
+	% sizeof(SSRC) + sizeof(Sender's Info) + RC * sizeof(ReportBlock) in
+	% 32-bit words
 	Length = 1 + 5 + RC * 6,
 
 	{NtpSec, NtpFrac} = rtp_utils:now2ntp({MegaSecs, Secs, MicroSecs}),
