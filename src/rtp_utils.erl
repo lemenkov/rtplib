@@ -37,6 +37,8 @@
 -export([now2ntp/0]).
 -export([now2ntp/1]).
 
+-export([pp/1]).
+
 -include("../include/rtcp.hrl").
 
 dump_packet(Node, Pid, Packet) ->
@@ -86,3 +88,52 @@ now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
 	NTPSec = MegaSecs*1000000 + Secs + 2208988800,
 	{NTPSec, frac(MicroSecs)}.
+
+pp(#fir{} = Rec) ->
+	io_lib:format("{\"type\":\"fir\",\"ssrc\":~b}", [Rec#fir.ssrc]);
+pp(#nack{} = Rec) ->
+	io_lib:format("{\"type\":\"nack\",\"ssrc\":~b,\"fsn\":~b,\"blp\":~b}", [Rec#nack.ssrc,Rec#nack.fsn,Rec#nack.blp]);
+pp(#sr{} = Rec) ->
+	io_lib:format("{\"type\":\"sr\",\"ssrc\":~b,\"ntp\":~b,\"timestamp\":~b,\"packets\":~b,\"octets\":~b,\"rblocks\":[~s]}",
+		[Rec#sr.ssrc, Rec#sr.ntp, Rec#sr.timestamp, Rec#sr.packets, Rec#sr.octets, pp_rblocks(Rec#sr.rblocks)]);
+pp(#rr{} = Rec) ->
+	io_lib:format("{\"type\":\"rr\",\"ssrc\":~b,\"rblocks\":[~s]}",
+		[Rec#rr.ssrc, pp_rblocks(Rec#rr.rblocks)]);
+pp(#sdes{} = Rec) ->
+	io_lib:format("{\"type\":\"sdes\",\"list\":[~s]}", [pp_sdes(Rec#sdes.list)]);
+pp(#bye{} = Rec) ->
+	io_lib:format("{\"type\":\"bye\",\"ssrc\":~b,\"message\":\"~s\"}",
+		[Rec#bye.ssrc, Rec#bye.message]);
+pp(#app{} = Rec) ->
+	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"name\":\"~s\",\"data\":\"~p\"}",
+		[Rec#app.ssrc, Rec#app.name, Rec#app.data]);
+pp(#xr{} = Rec) ->
+	io_lib:format("{\"type\":\"xr\",\"ssrc\":~b,\"xrblocks\":\"~s\"}",
+		[Rec#xr.ssrc, pp_xrblocks(Rec#xr.xrblocks)]);
+pp(Whatever) ->
+	io_lib:format("{\"type\":\"unknown\",\"rawdata\":\"~p\"}", [Whatever]).
+
+pp_rblocks([]) -> "{}";
+pp_rblocks([#rblock{} = R | Rest]) ->
+	io_lib:format("{\"ssrc\":~b,\"fraction\":~b,\"lost\":~b,\"last_seq\":~b,\"jitter\":~b,\"lsr\":~b,\"dlsr\":~b},",
+		[R#rblock.ssrc, R#rblock.fraction, R#rblock.lost, R#rblock.last_seq, R#rblock.jitter, R#rblock.lsr, R#rblock.dlsr]) ++ pp_rblocks(Rest).
+
+pp_xrblocks([]) -> "{}";
+pp_xrblocks([#xrblock{} = R | Rest]) ->
+	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p},",
+		[R#xrblock.type, R#xrblock.ts, R#xrblock.data]) ++ pp_xrblocks(Rest).
+
+pp_sdes([]) -> "{}";
+pp_sdes([#sdes_items{} = R | Rest]) ->
+	io_lib:format("{
+		\"ssrc\":~b,
+		\"cname\":\"~s\",
+		\"name\":\"~s\",
+		\"email\":\"~s\",
+		\"phone\":\"~s\",
+		\"loc\":\"~s\",
+		\"tool\":\"~s\",
+		\"note\":\"~s\",
+		\"priv\":\"~s\",
+		\"eof\":~p},",
+		[R#sdes_items.ssrc, R#sdes_items.cname, R#sdes_items.name, R#sdes_items.email, R#sdes_items.phone, R#sdes_items.loc, R#sdes_items.tool, R#sdes_items.note, R#sdes_items.priv, R#sdes_items.eof]) ++ pp_xrblocks(Rest).
