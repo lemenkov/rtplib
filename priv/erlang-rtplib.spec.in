@@ -1,0 +1,59 @@
+%global realname rtplib
+%global debug_package %{nil}
+%global git_tag 1234567
+%global patchnumber 0
+
+
+Name:		erlang-%{realname}
+Version:	%VSN%
+Release:	1%{?dist}
+Summary:	Erlang RTP/RTCP codec library
+Group:		Development/Languages
+License:	BSD
+URL:		http://github.com/lemenkov/rtplib
+# wget --no-check-certificate http://github.com/lemenkov/rtplib/tarball/%VSN%
+Source0:	lemenkov-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
+BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRequires:	erlang
+BuildRequires:	erlang-etap
+BuildRequires:	perl(Test::Harness)
+Requires:	erlang
+
+
+%description
+Erlang RTP/RTCP codec library.
+
+
+%prep
+%setup -q -n lemenkov-%{realname}-%{git_tag}
+
+
+%build
+make %{?_smp_mflags}
+
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make install prefix=$RPM_BUILD_ROOT
+
+
+%check
+#make check
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+%files
+%defattr(-,root,root,-)
+%dir %{_libdir}/erlang/lib/%{realname}-%{version}
+%dir %{_libdir}/erlang/lib/%{realname}-%{version}/ebin
+%dir %{_libdir}/erlang/lib/%{realname}-%{version}/include
+%{_libdir}/erlang/lib/%{realname}-%{version}/ebin/*
+%{_libdir}/erlang/lib/%{realname}-%{version}/include/*
+
+
+%changelog
+* %DATE% Peter Lemenkov <lemenkov@gmail.com> - %VSN%-1
+- Ver. %VSN%

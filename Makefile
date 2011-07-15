@@ -1,33 +1,28 @@
-VSN := 0.3.1
+REBAR ?= $(shell which rebar 2>/dev/null || which ./rebar)
+REBAR_FLAGS ?=
+
+VSN := "0.3.4"
 BUILD_DATE := `LANG=C date +"%a %b %d %Y"`
 NAME := rtplib
 
-ERLC := erlc
-ERLC_FLAGS := +debug_info
-EMULATOR := beam
-ERLLIBDIR=$(shell erl -eval 'io:format("~s~n", [code:lib_dir()])' -s init stop -noshell)
+ERLANG_ROOT := $(shell erl -eval 'io:format("~s", [code:root_dir()])' -s init stop -noshell)
+ERLDIR=$(ERLANG_ROOT)/lib/$(NAME)-$(VSN)
 
-EBIN_DIR := ./ebin
+EBIN_DIR := ebin
 ERL_SOURCES  := $(wildcard src/*.erl)
 ERL_OBJECTS  := $(ERL_SOURCES:src/%.erl=$(EBIN_DIR)/%.beam)
 APP_FILE := $(EBIN_DIR)/$(NAME).app
 
-all: $(EBIN_DIR) $(ERL_OBJECTS) $(APP_FILE)
+all: compile
 
-$(EBIN_DIR)/%.$(EMULATOR): ./src/%.erl
-	$(ERLC) $(ERLC_FLAGS) -o $(EBIN_DIR) $<
-
-$(EBIN_DIR)/%.app: ./src/%.app.src
-	sed -e "s,%VSN%,$(VSN),g" $< > $@
-
-$(EBIN_DIR):
-	mkdir -p $(EBIN_DIR)
+compile:
+	VSN=$(VSN) BUILD_DATE=$(BUILD_DATE) $(REBAR) compile $(REBAR_FLAGS)
 
 check: all
 	@./test/run $(shell basename `pwd`)
 
-install:
+install: all
 	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLLIBDIR)/$(NAME)-$(VSN)/$$i ; done
 
 clean:
-	rm -f $(ERL_OBJECTS) $(APP_FILE)  src/*~ test/*~ *~
+	$(REBAR) clean $(REBAR_FLAGS)

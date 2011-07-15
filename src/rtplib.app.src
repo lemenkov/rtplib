@@ -5,9 +5,7 @@
   {description, "RTP/RTCP codec library"},
   {vsn, "%VSN%"},
   {id, "rtplib"},
-  {modules, [
-             rtcp
-            ]},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,
