@@ -22,7 +22,7 @@ check: all
 	@./test/run $(shell basename `pwd`)
 
 install: all
-	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLLIBDIR)/$(NAME)-$(VSN)/$$i ; done
+	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLDIR)/$$i ; done
 
 clean:
 	$(REBAR) clean $(REBAR_FLAGS)
