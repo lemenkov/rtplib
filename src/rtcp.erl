@@ -159,7 +159,12 @@ decode_rblocks(Padding, 0, Result) ->
 % * LSR - last SR timestamp
 % * DLSR - delay since last SR
 decode_rblocks(<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32, Rest/binary>>, RC, Result) ->
-	decode_rblocks(Rest, RC-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]).
+	decode_rblocks(Rest, RC-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]);
+
+decode_rblocks(Padding, _RC, Result) when size(Padding) < 24 ->
+	% We should report about padding since it may be also malformed RTCP packet
+	error_logger:warning_msg("ReportBlocks padding [~p]~n", [Padding]),
+	Result.
 
 decode_xrblocks(Data, Length) ->
 	decode_xrblocks(Data, Length, []).
