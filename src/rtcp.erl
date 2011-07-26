@@ -197,16 +197,17 @@ decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, Result) ->
 	Result;
+% First SDES item is always SSRC
 decode_sdes_items(<<SSRC:32, RawData/binary>>, Result) ->
-	% Each SDES-item followed by their own SSRC value (they are not
+	% Each SDES list is followed by their own SSRC value (they are not
 	% necessary the same) and the arbitrary raw data
-	{Items, RawDataRest} = decode_sdes_item(RawData, #sdes_items{ssrc=SSRC}),
+	{SdesProplist, RawDataRest} = decode_sdes_item(RawData, [{ssrc,SSRC}]),
 	% We're processing next possible SDES chunk
 	% - We decrease SDES count (SC) by one, since we already proccessed one
 	% SDES chunk
-	% - We add previously decoded and pack into #sdes{} SDES-items to the
-	% list of already processed SDES chunks
-	decode_sdes_items(RawDataRest, Result ++ [Items]).
+	% - We add previously decoded SDES proplist to the list of already
+	% processed SDES chunks
+	decode_sdes_items(RawDataRest, Result ++ [SdesProplist]).
 
 % All items are ItemID:8_bit, Lenght:8_bit, ItemData:Length_bit
 decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
@@ -214,21 +215,21 @@ decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 	% arbitrary padding inserted):
 	% <<?SDES_CNAME:8, 19:8, ArbitraryPadding:16, "AddPac VoIP Gateway":(19*8)/binary>>
 	% I don't think that we need to fix it.
-	decode_sdes_item(Tail, Items#sdes_items{cname=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{cname, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_NAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{name=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{name, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_EMAIL:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{email=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{email, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_PHONE:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{phone=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{phone, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_LOC:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{loc=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{loc, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_TOOL:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{tool=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{tool, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_NOTE:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{note=binary_to_list(V)});
+	decode_sdes_item(Tail, Items ++ [{note, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_PRIV:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items#sdes_items{priv=V});
+	decode_sdes_item(Tail, Items ++ [{priv, V}]);
 decode_sdes_item(<<?SDES_NULL:8, Tail/binary>>, Items) ->
 	% This is NULL terminator
 	% Let's calculate how many bits we need to skip (padding up to 32-bit
@@ -236,7 +237,7 @@ decode_sdes_item(<<?SDES_NULL:8, Tail/binary>>, Items) ->
 	R = 8 * (size(Tail) rem 4),
 	<<_PaddingBits:R, Rest/binary>> = Tail,
 	% mark this SDES chunk as null-terminated properly and return
-	{Items#sdes_items{eof=true}, Rest};
+	{Items ++ [{eof,true}], Rest};
 decode_sdes_item(<<_:8, L:8, _:L/binary, Tail/binary>>, Items) ->
 	% unknown SDES item - just skip it and proceed to the next one
 	decode_sdes_item(Tail, Items);
@@ -282,19 +283,7 @@ encode(#rr{ssrc = SSRC, rblocks = ReportBlocks}) ->
 	encode_rr(SSRC, ReportBlocks);
 
 encode(#sdes{list=SdesItemsList}) ->
-	SdesItemsListOfLists = [ {X#sdes_items.ssrc,
-			[
-				{?SDES_CNAME, X#sdes_items.cname},
-				{?SDES_NAME,  X#sdes_items.name},
-				{?SDES_EMAIL, X#sdes_items.email},
-				{?SDES_PHONE, X#sdes_items.phone},
-				{?SDES_LOC,   X#sdes_items.loc},
-				{?SDES_TOOL,  X#sdes_items.tool},
-				{?SDES_NOTE,  X#sdes_items.note},
-				{?SDES_PRIV,  X#sdes_items.priv},
-				{?SDES_NULL,  X#sdes_items.eof}
-			]} || X <- SdesItemsList ],
-	encode_sdes(SdesItemsListOfLists);
+	encode_sdes(SdesItemsList);
 
 encode(#bye{message = Message, ssrc = SSRCs}) ->
 	encode_bye(SSRCs, Message);
@@ -345,14 +334,10 @@ encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, RB/binary>>.
 
-% Simple case - only one SSRC and correscponding SDES
-encode_sdes(SSRC, SdesItemsList) when is_list (SdesItemsList) ->
-	encode_sdes([{SSRC, SdesItemsList}]).
-
 encode_sdes(SdesItemsList) when is_list (SdesItemsList) ->
 	RC = length(SdesItemsList),
 
-	SdesData = list_to_binary ([encode_sdes_items(X, Y) || {X,Y} <- SdesItemsList]),
+	SdesData = list_to_binary ([encode_sdes_items(X) || X <- SdesItemsList]),
 
 	Length = size(SdesData) div 4,
 
@@ -421,8 +406,8 @@ encode_rblock({SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR}) ->
 encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
 	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
 
-encode_sdes_items(SSRC, SdesItems) when is_list (SdesItems) ->
-	SdesChunkData = list_to_binary ([ rtcp:encode_sdes_item(X,Y) || {X,Y} <- SdesItems]),
+encode_sdes_items(SdesItems) when is_list (SdesItems) ->
+	SdesChunkData = list_to_binary ([ encode_sdes_item(X,Y) || {X,Y} <- SdesItems]),
 
 	PaddingSize = case size(SdesChunkData) rem 4 of
 		0 -> 0;
@@ -430,24 +415,36 @@ encode_sdes_items(SSRC, SdesItems) when is_list (SdesItems) ->
 	end,
 
 	Padding = <<0:PaddingSize>>,
-	<<SSRC:32, SdesChunkData/binary, Padding/binary>>.
+	<<SdesChunkData/binary, Padding/binary>>.
 
-encode_sdes_item(?SDES_NULL, _Value) ->
-	encode_sdes_item(?SDES_NULL);
 
+encode_sdes_item(eof) ->
+	<<?SDES_NULL:8>>.
+encode_sdes_item(eof, true) ->
+	<<?SDES_NULL:8>>;
 encode_sdes_item(_, null) ->
 	<<>>;
-
-encode_sdes_item(SdesType, Value) when is_list (Value) ->
-	encode_sdes_item(SdesType, list_to_binary(Value));
-
+encode_sdes_item(ssrc, Value) ->
+	<<Value:32>>;
+encode_sdes_item(cname, Value) ->
+	encode_sdes_item(?SDES_CNAME, list_to_binary(Value));
+encode_sdes_item(name, Value) ->
+	encode_sdes_item(?SDES_NAME, list_to_binary(Value));
+encode_sdes_item(email, Value) ->
+	encode_sdes_item(?SDES_EMAIL, list_to_binary(Value));
+encode_sdes_item(phone, Value) ->
+	encode_sdes_item(?SDES_PHONE, list_to_binary(Value));
+encode_sdes_item(loc, Value) ->
+	encode_sdes_item(?SDES_LOC, list_to_binary(Value));
+encode_sdes_item(tool, Value) ->
+	encode_sdes_item(?SDES_TOOL, list_to_binary(Value));
+encode_sdes_item(note, Value) ->
+	encode_sdes_item(?SDES_NOTE, list_to_binary(Value));
+encode_sdes_item(priv, Value) ->
+	encode_sdes_item(?SDES_PRIV, Value);
 encode_sdes_item(SdesType, Value) when is_binary (Value) ->
 	L = size(Value),
 	<<SdesType:8, L:8, Value:L/binary>>.
-
-encode_sdes_item(?SDES_NULL) ->
-	% This is NULL terminator - must be the last SDES object
-	<<?SDES_NULL:8>>.
 
 encode_xrblocks(XRBlocks) when is_list (XRBlocks) ->
 	encode_xrblocks(XRBlocks, []).
