@@ -270,6 +270,9 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+encode(List) when is_list(List) ->
+	encode_list(List, <<>>);
+
 encode(#fir{ssrc = SSRC}) ->
 	encode_fir(SSRC);
 
@@ -299,6 +302,12 @@ encode(#xr{ssrc = SSRC, xrblocks = XRBlocks}) ->
 %%% Encoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+encode_list([], Data) ->
+	Data;
+encode_list([Head | Tail], Data) ->
+	Enc = encode(Head),
+	encode_list(Tail, <<Data/binary, Enc/binary>>).
 
 encode_fir(SSRC) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32>>.
