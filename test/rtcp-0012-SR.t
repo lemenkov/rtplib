@@ -13,10 +13,13 @@ main(_) ->
 	RBlocks = rtcp:decode_rblocks(RBlocksData, 2),
 	etap:is(RBlocksData, rtcp:encode_rblocks(RBlocks), "Check correct Report Blocks processing"),
 
-	etap:fun_is(fun(A) when is_binary(A) -> true; (_) -> false end, rtcp:encode_sr(4096, now(), 4098, 65535, 65536, RBlocks), "Simple encoding of SR RTCP data stream"),
-	Data = rtcp:encode_sr(4096, now(), 4098, 65535, 65536, RBlocks),
+	% Create NTP timestamp
+	<<NTP:64>> = rtp_utils:now2ntp(now()),
 
-	etap:fun_is(fun ({ok, [#sr{ssrc=SSRC, ntp=Ntp, timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks=RBlocks}]}) -> true; (_) -> false end, rtcp:decode(Data), "Simple decoding SR RTCP data stream and returning a list with only member - record"),
+	etap:fun_is(fun(A) when is_binary(A) -> true; (_) -> false end, rtcp:encode_sr(4096, NTP, 4098, 65535, 65536, RBlocks), "Simple encoding of SR RTCP data stream"),
+	Data = rtcp:encode_sr(4096, NTP, 4098, 65535, 65536, RBlocks),
+
+	etap:fun_is(fun ({ok, [#sr{ssrc=SSRC, ntp=NTP, timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks=RBlocks}]}) -> true; (_) -> false end, rtcp:decode(Data), "Simple decoding SR RTCP data stream and returning a list with only member - record"),
 	{ok, [Rtcp]} = rtcp:decode(Data),
 
 	etap:is(Data, rtcp:encode(Rtcp), "Check that we can reproduce original data stream from record"),

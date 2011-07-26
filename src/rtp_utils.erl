@@ -33,7 +33,7 @@
 -export([dump_packet/3]).
 -export([get_type/1]).
 
--export([ntp2now/2]).
+-export([ntp2now/1]).
 -export([now2ntp/0]).
 -export([now2ntp/1]).
 
@@ -73,13 +73,12 @@ frac(Int, X, Acc) ->
 	Rem = Int rem (2 bsl X-1),
 	frac(Rem, X-1, Acc bor (Div bsl X)).
 
-ntp2now (NTPSec, NTPFrac) ->
+ntp2now (<<NTPSec:32, NTPFrac:32>>) ->
 	MegaSecs = (NTPSec - 2208988800) div 1000000,
 	Secs = (NTPSec - 2208988800) rem 1000000,
 	R = lists:foldl(fun(X, Acc) -> Acc + ((NTPFrac bsr (X-1)) band 1)/(2 bsl (32-X)) end, 0, lists:seq(1, 32)),
 	MicroSecs = trunc(1000000*R),
 	{MegaSecs, Secs, MicroSecs}.
-
 
 now2ntp () ->
 	now2ntp (now()).
@@ -87,7 +86,8 @@ now2ntp () ->
 now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970
 	NTPSec = MegaSecs*1000000 + Secs + 2208988800,
-	{NTPSec, frac(MicroSecs)}.
+	NTPFrac = frac(MicroSecs),
+	<<NTPSec:32, NTPFrac:32>>.
 
 pp(#fir{} = Rec) ->
 	io_lib:format("{\"type\":\"fir\",\"ssrc\":~b}", [Rec#fir.ssrc]);

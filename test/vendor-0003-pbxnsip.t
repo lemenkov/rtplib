@@ -14,7 +14,7 @@ main(_) ->
 
 	{ok, [RtcpSr1, RtcpSdes1]} = rtcp:decode(<<BinRtcpSr1/binary, BinRtcpSdes1/binary>>),
 
-	etap:is(<<128,200,0,6,17,195,69,247,209,206,159,196,201,251,214, 168,59,71,192,80,0,0,0,5,0,0,3,32>>, rtcp:encode(RtcpSr1), "Check that we can produce fixed RTCP sr"),
+	etap:is(<<128,200,0,6,17,195,69,247,209,206,159,196,201,251,230,131,59,71,192,80,0,0,0,5,0,0,3,32>>, rtcp:encode(RtcpSr1), "Check that we can produce fixed RTCP sr"),
 	etap:is(BinRtcpSdes1, rtcp:encode(RtcpSdes1), "Check that we can reproduce original RTCP sdes"),
 
 	etap:end_tests().

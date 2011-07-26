@@ -92,10 +92,10 @@ decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, _Mbz:5, ?RTCP_NACK:8, 2:16, SSRC:32, FS
 % * TimeStamp - RTP timestamp
 % * Packets - sender's packet count
 % * Octets - sender's octet count
-decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NTPSec:32, NTPFrac:32, TimeStamp:32, Packets:32, Octets:32, Rest/binary>>, DecodedRtcps) ->
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NTP:64, TimeStamp:32, Packets:32, Octets:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length * 4 - (4 * 6),
 	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
-	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=rtp_utils:ntp2now(NTPSec, NTPFrac), timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
+	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=NTP, timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
 % Receiver Report
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
@@ -318,7 +318,7 @@ encode_nack(SSRC, FSN, BLP) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16>>.
 
 % TODO profile-specific extensions
-encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
+encode_sr(SSRC, Ntp, TimeStamp, Packets, Octets, ReportBlocks) when is_list(ReportBlocks) ->
 
 	% Number of ReportBlocks
 	RC = length(ReportBlocks),
@@ -328,11 +328,9 @@ encode_sr(SSRC, {MegaSecs, Secs, MicroSecs}, TimeStamp, Packets, Octets, ReportB
 	% 32-bit words
 	Length = 1 + 5 + RC * 6,
 
-	{NtpSec, NtpFrac} = rtp_utils:now2ntp({MegaSecs, Secs, MicroSecs}),
-
 	RB = encode_rblocks(ReportBlocks),
 
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NtpSec:32, NtpFrac:32, TimeStamp:32, Packets:32, Octets:32, RB/binary>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, Ntp:64, TimeStamp:32, Packets:32, Octets:32, RB/binary>>.
 
 % TODO profile-specific extensions
 encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
