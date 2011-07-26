@@ -346,7 +346,7 @@ encode_sdes(SdesItemsList) when is_list (SdesItemsList) ->
 
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SDES:8, Length:16, SdesData/binary>>.
 
-encode_bye(SSRCsList, null) when is_list(SSRCsList) ->
+encode_bye(SSRCsList, []) when is_list(SSRCsList) ->
 	SSRCs=list_to_binary([<<S:32>> || S <- SSRCsList]),
 	SC = size(SSRCs) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, SC:16, SSRCs/binary>>;
