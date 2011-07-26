@@ -57,6 +57,15 @@ decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
 	{ok, DecodedRtcps};
 
+decode(<<1:8, Rest/binary>>, DecodedRtcps) ->
+	% FIXME Should we do this at all?
+	error_logger:warning_msg("Try to fix wrong RTCP version (0)~n"),
+	decode(<<?RTCP_VERSION:2, 0:1, 1:5, Rest/binary>>, DecodedRtcps);
+decode(<<1:2, Rest/binary>>, DecodedRtcps) ->
+	% FIXME Should we do this at all?
+	error_logger:warning_msg("Try to fix wrong RTCP version (1)~n"),
+	decode(<<?RTCP_VERSION:2, Rest/binary>>, DecodedRtcps);
+
 % We, currently, decoding only unencrypted RTCP (encryption is in my TODO-list),
 % so we suppose, that each packet starts from the standart header
 
