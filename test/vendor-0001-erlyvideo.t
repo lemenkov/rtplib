@@ -1,8 +1,6 @@
 #!/usr/bin/escript
 %% -*- erlang -*-
 
-% Test FIR codec.
-
 -include_lib("rtplib/include/rtcp.hrl").
 
 main(_) ->
