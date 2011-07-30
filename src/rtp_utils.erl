@@ -124,18 +124,18 @@ pp_xrblocks([#xrblock{} = R | Rest]) ->
 	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p},",
 		[R#xrblock.type, R#xrblock.ts, R#xrblock.data]) ++ pp_xrblocks(Rest).
 
-pp_sdes([]) -> "{}";
+pp_sdes([]) -> "";
 pp_sdes([R | Rest]) ->
 	lists:flatten([pp_sdes_item(X,Y) || {X,Y} <- R]) ++ pp_sdes(Rest).
 
 pp_sdes_item(ssrc, V) -> io_lib:format("{\"ssrc\":~b,", [V]);
-pp_sdes_item(cname, V) -> io_lib:format("\"cname\":~s,", [V]);
-pp_sdes_item(name, V) -> io_lib:format("\"name\":~s,", [V]);
-pp_sdes_item(email, V) -> io_lib:format("\"email\":~s,", [V]);
-pp_sdes_item(phone, V) -> io_lib:format("\"phone\":~s,", [V]);
-pp_sdes_item(loc, V) -> io_lib:format("\"loc\":~s,", [V]);
-pp_sdes_item(tool, V) -> io_lib:format("\"tool\":~s,", [V]);
-pp_sdes_item(note, V) -> io_lib:format("\"note\":~s,", [V]);
+pp_sdes_item(cname, V) -> io_lib:format("\"cname\":\"~s\",", [V]);
+pp_sdes_item(name, V) -> io_lib:format("\"name\":\"~s\",", [V]);
+pp_sdes_item(email, V) -> io_lib:format("\"email\":\"~s\",", [V]);
+pp_sdes_item(phone, V) -> io_lib:format("\"phone\":\"~s\",", [V]);
+pp_sdes_item(loc, V) -> io_lib:format("\"loc\":\"~s\",", [V]);
+pp_sdes_item(tool, V) -> io_lib:format("\"tool\":\"~s\",", [V]);
+pp_sdes_item(note, V) -> io_lib:format("\"note\":\"~s\",", [V]);
 pp_sdes_item(priv, V) -> io_lib:format("\"priv\":~p,", [V]);
-pp_sdes_item(eof, true) -> io_lib:format("\"eof\":true}~n", []);
-pp_sdes_item(eof, V) -> io_lib:format("\"eof\"~p}~n", [V]).
+pp_sdes_item(eof, true) -> io_lib:format("\"eof\":true}", []);
+pp_sdes_item(eof, V) -> io_lib:format("\"eof\"~p}", [V]).
