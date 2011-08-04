@@ -104,7 +104,7 @@ pp(#rr{} = Rec) ->
 pp(#sdes{} = Rec) ->
 	io_lib:format("{\"type\":\"sdes\",\"list\":[~s]}", [pp_sdes(Rec#sdes.list)]);
 pp(#bye{} = Rec) ->
-	io_lib:format("{\"type\":\"bye\",\"ssrc\":~b,\"message\":\"~s\"}",
+	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"~s\"}",
 		[Rec#bye.ssrc, Rec#bye.message]);
 pp(#app{} = Rec) ->
 	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"name\":\"~s\",\"data\":\"~p\"}",
