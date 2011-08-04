@@ -120,7 +120,7 @@ pp_rblocks([#rblock{} = R | Rest]) ->
 	io_lib:format("{\"ssrc\":~b,\"fraction\":~b,\"lost\":~b,\"last_seq\":~b,\"jitter\":~b,\"lsr\":~b,\"dlsr\":~b},",
 		[R#rblock.ssrc, R#rblock.fraction, R#rblock.lost, R#rblock.last_seq, R#rblock.jitter, R#rblock.lsr, R#rblock.dlsr]) ++ pp_rblocks(Rest).
 
-pp_xrblocks([]) -> "{}";
+pp_xrblocks([]) -> "";
 pp_xrblocks([#xrblock{} = R | Rest]) ->
 	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p},",
 		[R#xrblock.type, R#xrblock.ts, R#xrblock.data]) ++ pp_xrblocks(Rest).
