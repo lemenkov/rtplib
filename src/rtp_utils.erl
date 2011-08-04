@@ -94,7 +94,8 @@ pp(#fir{} = Rec) ->
 pp(#nack{} = Rec) ->
 	io_lib:format("{\"type\":\"nack\",\"ssrc\":~b,\"fsn\":~b,\"blp\":~b}", [Rec#nack.ssrc,Rec#nack.fsn,Rec#nack.blp]);
 pp(#sr{} = Rec) ->
-	<<NtpSec:32, NtpFrac:32>> = Rec#sr.ntp,
+	NTP = Rec#sr.ntp,
+	<<NtpSec:32, NtpFrac:32>> = <<NTP:64>>,
 	io_lib:format("{\"type\":\"sr\",\"ssrc\":~b,\"ntpsec\":~b,\"ntpfrac\":~b,\"timestamp\":~b,\"packets\":~b,\"octets\":~b,\"rblocks\":[~s]}",
 		[Rec#sr.ssrc, NtpSec, NtpFrac, Rec#sr.timestamp, Rec#sr.packets, Rec#sr.octets, pp_rblocks(Rec#sr.rblocks)]);
 pp(#rr{} = Rec) ->
