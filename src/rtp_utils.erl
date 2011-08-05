@@ -44,7 +44,7 @@
 dump_packet(Node, Pid, Packet) ->
 	{H,M,Ms} = now(),
 	% later we may try to decode these rtcp packets and to fix decoding errors:
-	% lists:map(fun(X) -> io:format("FILE: ~p~n", [X]), {ok, Rtcp} = file:read_file(X), rtcp:decode(Rtcp) end, filelib:wildcard("/tmp/rtcp_err.*.bin")).
+	% lists:map(fun(X) -> {ok, Msg} = file:read_file(X), {ok, Rtcps} = rtcp:decode(Msg), io:format("FILE: ~p, Rtcps: ~p~n", [X, Rtcps]), end, filelib:wildcard("/tmp/rtcp_err.*.bin")).
 	file:write_file("/tmp/rtcp_err." ++ atom_to_list(Node) ++ "." ++ pid_to_list(Pid) ++ "." ++ integer_to_list(H) ++ "_" ++ integer_to_list(M) ++ "_" ++ integer_to_list(Ms) ++ ".bin", Packet).
 
 get_type(#fir{}) -> fir;
