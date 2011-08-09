@@ -4,7 +4,7 @@
 -include_lib("rtplib/include/rtcp.hrl").
 
 main(_) ->
-	etap:plan(5),
+	etap:plan(6),
 
 	% Padding at the end <<0,0,0,0>>
 	BinRtcpBye1 = <<129,203,0,5,128,171,245,31,15,68,105,115,99,111,110,110, 101,99,116,32,67,97,108,108,0,0,0,0>>,
@@ -51,5 +51,11 @@ main(_) ->
 		129,203,0,1,55,82,152,102>>,
 	{ok, [RtcpRr4, RtcpSdes4, RtcpBye4]} = rtcp:decode(BinRtcpRrSdesBye4),
 	etap:is(BinRtcpRrSdesBye4, rtcp:encode([RtcpRr4, RtcpSdes4, RtcpBye4]), "Check what we could reproduce previous packet from RR+SDES+BYE"),
+
+	% Wrong line - should be --> 9
+	BinRtcpSr5 = <<129,200,0,8,208,238,73,230,209,222,91,114,196,221,46,55,169,51,133,192,0,0,0,5,0,0,3,32,0,0,0,0,0,0,0,0,0,0,0,0>>,
+	BinRtcpSr5_fixed = <<128,200,0,6,208,238,73,230,209,222,91,114,196,221,46,55,169,51,133,192,0,0,0,5,0,0,3,32>>,
+	{ok, [RtcpSr5]} = rtcp:decode(BinRtcpSr5),
+	etap:is(BinRtcpSr5_fixed, rtcp:encode(RtcpSr5), "Check what we could reproduce fixed packet"),
 
 	etap:end_tests().
