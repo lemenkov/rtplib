@@ -129,9 +129,10 @@ pp_rblocks([#rblock{} = R | Rest]) ->
 		[R#rblock.ssrc, R#rblock.fraction, R#rblock.lost, R#rblock.last_seq, R#rblock.jitter, R#rblock.lsr, R#rblock.dlsr]) ++ pp_rblocks(Rest).
 
 pp_xrblocks([]) -> "";
-pp_xrblocks([#xrblock{} = R | Rest]) ->
-	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p},",
-		[R#xrblock.type, R#xrblock.ts, R#xrblock.data]) ++ pp_xrblocks(Rest).
+pp_xrblocks([#xrblock{type = Type, ts = Ts, data = Data} | []]) ->
+	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p}", [Type, Ts, Data]);
+pp_xrblocks([#xrblock{type = Type, ts = Ts, data = Data} | Rest]) ->
+	io_lib:format("{\"type\":~b,\"ts\":~b,\"data\":~p},", [Type, Ts, Data]) ++ pp_xrblocks(Rest).
 
 pp_sdes([]) -> "";
 pp_sdes([R | Rest]) ->
