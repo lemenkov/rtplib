@@ -5,6 +5,7 @@
 % http://www.ietf.org/rfc/rfc2032.txt
 % http://www.ietf.org/rfc/rfc3550.txt
 % http://www.ietf.org/rfc/rfc3611.txt
+% http://www.ietf.org/rfc/rfc5484.txt
 
 % Version is always 2
 -define(RTCP_VERSION, 2).
@@ -44,6 +45,7 @@
 -record(fir, {ssrc}).
 % Negative ACKnowledgements (h.261 specific)
 -record(nack, {ssrc, fsn, blp}).
+-record(smptetc, {ssrc, timestamp, sign, hours, minutes, seconds, frames, smpte12m}).
 % Sender Report
 % * NTP - NTP timestamp
 % * TimeStamp - RTP timestamp

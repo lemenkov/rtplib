@@ -86,6 +86,13 @@ decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, _Mbz:5, ?RTCP_FIR:8, 1:16, SSRC:32, Tai
 decode(<<?RTCP_VERSION:2, ?PADDING_NO:1, _Mbz:5, ?RTCP_NACK:8, 2:16, SSRC:32, FSN:16, BLP:16, Tail/binary>>, DecodedRtcps) ->
 	decode(Tail, DecodedRtcps ++ [#nack{ssrc=SSRC, fsn=FSN, blp=BLP}]);
 
+% SMPTE Time-Codes (short form)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_SMPTETC:8, 3:16, SSRC:32, TimeStamp:32, S:1, Hours:5, Minutes:6, Seconds:6, Frames:6, 0:8, Tail/binary>>, DecodedRtcps) ->
+	decode(Tail, DecodedRtcps ++ [#smptetc{ssrc=SSRC, timestamp=TimeStamp, sign=S, hours=Hours, minutes=Minutes, seconds=Seconds, frames=Frames}]);
+% SMPTE Time-Codes (long form)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_SMPTETC:8, 4:16, SSRC:32, TimeStamp:32, Smpte12m:64, Tail/binary>>, DecodedRtcps) ->
+	decode(Tail, DecodedRtcps ++ [#smptetc{ssrc=SSRC, timestamp=TimeStamp, smpte12m=Smpte12m}]);
+
 % Sender Report
 % * NTPSec - NTP timestamp, most significant word
 % * NTPFrac - NTP timestamp, least significant word
