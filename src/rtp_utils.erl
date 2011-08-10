@@ -111,9 +111,9 @@ pp(#bye{ssrc = SSRCs, message = []}) ->
 pp(#bye{ssrc = SSRCs, message = Message}) ->
 	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"~s\"}",
 		[SSRCs, fix_null_terminated(Message)]);
-pp(#app{ssrc = SSRC, name = Name, data = Data}) ->
-	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"name\":\"~s\",\"data\":\"~p\"}",
-		[SSRC, Name, Data]);
+pp(#app{ssrc=SSRC, subtype=Subtype, name=Name, data=Data}) ->
+	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"subtype\":\"~b\",\"name\":\"~s\",\"data\":\"~p\"}",
+		[SSRC, Subtype, Name, Data]);
 pp(#xr{ssrc = SSRC, xrblocks = Xrblocks}) ->
 	io_lib:format("{\"type\":\"xr\",\"ssrc\":~b,\"xrblocks\":\"~s\"}",
 		[SSRC, pp_xrblocks(Xrblocks)]);
