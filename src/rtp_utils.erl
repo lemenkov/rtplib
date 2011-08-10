@@ -105,9 +105,12 @@ pp(#rr{} = Rec) ->
 		[Rec#rr.ssrc, pp_rblocks(Rec#rr.rblocks)]);
 pp(#sdes{} = Rec) ->
 	io_lib:format("{\"type\":\"sdes\",\"list\":[~s]}", [pp_sdes(Rec#sdes.list)]);
-pp(#bye{} = Rec) ->
+pp(#bye{ssrc = SSRCs, message = []} = Rec) ->
+	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"\"}",
+		[SSRCs]);
+pp(#bye{ssrc = SSRCs, message = Message} = Rec) ->
 	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"~s\"}",
-		[Rec#bye.ssrc, Rec#bye.message]);
+		[SSRCs, fix_null_terminated(Message)]);
 pp(#app{} = Rec) ->
 	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"name\":\"~s\",\"data\":\"~p\"}",
 		[Rec#app.ssrc, Rec#app.name, Rec#app.data]);
@@ -132,13 +135,18 @@ pp_sdes([R | Rest]) ->
 	lists:flatten([pp_sdes_item(X,Y) || {X,Y} <- R]) ++ pp_sdes(Rest).
 
 pp_sdes_item(ssrc, V) -> io_lib:format("{\"ssrc\":~b,", [V]);
-pp_sdes_item(cname, V) -> io_lib:format("\"cname\":\"~s\",", [V]);
-pp_sdes_item(name, V) -> io_lib:format("\"name\":\"~s\",", [V]);
-pp_sdes_item(email, V) -> io_lib:format("\"email\":\"~s\",", [V]);
-pp_sdes_item(phone, V) -> io_lib:format("\"phone\":\"~s\",", [V]);
-pp_sdes_item(loc, V) -> io_lib:format("\"loc\":\"~s\",", [V]);
-pp_sdes_item(tool, V) -> io_lib:format("\"tool\":\"~s\",", [V]);
-pp_sdes_item(note, V) -> io_lib:format("\"note\":\"~s\",", [V]);
+pp_sdes_item(cname, V) -> io_lib:format("\"cname\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(name, V) -> io_lib:format("\"name\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(email, V) -> io_lib:format("\"email\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(phone, V) -> io_lib:format("\"phone\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(loc, V) -> io_lib:format("\"loc\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(tool, V) -> io_lib:format("\"tool\":\"~s\",", [fix_null_terminated(V)]);
+pp_sdes_item(note, V) -> io_lib:format("\"note\":\"~s\",", [fix_null_terminated(V)]);
 pp_sdes_item(priv, V) -> io_lib:format("\"priv\":~p,", [V]);
 pp_sdes_item(eof, true) -> io_lib:format("\"eof\":true}", []);
 pp_sdes_item(eof, V) -> io_lib:format("\"eof\"~p}", [V]).
+
+fix_null_terminated(String) ->
+	% FIXME should we print \0 anyway?
+%	[ case X of 0 -> "\\0"; _ -> X end || X <- String ].
+	[ X || X <- String, X /= 0 ].
