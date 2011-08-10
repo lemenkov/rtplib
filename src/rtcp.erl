@@ -232,7 +232,8 @@ decode_sdes_item(<<?SDES_TOOL:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 decode_sdes_item(<<?SDES_NOTE:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 	decode_sdes_item(Tail, Items ++ [{note, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_PRIV:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	decode_sdes_item(Tail, Items ++ [{priv, V}]);
+	<<PL:8,  PD:PL/binary, Rest/binary>> = V,
+	decode_sdes_item(Tail, Items ++ [{priv, {binary_to_list(PD), Rest}}]);
 decode_sdes_item(<<?SDES_NULL:8, Tail/binary>>, Items) ->
 	% This is NULL terminator
 	% Let's calculate how many bits we need to skip (padding up to 32-bit
@@ -452,8 +453,10 @@ encode_sdes_item(tool, Value) ->
 	encode_sdes_item(?SDES_TOOL, list_to_binary(Value));
 encode_sdes_item(note, Value) ->
 	encode_sdes_item(?SDES_NOTE, list_to_binary(Value));
-encode_sdes_item(priv, Value) ->
-	encode_sdes_item(?SDES_PRIV, Value);
+encode_sdes_item(priv, {PrivTypeName, Value}) ->
+	PrivTypeBin = list_to_binary(PrivTypeName),
+	PrivTypeSize = size(PrivTypeBin),
+	encode_sdes_item(?SDES_PRIV, <<PrivTypeSize:8, PrivTypeBin/binary, Value/binary>>);
 encode_sdes_item(SdesType, Value) when is_binary (Value) ->
 	L = size(Value),
 	<<SdesType:8, L:8, Value:L/binary>>.
