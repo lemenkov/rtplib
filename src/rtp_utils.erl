@@ -91,32 +91,32 @@ now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 pp(Rtcps) when is_list(Rtcps) ->
 	lists:flatten(lists:map(fun pp/1, Rtcps));
 
-pp(#fir{} = Rec) ->
-	io_lib:format("{\"type\":\"fir\",\"ssrc\":~b}", [Rec#fir.ssrc]);
-pp(#nack{} = Rec) ->
-	io_lib:format("{\"type\":\"nack\",\"ssrc\":~b,\"fsn\":~b,\"blp\":~b}", [Rec#nack.ssrc,Rec#nack.fsn,Rec#nack.blp]);
-pp(#sr{} = Rec) ->
-	NTP = Rec#sr.ntp,
+pp(#fir{ssrc = SSRC}) ->
+	io_lib:format("{\"type\":\"fir\",\"ssrc\":~b}", [SSRC]);
+pp(#nack{ssrc = SSRC, fsn = Fsn, blp = Blp}) ->
+	io_lib:format("{\"type\":\"nack\",\"ssrc\":~b,\"fsn\":~b,\"blp\":~b}",
+		[SSRC,Fsn,Blp]);
+pp(#sr{ssrc = SSRC, ntp = NTP, timestamp = TS, packets = Packets, octets = Octets, rblocks = Rblocks}) ->
 	<<NtpSec:32, NtpFrac:32>> = <<NTP:64>>,
 	io_lib:format("{\"type\":\"sr\",\"ssrc\":~b,\"ntpsec\":~b,\"ntpfrac\":~b,\"timestamp\":~b,\"packets\":~b,\"octets\":~b,\"rblocks\":[~s]}",
-		[Rec#sr.ssrc, NtpSec, NtpFrac, Rec#sr.timestamp, Rec#sr.packets, Rec#sr.octets, pp_rblocks(Rec#sr.rblocks)]);
-pp(#rr{} = Rec) ->
+		[SSRC, NtpSec, NtpFrac, TS, Packets, Octets, pp_rblocks(Rblocks)]);
+pp(#rr{ssrc = SSRC, rblocks = Rblocks}) ->
 	io_lib:format("{\"type\":\"rr\",\"ssrc\":~b,\"rblocks\":[~s]}",
-		[Rec#rr.ssrc, pp_rblocks(Rec#rr.rblocks)]);
-pp(#sdes{} = Rec) ->
-	io_lib:format("{\"type\":\"sdes\",\"list\":[~s]}", [pp_sdes(Rec#sdes.list)]);
-pp(#bye{ssrc = SSRCs, message = []} = Rec) ->
+		[SSRC, pp_rblocks(Rblocks)]);
+pp(#sdes{list = SdesList}) ->
+	io_lib:format("{\"type\":\"sdes\",\"list\":[~s]}", [pp_sdes(SdesList)]);
+pp(#bye{ssrc = SSRCs, message = []}) ->
 	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"\"}",
 		[SSRCs]);
-pp(#bye{ssrc = SSRCs, message = Message} = Rec) ->
+pp(#bye{ssrc = SSRCs, message = Message}) ->
 	io_lib:format("{\"type\":\"bye\",\"ssrc\":~p,\"message\":\"~s\"}",
 		[SSRCs, fix_null_terminated(Message)]);
-pp(#app{} = Rec) ->
+pp(#app{ssrc = SSRC, name = Name, data = Data}) ->
 	io_lib:format("{\"type\":\"app\",\"ssrc\":~b,\"name\":\"~s\",\"data\":\"~p\"}",
-		[Rec#app.ssrc, Rec#app.name, Rec#app.data]);
-pp(#xr{} = Rec) ->
+		[SSRC, Name, Data]);
+pp(#xr{ssrc = SSRC, xrblocks = Xrblocks}) ->
 	io_lib:format("{\"type\":\"xr\",\"ssrc\":~b,\"xrblocks\":\"~s\"}",
-		[Rec#xr.ssrc, pp_xrblocks(Rec#xr.xrblocks)]);
+		[SSRC, pp_xrblocks(Xrblocks)]);
 pp(Whatever) ->
 	io_lib:format("{\"type\":\"unknown\",\"rawdata\":\"~p\"}", [Whatever]).
 
