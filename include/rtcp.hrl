@@ -5,6 +5,7 @@
 % http://www.ietf.org/rfc/rfc2032.txt
 % http://www.ietf.org/rfc/rfc3550.txt
 % http://www.ietf.org/rfc/rfc3611.txt
+% http://www.ietf.org/rfc/rfc5450.txt
 % http://www.ietf.org/rfc/rfc5484.txt
 
 % Version is always 2
@@ -52,8 +53,8 @@
 % * Packets - sender's packet count
 % * Octets - sender's octet count
 -record(sr, {ssrc, ntp, timestamp, packets, octets, rblocks=[]}).
-% Receiver Report
--record(rr, {ssrc, rblocks=[]}).
+% Receiver Report and Inter-arrival Jitter (must be placed after a receiver report and MUST have the same value for RC)
+-record(rr, {ssrc, rblocks=[], ijs=[]}).
 % Source DEScription
 -record(sdes, {list}).
 % End of stream (but not necessary the end of communication, since there may be

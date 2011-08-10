@@ -110,6 +110,17 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, R
 	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
 
+% Inter-arrival Jitter (must be placed after a receiver report and MUST have the same value for RC)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_IJ:8, Length:16, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 4,
+	<<IJs:ByteLength/binary, Tail/binary>> = Rest,
+	case lists:reverse(DecodedRtcps) of
+		[#rr{ssrc=SSRC, rblocks = ReportBlocks} = RR | Other] when RC == length(ReportBlocks) ->
+			decode(Tail, list:reverse([RR#rr{ijs=decode_ijs(IJs)} | Other]));
+		_ ->
+			decode(Tail, DecodedRtcps)
+	end;
+
 % Source DEScription
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4,
@@ -274,6 +285,13 @@ decode_bye(Padding, 0, Ret) ->
 decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 	% SSRC of stream, which just ends
 	decode_bye(Tail, RC-1, Ret ++ [SSRC]).
+
+decode_ijs(Binary) ->
+	decode_ijs(Binary, []).
+decode_ijs(<<>>, List) ->
+	List;
+decode_ijs(<<IJ:32, Rest/binary>>, Decoded) ->
+	decode_ijs(Rest, Decoded ++ [IJ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
