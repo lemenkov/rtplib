@@ -120,7 +120,9 @@ pp(#xr{} = Rec) ->
 pp(Whatever) ->
 	io_lib:format("{\"type\":\"unknown\",\"rawdata\":\"~p\"}", [Whatever]).
 
-pp_rblocks([]) -> "";
+pp_rblocks([#rblock{} = R | []]) ->
+	io_lib:format("{\"ssrc\":~b,\"fraction\":~b,\"lost\":~b,\"last_seq\":~b,\"jitter\":~b,\"lsr\":~b,\"dlsr\":~b}",
+		[R#rblock.ssrc, R#rblock.fraction, R#rblock.lost, R#rblock.last_seq, R#rblock.jitter, R#rblock.lsr, R#rblock.dlsr]);
 pp_rblocks([#rblock{} = R | Rest]) ->
 	io_lib:format("{\"ssrc\":~b,\"fraction\":~b,\"lost\":~b,\"last_seq\":~b,\"jitter\":~b,\"lsr\":~b,\"dlsr\":~b},",
 		[R#rblock.ssrc, R#rblock.fraction, R#rblock.lost, R#rblock.last_seq, R#rblock.jitter, R#rblock.lsr, R#rblock.dlsr]) ++ pp_rblocks(Rest).
