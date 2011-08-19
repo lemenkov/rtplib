@@ -10,5 +10,5 @@ main([Arg]) ->
 			{ok, Rtcps} = rtcp:decode(Msg),
 			io:format("FILE: ~s, Rtcps: ~s~n", [X, rtp_utils:pp(Rtcps)]) 
 		end,
-		filelib:wildcard( Cwd ++ "/" ++ Arg ++ "rtcp_err.*.bin")
+		filelib:wildcard( Cwd ++ "/" ++ Arg ++ "/rtcp_err.*.bin")
 	).
