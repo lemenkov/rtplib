@@ -21,7 +21,7 @@ main(_) ->
 	etap:fun_is(fun({ok, #rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}}) when is_binary(Payload) -> true; (_) -> false end, rtp:decode(Data), "Simple decoding of RTP data stream"),
 	{ok, Rtp} = rtp:decode(Data),
 
-	etap:is({ok, Data}, rtp:encode(Rtp), "Check that we can reproduce original data stream from record"),
+	etap:is(Data, rtp:encode(Rtp), "Check that we can reproduce original data stream from record"),
 
 	etap:end_tests().
 

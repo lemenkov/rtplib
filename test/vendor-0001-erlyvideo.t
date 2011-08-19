@@ -154,9 +154,9 @@ main(_) ->
 	{ok, Rtp3} = rtp:decode(BinRtp3),
 	{ok, Rtp4} = rtp:decode(BinRtp4),
 
-	etap:is({ok, BinRtp1}, rtp:encode(Rtp1), "Check that we can reproduce original data stream from RTP 1"),
-	etap:is({ok, BinRtp2}, rtp:encode(Rtp2), "Check that we can reproduce original data stream from RTP 2"),
-	etap:is({ok, BinRtp3}, rtp:encode(Rtp3), "Check that we can reproduce original data stream from RTP 3"),
-	etap:is({ok, BinRtp4}, rtp:encode(Rtp4), "Check that we can reproduce original data stream from RTP 4"),
+	etap:is(BinRtp1, rtp:encode(Rtp1), "Check that we can reproduce original data stream from RTP 1"),
+	etap:is(BinRtp2, rtp:encode(Rtp2), "Check that we can reproduce original data stream from RTP 2"),
+	etap:is(BinRtp3, rtp:encode(Rtp3), "Check that we can reproduce original data stream from RTP 3"),
+	etap:is(BinRtp4, rtp:encode(Rtp4), "Check that we can reproduce original data stream from RTP 4"),
 
 	etap:end_tests().

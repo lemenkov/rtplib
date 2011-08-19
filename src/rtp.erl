@@ -93,7 +93,7 @@ encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, ti
 	CC = length(CSRCs),
 	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
-	{ok, <<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>}.
+	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
