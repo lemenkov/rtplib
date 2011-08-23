@@ -28,7 +28,8 @@ start_link(Args) ->
 
 init([Format, Parent]) ->
 	DriverName = case Format of
-		_ -> pcmu_codec_drv
+		RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
+		RTP_PAYLOAD_PCMA -> pcmu_codec_drv
 	end,
 	case
 		case erl_ddll:load_driver("./priv", DriverName) of
