@@ -50,8 +50,11 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_libdir}/erlang/lib/%{realname}-%{version}
 %dir %{_libdir}/erlang/lib/%{realname}-%{version}/ebin
 %dir %{_libdir}/erlang/lib/%{realname}-%{version}/include
-%{_libdir}/erlang/lib/%{realname}-%{version}/ebin/*
-%{_libdir}/erlang/lib/%{realname}-%{version}/include/*
+%dir %{_libdir}/erlang/lib/%{realname}-%{version}/priv
+%{_libdir}/erlang/lib/%{realname}-%{version}/ebin/*.app
+%{_libdir}/erlang/lib/%{realname}-%{version}/ebin/*.beam
+%{_libdir}/erlang/lib/%{realname}-%{version}/include/*.hrl
+%{_libdir}/erlang/lib/%{realname}-%{version}/priv/*.so
 
 
 %changelog
