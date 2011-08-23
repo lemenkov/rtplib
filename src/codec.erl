@@ -2,6 +2,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/rtp.hrl").
+
 -export([decode/2]).
 -export([encode/2]).
 -export([close/1]).
@@ -28,8 +30,8 @@ start_link(Args) ->
 
 init([Format, Parent]) ->
 	DriverName = case Format of
-		RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
-		RTP_PAYLOAD_PCMA -> pcmu_codec_drv
+		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
+		?RTP_PAYLOAD_PCMA -> pcma_codec_drv
 	end,
 	case
 		case erl_ddll:load_driver("./priv", DriverName) of
