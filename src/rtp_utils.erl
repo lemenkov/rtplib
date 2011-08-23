@@ -183,8 +183,8 @@ fix_null_terminated(String) ->
 
 % http://www.iana.org/assignments/rtp-parameters
 print_rtp_payload_type(?RTP_PAYLOAD_PCMU) -> "PCMU";
-print_rtp_payload_type(1) -> "Reserved";
-print_rtp_payload_type(2) -> "Reserved";
+print_rtp_payload_type(1) -> "1 (Reserved)";
+print_rtp_payload_type(2) -> "2 (Reserved)";
 print_rtp_payload_type(?RTP_PAYLOAD_GSM) -> "GSM";
 print_rtp_payload_type(?RTP_PAYLOAD_G723) -> "G723";
 print_rtp_payload_type(?RTP_PAYLOAD_DVI4_8KHz) -> "DVI4";
@@ -201,24 +201,24 @@ print_rtp_payload_type(?RTP_PAYLOAD_G728) -> "G728";
 print_rtp_payload_type(?RTP_PAYLOAD_DVI4_11KHz) -> "DVI4";
 print_rtp_payload_type(?RTP_PAYLOAD_DVI4_22KHz) -> "DVI4";
 print_rtp_payload_type(?RTP_PAYLOAD_G729) -> "G729";
-print_rtp_payload_type(19) -> "Reserved";
-print_rtp_payload_type(20) -> "Unassigned";
-print_rtp_payload_type(21) -> "Unassigned";
-print_rtp_payload_type(22) -> "Unassigned";
-print_rtp_payload_type(23) -> "Unassigned";
-print_rtp_payload_type(24) -> "Unassigned";
+print_rtp_payload_type(19) -> "19 (Reserved)";
+print_rtp_payload_type(20) -> "20 (Unassigned)";
+print_rtp_payload_type(21) -> "21 (Unassigned)";
+print_rtp_payload_type(22) -> "22 (Unassigned)";
+print_rtp_payload_type(23) -> "23 (Unassigned)";
+print_rtp_payload_type(24) -> "24 (Unassigned)";
 print_rtp_payload_type(?RTP_PAYLOAD_CELB) -> "CelB";
 print_rtp_payload_type(?RTP_PAYLOAD_JPEG) -> "JPEG";
-print_rtp_payload_type(27) -> "Unassigned";
+print_rtp_payload_type(27) -> "27 (Unassigned)";
 print_rtp_payload_type(?RTP_PAYLOAD_NV) -> "nv";
-print_rtp_payload_type(29) -> "Unassigned";
-print_rtp_payload_type(30) -> "Unassigned";
+print_rtp_payload_type(29) -> "29 (Unassigned)";
+print_rtp_payload_type(30) -> "30 (Unassigned)";
 print_rtp_payload_type(?RTP_PAYLOAD_H261) -> "H261";
 print_rtp_payload_type(?RTP_PAYLOAD_MPV) -> "MPV";
 print_rtp_payload_type(?RTP_PAYLOAD_MP2T) -> "MP2T";
 print_rtp_payload_type(?RTP_PAYLOAD_H263) -> "H263";
-print_rtp_payload_type(Val) when Val >= 35, Val =< 71 -> "Unassigned";
-print_rtp_payload_type(Val) when Val >= 72, Val =< 76 -> "Wrongly decoded RTCP";
-print_rtp_payload_type(Val) when Val >= 77, Val =< 95 -> "Unassigned";
-print_rtp_payload_type(Val) when Val >= 96, Val =< 127 -> "Dynamic";
+print_rtp_payload_type(Val) when Val >= 35, Val =< 71 -> io_lib:format("~b (Unassigned)", [Val]);
+print_rtp_payload_type(Val) when Val >= 72, Val =< 76 -> io_lib:format("~b (Wrongly decoded RTCP)", [Val]);
+print_rtp_payload_type(Val) when Val >= 77, Val =< 95 -> io_lib:format("~b (Unassigned)", [Val]);
+print_rtp_payload_type(Val) when Val >= 96, Val =< 127 -> io_lib:format("~b (Dynamic)", [Val]);
 print_rtp_payload_type(_) -> "unknown payload".
