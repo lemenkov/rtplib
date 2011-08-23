@@ -40,6 +40,7 @@
 -export([pp/1]).
 
 -include("../include/rtcp.hrl").
+-include("../include/rtp.hrl").
 
 dump_packet(Node, Pid, Packet) ->
 	{H,M,Ms} = now(),
@@ -90,6 +91,31 @@ now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 
 pp(Rtcps) when is_list(Rtcps) ->
 	lists:flatten(lists:map(fun pp/1, Rtcps));
+
+% RTP
+pp(#rtp{
+		padding = Padding,
+		marker = Marker,
+		payload_type = PT,
+		sequence_number = SN,
+		timestamp = TS,
+		ssrc = SSRC,
+		csrcs = CSRCS,
+		extension = Extension,
+		payload = Payload}
+) ->
+	io_lib:format("
+		{	\"type\":\"rtp\",
+			\"padding\":~b,
+			\"marker\":~b,
+			\"payload_type\":\"~s\",
+			\"sequence_number\":~b,
+			\"timestamp\":~b,
+			\"ssrc\":~b,
+			\"csrcs\":\"~p\",
+			\"extension\":\"~p\",
+			\"payload\":~p}", [Padding, Marker, print_rtp_payload_type(PT), SN, TS, SSRC, CSRCS, Extension, Payload]);
+% RTCP
 
 pp(#fir{ssrc = SSRC}) ->
 	io_lib:format("{\"type\":\"fir\",\"ssrc\":~b}", [SSRC]);
@@ -154,3 +180,45 @@ fix_null_terminated(String) ->
 	% FIXME should we print \0 anyway?
 %	[ case X of 0 -> "\\0"; _ -> X end || X <- String ].
 	[ X || X <- String, X /= 0 ].
+
+% http://www.iana.org/assignments/rtp-parameters
+print_rtp_payload_type(?RTP_PAYLOAD_PCMU) -> "PCMU";
+print_rtp_payload_type(1) -> "Reserved";
+print_rtp_payload_type(2) -> "Reserved";
+print_rtp_payload_type(?RTP_PAYLOAD_GSM) -> "GSM";
+print_rtp_payload_type(?RTP_PAYLOAD_G723) -> "G723";
+print_rtp_payload_type(?RTP_PAYLOAD_DVI4_8KHz) -> "DVI4";
+print_rtp_payload_type(?RTP_PAYLOAD_DVI4_16KHz) -> "DVI4";
+print_rtp_payload_type(?RTP_PAYLOAD_LPC) -> "LPC";
+print_rtp_payload_type(?RTP_PAYLOAD_PCMA) -> "PCMA";
+print_rtp_payload_type(?RTP_PAYLOAD_G722) -> "G722";
+print_rtp_payload_type(?RTP_PAYLOAD_L16_2Ch) -> "L16";
+print_rtp_payload_type(?RTP_PAYLOAD_L16_1Ch) -> "L16";
+print_rtp_payload_type(?RTP_PAYLOAD_QCELP) -> "QCELP";
+print_rtp_payload_type(?RTP_PAYLOAD_CN) -> "CN";
+print_rtp_payload_type(?RTP_PAYLOAD_MPA) -> "MPA";
+print_rtp_payload_type(?RTP_PAYLOAD_G728) -> "G728";
+print_rtp_payload_type(?RTP_PAYLOAD_DVI4_11KHz) -> "DVI4";
+print_rtp_payload_type(?RTP_PAYLOAD_DVI4_22KHz) -> "DVI4";
+print_rtp_payload_type(?RTP_PAYLOAD_G729) -> "G729";
+print_rtp_payload_type(19) -> "Reserved";
+print_rtp_payload_type(20) -> "Unassigned";
+print_rtp_payload_type(21) -> "Unassigned";
+print_rtp_payload_type(22) -> "Unassigned";
+print_rtp_payload_type(23) -> "Unassigned";
+print_rtp_payload_type(24) -> "Unassigned";
+print_rtp_payload_type(?RTP_PAYLOAD_CELB) -> "CelB";
+print_rtp_payload_type(?RTP_PAYLOAD_JPEG) -> "JPEG";
+print_rtp_payload_type(27) -> "Unassigned";
+print_rtp_payload_type(?RTP_PAYLOAD_NV) -> "nv";
+print_rtp_payload_type(29) -> "Unassigned";
+print_rtp_payload_type(30) -> "Unassigned";
+print_rtp_payload_type(?RTP_PAYLOAD_H261) -> "H261";
+print_rtp_payload_type(?RTP_PAYLOAD_MPV) -> "MPV";
+print_rtp_payload_type(?RTP_PAYLOAD_MP2T) -> "MP2T";
+print_rtp_payload_type(?RTP_PAYLOAD_H263) -> "H263";
+print_rtp_payload_type(Val) when Val >= 35, Val =< 71 -> "Unassigned";
+print_rtp_payload_type(Val) when Val >= 72, Val =< 76 -> "Wrongly decoded RTCP";
+print_rtp_payload_type(Val) when Val >= 77, Val =< 95 -> "Unassigned";
+print_rtp_payload_type(Val) when Val >= 96, Val =< 127 -> "Dynamic";
+print_rtp_payload_type(_) -> "unknown payload".

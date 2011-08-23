@@ -12,6 +12,7 @@
 
 -record(extension, {type, payload}).
 
+% http://www.iana.org/assignments/rtp-parameters
 % See these RFCs for further details:
 
 % http://www.ietf.org/rfc/rfc2029.txt
