@@ -11,6 +11,7 @@
                   kernel,
                   stdlib
                  ]},
+  {mod, { codec_app, []}},
   {env, []}
  ]
 }.
