@@ -1,5 +1,4 @@
 %global realname rtplib
-%global debug_package %{nil}
 %global git_tag 1234567
 %global patchnumber 0
 
