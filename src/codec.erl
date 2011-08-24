@@ -1,3 +1,5 @@
+% Loosely based on Evgeniy Khramtsov's original approach - erlrtp
+
 -module(codec).
 
 -behaviour(gen_server).

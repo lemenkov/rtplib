@@ -1,3 +1,5 @@
+/* Loosely based on Evgeniy Khramtsov's original approach - erlrtp */
+
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
