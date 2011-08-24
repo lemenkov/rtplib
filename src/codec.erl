@@ -33,6 +33,7 @@ start_link(Args) ->
 init([Format, Parent]) ->
 	DriverName = case Format of
 		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
+		?RTP_PAYLOAD_GSM -> gsm_codec_drv;
 		?RTP_PAYLOAD_PCMA -> pcma_codec_drv
 	end,
 	case
