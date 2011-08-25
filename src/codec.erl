@@ -37,7 +37,7 @@ init([Format, Parent]) ->
 		?RTP_PAYLOAD_PCMA -> pcma_codec_drv
 	end,
 	case
-		case erl_ddll:load_driver("./priv", DriverName) of
+		case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", DriverName) of
 			ok -> ok;
 			{error, already_loaded} -> ok;
 			{error, permanent} -> ok;
