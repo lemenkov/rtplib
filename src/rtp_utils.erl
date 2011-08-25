@@ -96,6 +96,34 @@ pp(Rtcps) when is_list(Rtcps) ->
 pp(#rtp{
 		padding = Padding,
 		marker = Marker,
+		payload_type = 101,
+		sequence_number = SN,
+		timestamp = TS,
+		ssrc = SSRC,
+		csrcs = CSRCS,
+		extension = Extension,
+		payload = Payload}
+) ->
+	{ok, Rfc2833} = rtp:decode_rfc2833(Payload),
+	Event = Rfc2833#rfc2833.event,
+	Eof = Rfc2833#rfc2833.eof,
+	Volume = Rfc2833#rfc2833.volume,
+	Duration = Rfc2833#rfc2833.duration,
+	io_lib:format("
+		{	\"type\":\"rtp\",
+			\"padding\":~b,
+			\"marker\":~b,
+			\"payload_type\":\"rtpevent\",
+			\"sequence_number\":~b,
+			\"timestamp\":~b,
+			\"ssrc\":~b,
+			\"csrcs\":\"~p\",
+			\"extension\":\"~p\",
+			\"payload\":[event:~b,eof=~p,volume=~p,duration=~p]}", [Padding, Marker, SN, TS, SSRC, CSRCS, Extension, Event, Eof, Volume, Duration]);
+% RTP
+pp(#rtp{
+		padding = Padding,
+		marker = Marker,
 		payload_type = PT,
 		sequence_number = SN,
 		timestamp = TS,

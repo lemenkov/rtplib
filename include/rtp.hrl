@@ -12,6 +12,8 @@
 
 -record(extension, {type, payload}).
 
+-record(rfc2833, {event, eof, volume, duration}).
+
 % http://www.iana.org/assignments/rtp-parameters
 % See these RFCs for further details:
 
