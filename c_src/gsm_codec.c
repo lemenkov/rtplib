@@ -57,6 +57,7 @@ static int codec_drv_control(
 				sample[i] = (((gsm_signal) buf[i * 2]) & 0xf8) | (((gsm_signal) buf[i * 2 + 1]) << 8);
 			}
 			out = driver_alloc_binary(GSM_SIZE);
+			gsm_encode(d->state, sample, (gsm_byte *) out->orig_bytes);
 			*rbuf = (char *)out;
 			ret = GSM_SIZE;
 			break;
