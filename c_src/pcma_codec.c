@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <erl_driver.h>
 #include <spandsp/telephony.h>
+#include <spandsp/bit_operations.h>
 #include <spandsp/g711.h>
 
 typedef struct {
