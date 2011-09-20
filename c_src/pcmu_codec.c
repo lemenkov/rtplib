@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <erl_driver.h>
-#include "g711.h"
+#include <spandsp/telephony.h>
+#include <spandsp/g711.h>
 
 typedef struct {
 	ErlDrvPort port;
@@ -47,7 +48,7 @@ static int codec_drv_control(
 			out = driver_alloc_binary(len / 2);
 			for (i = 0; i < (len / 2); i++) {
 				sample = (buf[i * 2 + 1] << 8) | (buf[i * 2] & 0xff);
-				out->orig_bytes[i] = Snack_Lin2Mulaw(sample);
+				out->orig_bytes[i] = linear_to_ulaw(sample);
 			}
 			*rbuf = (char *) out;
 			ret = (len / 2);
@@ -55,7 +56,7 @@ static int codec_drv_control(
 		 case CMD_DECODE:
 			out = driver_alloc_binary(len * 2);
 			for (i = 0; i < len; i++) {
-				sample = Snack_Mulaw2Lin((unsigned char) buf[i]);
+				sample = ulaw_to_linear((unsigned char) buf[i]);
 				out->orig_bytes[i * 2] = (char) (sample & 0xff);
 				out->orig_bytes[i * 2 + 1] = (char) (sample >> 8);
 			}
