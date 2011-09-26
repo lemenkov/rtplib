@@ -22,7 +22,7 @@
 -define(CMD_ENCODE, 1).
 -define(CMD_DECODE, 2).
 
--record(state, {port, parent}).
+-record(state, {port}).
 
 start(Args) ->
 	gen_server:start(?MODULE, Args, []).
@@ -30,7 +30,7 @@ start(Args) ->
 start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
-init([Format, Parent]) ->
+init(Format) ->
 	DriverName = case Format of
 		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
 		?RTP_PAYLOAD_GSM -> gsm_codec_drv;
@@ -47,7 +47,7 @@ init([Format, Parent]) ->
 	of
 		ok ->
 			Port = open_port({spawn, DriverName}, [binary]),
-			{ok, #state{port = Port, parent = Parent}};
+			{ok, #state{port = Port}};
 		{error, Error1} ->
 			{stop, Error1}
 	end.
@@ -68,7 +68,7 @@ handle_cast(stop, State) ->
 handle_cast(_Request, State) ->
 	{noreply, State}.
 
-handle_info({'DOWN', _, _, Parent, _}, #state{parent = Parent} = State) ->
+handle_info({'DOWN', _, _, _, _}, State) ->
 	{stop, normal, State};
 
 handle_info(_Info, State) ->
