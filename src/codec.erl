@@ -23,8 +23,16 @@
 
 -record(state, {port}).
 
-start_link(Args) ->
-	gen_server:start_link(?MODULE, Args, []).
+start_link(Args) when
+	Args == {'PCMU',8000,1};
+	Args == {'PCMA',8000,1};
+	Args == {'GSM', 8000,1};
+	Args == {'G722',8000,1};
+	Args == {'DVI4',8000,1}
+	->
+	gen_server:start_link(?MODULE, Args, []);
+start_link(_) ->
+	{stop, unsupported}.
 
 init({Format, ClockRate, Channels}) ->
 	DriverName = case Format of
