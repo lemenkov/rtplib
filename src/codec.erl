@@ -26,7 +26,7 @@
 start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
-init(Format) ->
+init({Format, ClockRate, Channels}) ->
 	DriverName = case Format of
 		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
 		?RTP_PAYLOAD_GSM -> gsm_codec_drv;
