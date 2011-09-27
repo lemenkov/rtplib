@@ -32,6 +32,8 @@
 
 -export([dump_packet/3]).
 -export([get_type/1]).
+-export([get_codec_from_payload/1]).
+-export([get_payload_from_codec/1]).
 
 -export([ntp2now/1]).
 -export([now2ntp/0]).
@@ -250,3 +252,52 @@ print_rtp_payload_type(Val) when Val >= 72, Val =< 76 -> io_lib:format("~b (Wron
 print_rtp_payload_type(Val) when Val >= 77, Val =< 95 -> io_lib:format("~b (Unassigned)", [Val]);
 print_rtp_payload_type(Val) when Val >= 96, Val =< 127 -> io_lib:format("~b (Dynamic)", [Val]);
 print_rtp_payload_type(_) -> "unknown payload".
+
+
+% FIXME use more atoms instead of numbers where possible
+% grep "a=rtpmap:" /var/log/messages | sed -e 's,.*a=rtpmap:,,g' | sort | uniq | sort -n
+% http://www.iana.org/assignments/rtp-parameters
+% http://www.iana.org/assignments/media-types/audio/index.html
+get_codec_from_payload(0) -> {'PCMU',8000,1};
+% 1 and 2 are reserved
+get_codec_from_payload(3) -> {'GSM',8000,1};
+get_codec_from_payload(4) -> {'G723',8000,1};
+get_codec_from_payload(5) -> {'DVI4',8000,1};
+get_codec_from_payload(6) -> {'DVI4',16000,1};
+get_codec_from_payload(7) -> {'LPC',8000,1};
+get_codec_from_payload(8) -> {'PCMA',8000,1};
+get_codec_from_payload(9) -> {'G722',8000,1};
+get_codec_from_payload(10) -> {'L16',8000,2}; % FIXME 44100 according to RFC3551
+get_codec_from_payload(11) -> {'L16',8000,1}; % FIXME 44100 according to RFC3551
+get_codec_from_payload(12) -> {'QCELP',8000,1};
+get_codec_from_payload(13) -> {'CN',8000,1};
+get_codec_from_payload(14) -> {'MPA',90000,0}; % FIXME 90000 Hz?
+get_codec_from_payload(15) -> {'G728',8000,1};
+get_codec_from_payload(16) -> {'DVI4',11025,1};
+get_codec_from_payload(17) -> {'DVI4',22050,1};
+get_codec_from_payload(18) -> {'G729',8000,1}; % FIXME the same as G.729a?
+
+get_codec_from_payload(31) -> {'H261',90000,0};
+get_codec_from_payload(34) -> {'H263',90000,0};
+
+get_codec_from_payload(C) when is_integer(C) -> C.
+
+get_payload_from_codec({'PCMU',8000,1}) -> 0;
+get_payload_from_codec({'GSM',8000,1}) -> 3;
+get_payload_from_codec({'G723',8000,1}) -> 4;
+get_payload_from_codec({'DVI4',8000,1}) -> 5;
+get_payload_from_codec({'DVI4',16000,1}) -> 6;
+get_payload_from_codec({'LPC',8000,1}) -> 7;
+get_payload_from_codec({'PCMA',8000,1}) -> 8;
+get_payload_from_codec({'G722',8000,1}) -> 9;
+get_payload_from_codec({'L16',8000,2}) -> 10; % FIXME 44100 according to RFC3551
+get_payload_from_codec({'L16',8000,1}) -> 11; % FIXME 44100 according to RFC3551
+get_payload_from_codec({'QCELP',8000,1}) -> 12;
+get_payload_from_codec({'CN',8000,1}) -> 13;
+get_payload_from_codec({'MPA',90000,0}) -> 14; % FIXME 90000 Hz?
+get_payload_from_codec({'G728',8000,1}) -> 15;
+get_payload_from_codec({'DVI4',11025,1}) -> 16;
+get_payload_from_codec({'DVI4',22050,1}) -> 17;
+get_payload_from_codec({'G729',8000,1}) -> 18; % FIXME the same as G.729a?
+get_payload_from_codec({'H261',90000,0}) -> 31;
+get_payload_from_codec({'H263',90000,0}) -> 34.
