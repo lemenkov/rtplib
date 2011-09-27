@@ -35,7 +35,8 @@ init(Format) ->
 		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
 		?RTP_PAYLOAD_GSM -> gsm_codec_drv;
 		?RTP_PAYLOAD_PCMA -> pcma_codec_drv;
-		?RTP_PAYLOAD_G722 -> g722_codec_drv
+		?RTP_PAYLOAD_G722 -> g722_codec_drv;
+		?RTP_PAYLOAD_DVI4_8KHz -> dvi4_codec_drv
 	end,
 	case
 		case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", DriverName) of
