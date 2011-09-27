@@ -1,3 +1,6 @@
-ebin/*.beam
-priv/erlang-rtplib.spec
 *~
+c_src/*.o
+ebin/
+erl_crash.dump
+priv/*.so
+priv/erlang-rtplib.spec
