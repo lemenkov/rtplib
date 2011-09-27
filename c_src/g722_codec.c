@@ -54,8 +54,8 @@ static int codec_drv_control(
 
 	switch(command) {
 		case CMD_ENCODE:
-			out = driver_alloc_binary(len);
-			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len);
+			out = driver_alloc_binary(len >> 1);
+			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
