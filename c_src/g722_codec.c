@@ -26,8 +26,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->estate = g722_encode_init(NULL, 64000, 0);
-	d->dstate = g722_decode_init(NULL, 64000, 0);
+	d->estate = g722_encode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
+	d->dstate = g722_decode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
