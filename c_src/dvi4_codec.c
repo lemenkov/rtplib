@@ -54,6 +54,7 @@ static int codec_drv_control(
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
+			/* FIXME */
 			out = driver_alloc_binary(len / 2);
 			ret = ima_adpcm_decode(d->state, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
 			*rbuf = (char *) out;
