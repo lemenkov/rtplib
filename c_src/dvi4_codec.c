@@ -46,12 +46,12 @@ static int codec_drv_control(
 	switch(command) {
 		case CMD_ENCODE:
 			out = driver_alloc_binary(len >> 1);
-			ret = ima_adpcm_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
+			ret = ima_adpcm_encode(d->state, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
 			out = driver_alloc_binary(len / 2);
-			ret = ima_adpcm_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
+			ret = ima_adpcm_decode(d->state, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
 			*rbuf = (char *) out;
 			break;
 		 default:
