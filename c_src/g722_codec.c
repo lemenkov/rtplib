@@ -22,16 +22,12 @@ enum {
 	FRAME_SIZE_3 = 240
 };
 
-#define SAMPLE_SIZE 2
-#define OBUFLEN (128 * 1024)
-#define IBUFLEN (OBUFLEN / SAMPLE_SIZE)
-
 static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->estate = g722_encode_init(NULL, 64000, 0);
-	d->dstate = g722_decode_init(NULL, 64000, 0);
+	d->estate = g722_encode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
+	d->dstate = g722_decode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -58,12 +54,12 @@ static int codec_drv_control(
 
 	switch(command) {
 		case CMD_ENCODE:
-			out = driver_alloc_binary(OBUFLEN);
-			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len);
+			out = driver_alloc_binary(len >> 1);
+			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
-			out = driver_alloc_binary(IBUFLEN);
+			out = driver_alloc_binary(len / 2);
 			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
 			*rbuf = (char *) out;
 			break;
