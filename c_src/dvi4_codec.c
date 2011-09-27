@@ -3,12 +3,11 @@
 #include <stdio.h>
 #include "erl_driver.h"
 #include <spandsp/telephony.h>
-#include <spandsp/g722.h>
+#include <spandsp/ima_adpcm.h>
 
 typedef struct {
 	ErlDrvPort port;
-	g722_encode_state_t* estate;
-	g722_decode_state_t* dstate;
+	ima_adpcm_state_t* state;
 } codec_data;
 
 enum {
@@ -16,18 +15,11 @@ enum {
 	CMD_DECODE = 2
 };
 
-enum {
-	FRAME_SIZE_1 = 80,
-	FRAME_SIZE_2 = 160,
-	FRAME_SIZE_3 = 240
-};
-
 static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->estate = g722_encode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
-	d->dstate = g722_decode_init(NULL, 64000, G722_SAMPLE_RATE_8000);
+	d->state = ima_adpcm_init(NULL, IMA_ADPCM_DVI4, 0);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -35,8 +27,7 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 static void codec_drv_stop(ErlDrvData handle)
 {
 	codec_data *d = (codec_data *) handle;
-	g722_encode_free(d->estate);
-	g722_decode_free(d->dstate);
+	ima_adpcm_free(d->state);
 	driver_free((char*)handle);
 }
 
@@ -51,17 +42,21 @@ static int codec_drv_control(
 	int ret = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
+	char* tmp = NULL;
 
 	switch(command) {
 		case CMD_ENCODE:
-			out = driver_alloc_binary(len >> 1);
-			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
+			tmp = (char*)calloc(len, sizeof(char));
+			ret = ima_adpcm_encode(d->state, tmp, (const int16_t *)buf, len >> 1);
+			out = driver_alloc_binary(ret);
+			memcpy(out->orig_bytes, tmp, ret);
+			free(tmp);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
 			/* FIXME */
 			out = driver_alloc_binary(len / 2);
-			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
+			ret = ima_adpcm_decode(d->state, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
 			*rbuf = (char *) out;
 			break;
 		 default:
@@ -77,7 +72,7 @@ ErlDrvEntry codec_driver_entry = {
 	NULL,			/* F_PTR output, called when erlang has sent */
 	NULL,			/* F_PTR ready_input, called when input descriptor ready */
 	NULL,			/* F_PTR ready_output, called when output descriptor ready */
-	"g722_codec_drv",	/* char *driver_name, the argument to open_port */
+	"dvi4_codec_drv",		/* char *driver_name, the argument to open_port */
 	NULL,			/* F_PTR finish, called when unloaded */
 	NULL,			/* handle */
 	codec_drv_control,	/* F_PTR control, port_command callback */
