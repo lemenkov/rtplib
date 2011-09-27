@@ -25,6 +25,7 @@
 % http://www.ietf.org/rfc/rfc3389.txt
 % http://www.ietf.org/rfc/rfc3551.txt
 % http://www.ietf.org/rfc/rfc4587.txt
+% http://www.cisco.com/en/US/tech/tk652/tk698/technologies_tech_note09186a0080094ae2.shtml
 
 -define(RTP_PAYLOAD_PCMU,	0).
 -define(RTP_PAYLOAD_GSM,	3).
