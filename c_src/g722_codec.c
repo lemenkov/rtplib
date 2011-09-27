@@ -53,13 +53,19 @@ static int codec_drv_control(
 	codec_data* d = (codec_data*)handle;
 
 	int ret = 0;
+	int i  = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
+
+	short* pcm16 = (short*)calloc(len, sizeof(short));
+	/* FIXME speedup this */
+	for(i = 0; i < len; i++)
+		pcm16[i] = (buf[i] - 128) << 8;
 
 	switch(command) {
 		case CMD_ENCODE:
 			out = driver_alloc_binary(OBUFLEN);
-			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len);
+			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)pcm16, len);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
