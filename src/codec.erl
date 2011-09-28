@@ -20,8 +20,9 @@
 
 -define(CMD_ENCODE, 1).
 -define(CMD_DECODE, 2).
+-define(CMD_RESAMPLE(FromSR, FromCh, ToSR, ToCh), (FromSR div 1000) * 16777216 + FromCh * 65536  + (ToSR div 1000) * 256 + ToCh).
 
--record(state, {port}).
+-record(state, {port, type, samplerate, channels, resolution, resampler}).
 
 start_link(Args) when
 	Args == {'PCMU',8000,1};
@@ -37,7 +38,7 @@ start_link(Args) when
 start_link(_) ->
 	{stop, unsupported}.
 
-init({Format, ClockRate, Channels}) ->
+init({Format, SampleRate, Channels}) ->
 	DriverName = case Format of
 		'PCMU' -> pcmu_codec_drv;
 		'GSM'  -> gsm_codec_drv;
@@ -54,18 +55,68 @@ init({Format, ClockRate, Channels}) ->
 		end
 	of
 		ok ->
-			Port = open_port({spawn, DriverName}, [binary]),
-			{ok, #state{port = Port}};
+			case
+				case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", resampler_drv) of
+					ok -> ok;
+					{error, already_loaded} -> ok;
+					{error, permanent} -> ok;
+					{error, Error0} -> error_logger:error_msg("Can't load ~p resampler: ~p~n", [Format, erl_ddll:format_error(Error0)]), {error, Error0}
+				end
+			of
+				ok ->
+					Port = open_port({spawn, DriverName}, [binary]),
+					PortResampler = open_port({spawn, resampler_drv}, [binary]),
+					% FIXME only 16-bits per sample currently
+					{ok, #state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = 16, resampler = PortResampler}};
+				{error, Error2} ->
+					{stop, Error2}
+			end;
 		{error, Error1} ->
 			{stop, Error1}
 	end.
 
-handle_call({Action, Data}, _From, #state{port = Port} = State) when Action == ?CMD_ENCODE; Action == ?CMD_DECODE ->
-	Reply = case port_control(Port, Action, Data) of
-		Binary when is_binary(Binary) -> {ok, Binary};
-		_ -> {error, codec_error}
-	end,
-	{reply, Reply, State};
+% Encoding doesn't require resampling
+handle_call(
+	{?CMD_ENCODE, {Binary, SampleRate, Channels, Resolution}},
+	_From,
+	#state{port = Port, samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
+) ->
+	case port_control(Port, ?CMD_ENCODE, Binary) of
+		NewBinary when is_binary(NewBinary) ->
+			{reply, {ok, NewBinary}, State};
+		_ ->
+			{reply, {error, codec_error}, State}
+	end;
+
+% Encoding requires resampling
+handle_call(
+	{?CMD_ENCODE, {Binary, SampleRate, Channels, Resolution}},
+	_From,
+	#state{port = Port, samplerate = NativeSampleRate, channels = NativeChannels, resolution = NativeResolution, resampler = PortResampler} = State
+) ->
+	case port_control(PortResampler, ?CMD_RESAMPLE(SampleRate, Channels, NativeSampleRate, NativeChannels), Binary) of
+		ResampledBinary when is_binary(ResampledBinary) ->
+			case port_control(Port, ?CMD_ENCODE, Binary) of
+				NewBinary when is_binary(NewBinary) ->
+					{reply, {ok, NewBinary}, State};
+				_ ->
+					{reply, {error, codec_error}, State}
+			end;
+		_ ->
+			{reply, {error, resampler_error}, State}
+	end;
+
+handle_call(
+	{?CMD_DECODE, Binary},
+	_From,
+	#state{port = Port, samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
+) ->
+	case port_control(Port, ?CMD_DECODE, Binary) of
+		NewBinary when is_binary(NewBinary) ->
+			{reply, {ok, {NewBinary, SampleRate, Channels, Resolution}}, State};
+		_ ->
+			{reply, {error, codec_error}, State}
+	end;
 
 handle_call(_Other, _From, State) ->
 	{noreply, State}.
@@ -85,8 +136,9 @@ handle_info(_Info, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(_Reason, #state{port = Port}) ->
+terminate(_Reason, #state{port = Port, resampler = PortResampler}) ->
 	catch port_close(Port),
+	catch port_close(PortResampler),
 	ok.
 
 close(Codec) when is_pid(Codec) ->
@@ -95,5 +147,5 @@ close(Codec) when is_pid(Codec) ->
 decode(Codec, Payload) when is_pid(Codec), is_binary(Payload) ->
 	gen_server:call(Codec, {?CMD_DECODE, Payload}).
 
-encode(Codec, Payload) when is_pid(Codec), is_binary(Payload) ->
-	gen_server:call(Codec, {?CMD_ENCODE, Payload}).
+encode(Codec, {Payload, SampleRate, Channels, Resolution}) when is_pid(Codec), is_binary(Payload) ->
+	gen_server:call(Codec, {?CMD_ENCODE, {Payload, SampleRate, Channels, Resolution}}).
