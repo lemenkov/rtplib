@@ -25,10 +25,13 @@
 
 start_link(Args) when
 	Args == {'PCMU',8000,1};
-	Args == {'PCMA',8000,1};
 	Args == {'GSM', 8000,1};
+	Args == {'DVI4',8000,1};
+	Args == {'DVI4',16000,1};
+	Args == {'PCMA',8000,1};
 	Args == {'G722',8000,1};
-	Args == {'DVI4',8000,1}
+	Args == {'DVI4',11025,1};
+	Args == {'DVI4',22050,1}
 	->
 	gen_server:start_link(?MODULE, Args, []);
 start_link(_) ->
@@ -36,11 +39,11 @@ start_link(_) ->
 
 init({Format, ClockRate, Channels}) ->
 	DriverName = case Format of
-		?RTP_PAYLOAD_PCMU -> pcmu_codec_drv;
-		?RTP_PAYLOAD_GSM -> gsm_codec_drv;
-		?RTP_PAYLOAD_PCMA -> pcma_codec_drv;
-		?RTP_PAYLOAD_G722 -> g722_codec_drv;
-		?RTP_PAYLOAD_DVI4_8KHz -> dvi4_codec_drv
+		'PCMU' -> pcmu_codec_drv;
+		'GSM'  -> gsm_codec_drv;
+		'DVI4' -> dvi4_codec_drv;
+		'PCMA' -> pcma_codec_drv;
+		'G722' -> g722_codec_drv
 	end,
 	case
 		case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", DriverName) of
