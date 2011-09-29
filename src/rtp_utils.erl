@@ -300,4 +300,6 @@ get_payload_from_codec({'DVI4',11025,1}) -> 16;
 get_payload_from_codec({'DVI4',22050,1}) -> 17;
 get_payload_from_codec({'G729',8000,1}) -> 18; % FIXME the same as G.729a?
 get_payload_from_codec({'H261',90000,0}) -> 31;
-get_payload_from_codec({'H263',90000,0}) -> 34.
+get_payload_from_codec({'H263',90000,0}) -> 34;
+
+get_payload_from_codec(C) when is_integer(C) -> C.
