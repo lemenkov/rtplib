@@ -15,6 +15,7 @@
 -record(rfc2833, {event, eof, volume, duration}).
 
 % http://www.iana.org/assignments/rtp-parameters
+% http://en.wikipedia.org/wiki/RTP_audio_video_profile
 % See these RFCs for further details:
 
 % http://www.ietf.org/rfc/rfc2029.txt
