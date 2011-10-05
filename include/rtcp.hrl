@@ -24,8 +24,9 @@
 -define(RTCP_RTPFB,205). % RFC 4585
 -define(RTCP_PSFB, 206). % RFC 4585
 -define(RTCP_XR,   207). % RFC 3611
--define(RTCP_AVB,  208). % IEEE 1733
--define(RTCP_RSI,  209). % RFC 5760
+%-define(RTCP_AVB,  208). % IEEE 1733
+%-define(RTCP_RSI,  209). % RFC 5760
+%-define(RTCP_TOKEN, 210). % RFC 6285
 
 -define(SDES_NULL,  0).
 -define(SDES_CNAME, 1).
