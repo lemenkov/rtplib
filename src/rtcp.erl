@@ -392,11 +392,11 @@ encode(#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, SliBlocks/binary>>;
 
 encode(#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}) ->
-	PaddingBits = case BitLength + 96 rem 32 of
+	PaddingBits = case (BitLength + 96) rem 32 of
 		0 -> 0;
 		Rest -> 32 - Rest
 	end,
-	Length = (112 + BitLength + PaddingBits) / 32,
+	Length = (96 + BitLength + PaddingBits) / 32,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 3:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, PaddingBits:8, 0:1, PayloadType:7, Payload:BitLength, 0:PaddingBits>>;
 
 encode(#alfb{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, data = Data}) ->
