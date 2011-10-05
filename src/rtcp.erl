@@ -148,9 +148,40 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_XR:8, Length:16, SSRC:32,
 	<<XReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#xr{ssrc=SSRC, xrblocks=decode_xrblocks(XReportBlocks, ByteLength)}]);
 
+% Transport layer FB message (Generic NACK)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 1:5, ?RTCP_RTPFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 8,
+	<<NackBlocks:ByteLength/binary, Tail>> = Rest,
+	GNACKs = decode_gnacks(NackBlocks, ByteLength, []),
+	decode(Tail, DecodedRtcps ++ [#gnack{ssrc_s=SSRC_Sender, ssrc_m = SSRC_Media, list=GNACKs}]);
+
+% Payload-Specific FeedBack message - Picture Loss Indication (PLI)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 1:5, ?RTCP_PSFB:8, 2:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
+	decode(Rest, DecodedRtcps ++ [#pli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media}]);
+
+% Payload-Specific FeedBack message - Slice Loss Indication (SLI)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 8,
+	<<SliBlocks:ByteLength/binary, Tail>> = Rest,
+	Slis = decode_slis(SliBlocks, ByteLength, []),
+	decode(Tail, DecodedRtcps ++ [#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}]);
+
+% Payload-Specific FeedBack message - Reference Picture Selection Indication (RPSI)
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 3:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, PaddingBits:8, 0:1, PayloadType:7, Rest/binary>>, DecodedRtcps) ->
+	BitLength = Length*32 - 112 - PaddingBits,
+	<<Payload:BitLength, _:PaddingBits, Tail/binary>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}]);
+
+% Payload-Specific FeedBack message - Application layer FB (AFB) message
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 15:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
+	ByteLength = Length*4 - 8,
+	<<Data:ByteLength/binary, Tail>> = Rest,
+	decode(Tail, DecodedRtcps ++ [#alfb{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, data = Data}]);
+
 decode(<<0:32, Rest/binary>>, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [<<0,0,0,0>>]~n"),
 	decode(Rest, DecodedRtcps);
+
 decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
 	{ok, DecodedRtcps}.
@@ -214,6 +245,20 @@ decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
 	ByteLength = BlockLength * 4,
 	<<BlockData:ByteLength/binary, Next/binary>> = Rest,
 	decode_xrblocks(Next, Length - (BlockLength * 4 + 4) , Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
+
+decode_gnacks(<<>>, _, Result) ->
+	Result;
+decode_gnacks(_, 0, Result) ->
+	Result;
+decode_gnacks(<<PID:16, BLP:16, Rest/binary>>, Length, Result) ->
+	decode_gnacks(Rest, Length - 4, Result ++ [{PID, BLP}]).
+
+decode_slis(<<>>, _, Result) ->
+	Result;
+decode_slis(_, 0, Result) ->
+	Result;
+decode_slis(<<First:13, Number:13, PictureID:6, Rest/binary>>, Length, Result) ->
+	decode_slis(Rest, Length - 4, Result ++ [{First, Number, PictureID}]).
 
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, Result) ->
@@ -324,7 +369,32 @@ encode(#app{subtype = Subtype, ssrc = SSRC, name = Name, data = Data}) ->
 	encode_app(Subtype, SSRC, Name, Data);
 
 encode(#xr{ssrc = SSRC, xrblocks = XRBlocks}) ->
-	encode_xr(SSRC, XRBlocks).
+	encode_xr(SSRC, XRBlocks);
+
+encode(#gnack{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, list = GNACKs}) ->
+	BinaryGNACKs = encode_gnack(GNACKs, <<>>),
+	Length = (size(BinaryGNACKs) + 8) / 4,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_RTPFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, BinaryGNACKs/binary>>;
+
+encode(#pli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media}) ->
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_PSFB:8, 2:16, SSRC_Sender:32, SSRC_Media:32>>;
+
+encode(#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}) ->
+	Length = length(Slis) + 2,
+	SliBlocks = encode_slis(Slis, <<>>),
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, SliBlocks/binary>>;
+
+encode(#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}) ->
+	PaddingBits = case BitLength + 112 rem 32 of
+		0 -> 0;
+		Rest -> 32 - Rest
+	end,
+	Length = (112 + BitLength + PaddingBits) / 32,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 3:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, PaddingBits:8, 0:1, PayloadType:7, Payload:BitLength, 0:PaddingBits>>;
+
+encode(#alfb{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, data = Data}) ->
+	Length = (size(Data) + 8) / 4,
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 15:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Data/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -420,6 +490,16 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 	XRBlocksData = encode_xrblocks(XRBlocks),
 	Length = 1 + size(XRBlocksData) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC:32, XRBlocksData/binary>>.
+
+encode_gnack([], Result) ->
+	Result;
+encode_gnack([{PID, BLP} | Rest], Result) ->
+	encode_gnack(Rest, <<Result/binary, PID:16, BLP:16>>).
+
+encode_slis([], Result) ->
+	Result;
+encode_slis([{First, Number, PictureID} | Rest], Result) ->
+	encode_slis(Rest, <<Result/binary, First:13, Number:13, PictureID:6>>).
 
 encode_rblocks(RBlocks) when is_list (RBlocks) ->
 	encode_rblocks(RBlocks, []).

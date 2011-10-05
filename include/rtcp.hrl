@@ -64,6 +64,16 @@
 -record(app, {subtype, ssrc=[], name=[], data=null}).
 % eXtended Report
 -record(xr, {ssrc, xrblocks=[]}).
+% Generic NACK
+-record(gnack, {ssrc_s, ssrc_m, list}).
+% Picture Loss Indication
+-record(pli, {ssrc_s, ssrc_m}).
+% Slice Loss Indication
+-record(sli, {ssrc_s, ssrc_m, slis}).
+% Reference Picture Selection Indication
+-record(rpsi, {ssrc_s, ssrc_m, type, bitlength, payload}).
+% Application Layer Feedback Messages
+-record(alfb, {ssrc_s, ssrc_m, data}).
 
 % ReportBlocks counted (RC) by 1)
 % * SSRC - SSRC of the source
