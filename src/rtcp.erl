@@ -181,6 +181,10 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, 15:5, ?RTCP_PSFB:8, Length:16, SSRC_Sen
 	<<Data:ByteLength/binary, Tail>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#alfb{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, data = Data}]);
 
+% IEEE 1733 AVB
+decode(<<?RTCP_VERSION:2, PaddingFlag:1, 0:5, ?RTCP_AVB:8, 9:16, SSRC:32, Name:32, GMTBI:16, GMID:10/binary, SID:8/binary, ASTime:64, RTPTime:64, Rest/binary>>, DecodedRtcps) ->
+	decode(Rest, DecodedRtcps ++ [#avb{ssrc = SSRC, name = Name, gmtbi = GMTBI, gmid = GMID, sid = SID, astime = ASTime, rtptime = RTPTime}]);
+
 decode(<<0:32, Rest/binary>>, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [<<0,0,0,0>>]~n"),
 	decode(Rest, DecodedRtcps);
@@ -397,7 +401,10 @@ encode(#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitl
 
 encode(#alfb{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, data = Data}) ->
 	Length = (size(Data) + 8) / 4,
-	<<?RTCP_VERSION:2, ?PADDING_NO:1, 15:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Data/binary>>.
+	<<?RTCP_VERSION:2, ?PADDING_NO:1, 15:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Data/binary>>;
+
+encode(#avb{ssrc = SSRC, name = Name, gmtbi = GMTBI, gmid = GMID, sid = SID, astime = ASTime, rtptime = RTPTime}) ->
+	<<?RTCP_VERSION:2, 0:1, 0:5, ?RTCP_AVB:8, 9:16, SSRC:32, Name:32, GMTBI:16, GMID:10/binary, SID:10/binary, ASTime:64, RTPTime:64>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
