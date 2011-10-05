@@ -171,7 +171,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Send
 
 % Payload-Specific FeedBack message - Reference Picture Selection Indication (RPSI)
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, 3:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, PaddingBits:8, 0:1, PayloadType:7, Rest/binary>>, DecodedRtcps) ->
-	BitLength = Length*32 - 112 - PaddingBits,
+	BitLength = Length*32 - 96 - PaddingBits,
 	<<Payload:BitLength, _:PaddingBits, Tail/binary>> = Rest,
 	decode(Tail, DecodedRtcps ++ [#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}]);
 
@@ -388,7 +388,7 @@ encode(#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, SliBlocks/binary>>;
 
 encode(#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}) ->
-	PaddingBits = case BitLength + 112 rem 32 of
+	PaddingBits = case BitLength + 96 rem 32 of
 		0 -> 0;
 		Rest -> 32 - Rest
 	end,
