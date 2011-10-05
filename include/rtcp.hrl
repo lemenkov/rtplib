@@ -24,7 +24,7 @@
 -define(RTCP_RTPFB,205). % RFC 4585
 -define(RTCP_PSFB, 206). % RFC 4585
 -define(RTCP_XR,   207). % RFC 3611
-%-define(RTCP_AVB,  208). % IEEE 1733
+-define(RTCP_AVB,  208). % IEEE 1733
 %-define(RTCP_RSI,  209). % RFC 5760
 %-define(RTCP_TOKEN, 210). % RFC 6285
 
@@ -76,6 +76,8 @@
 -record(rpsi, {ssrc_s, ssrc_m, type, bitlength, payload}).
 % Application Layer Feedback Messages
 -record(alfb, {ssrc_s, ssrc_m, data}).
+% IEEE 1733 AVB
+-record(avb, {ssrc, name, gmtbi, gmid, sid, astime, rtptime}).
 
 % ReportBlocks counted (RC) by 1)
 % * SSRC - SSRC of the source
