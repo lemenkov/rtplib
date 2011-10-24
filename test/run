@@ -1,4 +1,0 @@
-#!/bin/sh
-export ERL_FLAGS="$ERL_FLAGS -pz ../$1 -pa ebin"
-
-prove `pwd`/test/*.t

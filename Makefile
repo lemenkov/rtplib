@@ -18,8 +18,9 @@ all: compile
 compile:
 	VSN=$(VSN) BUILD_DATE=$(BUILD_DATE) $(REBAR) compile $(REBAR_FLAGS)
 
-check: all
-	@./test/run $(shell basename `pwd`)
+check: test
+test: all
+	$(REBAR) eunit
 
 install: all
 	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLDIR)/$$i ; done
