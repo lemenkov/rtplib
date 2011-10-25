@@ -17,8 +17,7 @@ BuildRequires:	gsm-devel
 BuildRequires:	libsamplerate-devel
 BuildRequires:	spandsp-devel
 BuildRequires:	erlang
-BuildRequires:	erlang-etap
-BuildRequires:	perl(Test::Harness)
+BuildRequires:	erlang-eunit
 Requires:	erlang
 
 
@@ -40,7 +39,7 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %check
-#make check
+make check
 
 
 %clean

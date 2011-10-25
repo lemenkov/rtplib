@@ -1,6 +1,6 @@
 -module(rtp_test).
 
--include_lib("rtplib/include/rtp.hrl").
+-include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 rtp_test_() ->

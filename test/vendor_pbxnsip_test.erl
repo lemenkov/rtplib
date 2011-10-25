@@ -1,6 +1,6 @@
 -module(vendor_pbxnsip_test).
 
--include_lib("rtplib/include/rtcp.hrl").
+-include("rtcp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 vendor_pbxnsip_test_() ->

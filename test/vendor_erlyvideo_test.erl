@@ -1,7 +1,7 @@
 -module(vendor_erlyvideo_test).
 
--include_lib("rtplib/include/rtcp.hrl").
--include_lib("rtplib/include/rtp.hrl").
+-include("rtcp.hrl").
+-include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 vendor_erlyvideo_test_() ->

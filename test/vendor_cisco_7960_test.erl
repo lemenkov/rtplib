@@ -1,6 +1,6 @@
 -module(vendor_cisco_7960_test).
 
--include_lib("rtplib/include/rtp.hrl").
+-include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 vendor_cisco_7960_test_() ->

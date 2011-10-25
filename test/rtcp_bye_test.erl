@@ -1,6 +1,6 @@
 -module(rtcp_bye_test).
 
--include_lib("rtplib/include/rtcp.hrl").
+-include("rtcp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 rtcp_BYE_test_() ->

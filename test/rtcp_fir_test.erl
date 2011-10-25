@@ -1,6 +1,6 @@
 -module(rtcp_fir_test).
 
--include_lib("rtplib/include/rtcp.hrl").
+-include("rtcp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 rtcp_FIR_test_() ->
