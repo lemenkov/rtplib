@@ -1,22 +1,12 @@
-#!/usr/bin/escript
-%% -*- erlang -*-
+-module(vendor_erlyvideo_test).
 
--include_lib("rtplib/include/rtcp.hrl").
+-include("rtcp.hrl").
+-include("rtp.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
-main(_) ->
-	etap:plan(8),
-
-	Sr1 = <<128,200,0,6,0,5,109,113,209,42,13,22,155,119,111,188,0,5,41,205,0,0,0,88,0,1,126,194>>,
-	Sdes1 = <<129,202,0,5,0,5,109,113,1,11,81,84,83,32,53,49,49,48,51,56,49,0,0,0>>,
-
-	Sr2 = <<128,200,0,6,0,70,87,111,209,42,13,22,152,254,225,253,0,13,240,18,0,0,4,105,0,16,221,37>>,
-	Sdes2 = <<129,202,0,5,0,70,87,111,1,11,81,84,83,32,53,49,49,48,51,56,49,0,0,0>>,
-
-	BinRtp1 = <<128,97,43,135,0,3,21,176,0,201,89,153,6,5,17,3,135,244,78,205,10,75,220,161,148,58,195,212,155,23,31,0,128>>,
-	BinRtp2 = <<128,97,43,136,0,3,21,177,0,201,89,153,6,5,17,3,135,244,78,205,10,75,220,161,148,58,195,212,155,23,31,0,128>>,
-
+vendor_erlyvideo_test_() ->
 	% Wirecast Video frame
-	BinRtp3 = <<128,97,70,186,0,13,251,202,0,70,87,111,60,129,
+	VideoPayload1 = <<60,129,
 		228,17,1,212,184,112,147,252,5,151,0,187,95,163, 215,254,22,187,
 		185,253,229,148,100,63,132,38,255,35,32,129,245,180,116,61,112,
 		224,105,84,190,140,19,67,94,248,21,250,182,159,255,5,250,66,22,
@@ -100,8 +90,22 @@ main(_) ->
 		221,78,145,246,27,187,179,252,49,201,9,194,240,212,168,14,98,70,
 		113,171,26,152,190,31,106,33,220,62,130,99,249,232,214>>,
 
+	RtpVideo1Bin = <<128,97,70,186,0,13,251,202,0,70,87,111, VideoPayload1/binary>>,
+
+	RtpVideo1 = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 97,
+		sequence_number = 18106,
+		timestamp = 916426,
+		ssrc = 4609903,
+		csrcs = [],
+		extension = null,
+		payload = VideoPayload1
+	},
+
 	% Wirecast Audio frame
-	BinRtp4 = <<128,224,68,171,0,5,25,205,0,5,109,113,0,48,11,160,11,152,11,
+	AudioPayload1 = <<0,48,11,160,11,152,11,
 		0,33,0,3,64,104,27,255,192,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -139,24 +143,115 @@ main(_) ->
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,112>>,
 
-	{ok, [RtcpSr1, RtcpSdes1]} = rtcp:decode(<<Sr1/binary, Sdes1/binary>>),
-	{ok, [RtcpSr2, RtcpSdes2]} = rtcp:decode(<<Sr2/binary, Sdes2/binary>>),
+	RtpAudio1Bin = <<128,224,68,171,0,5,25,205,0,5,109,113, AudioPayload1/binary>>,
 
-	io:format("~p~n~p~n", [RtcpSr1, RtcpSdes1]),
+	RtpAudio1 = #rtp{
+		padding = 0,
+		marker = 1,
+		payload_type = 96,
+		sequence_number = 17579,
+		timestamp = 334285,
+		ssrc = 355697,
+		csrcs = [],
+		extension = null,
+		payload = AudioPayload1
+	},
 
-	etap:is(Sr1, rtcp:encode(RtcpSr1), "Check that we can reproduce original data stream from Sr1"),
-	etap:is(Sdes1, rtcp:encode(RtcpSdes1), "Check that we can reproduce original data stream from Sdes1"),
-	etap:is(Sr2, rtcp:encode(RtcpSr2), "Check that we can reproduce original data stream from Sr2"),
-	etap:is(Sdes2, rtcp:encode(RtcpSdes2), "Check that we can reproduce original data stream from Sdes2"),
+	Payload1 = <<6,5,17,3,135,244,78,205,10,75,220,161,148,58,195,212,155,23,31,0,128>>,
+	Payload2 = <<6,5,17,3,135,244,78,205,10,75,220,161,148,58,195,212,155,23,31,0,128>>,
+	Rtp1Bin = <<128,97,43,135,0,3,21,176,0,201,89,153, Payload1/binary>>,
+	Rtp2Bin = <<128,97,43,136,0,3,21,177,0,201,89,153, Payload2/binary>>,
 
-	{ok, Rtp1} = rtp:decode(BinRtp1),
-	{ok, Rtp2} = rtp:decode(BinRtp2),
-	{ok, Rtp3} = rtp:decode(BinRtp3),
-	{ok, Rtp4} = rtp:decode(BinRtp4),
+	Rtp1 = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 97,
+		sequence_number = 11143,
+		timestamp = 202160,
+		ssrc = 13195673,
+		csrcs = [],
+		extension = null,
+		payload = Payload1
+	},
+	Rtp2 = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 97,
+		sequence_number = 11144,
+		timestamp = 202161,
+		ssrc = 13195673,
+		csrcs = [],
+		extension = null,
+		payload = Payload2
+	},
 
-	etap:is(BinRtp1, rtp:encode(Rtp1), "Check that we can reproduce original data stream from RTP 1"),
-	etap:is(BinRtp2, rtp:encode(Rtp2), "Check that we can reproduce original data stream from RTP 2"),
-	etap:is(BinRtp3, rtp:encode(Rtp3), "Check that we can reproduce original data stream from RTP 3"),
-	etap:is(BinRtp4, rtp:encode(Rtp4), "Check that we can reproduce original data stream from RTP 4"),
+	Sr1Bin = <<128,200,0,6,0,5,109,113,209,42,13,22,155,119,111,188,0,5,41,205,0,0,0,88,0,1,126,194>>,
+	Sdes1Bin = <<129,202,0,5,0,5,109,113,1,11,81,84,83,32,53,49,49,48,51,56,49,0,0,0>>,
 
-	etap:end_tests().
+	Sr1 = #sr{
+		ssrc=355697,
+		ntp=15071873493697523644,
+		timestamp=338381,
+		packets=88,
+		octets=97986,
+		rblocks=[]
+	},
+	Sdes1 = #sdes{list=[[{ssrc,355697},{cname,"QTS 5110381"},{eof,true}]]},
+
+	Sr2Bin = <<128,200,0,6,0,70,87,111,209,42,13,22,152,254,225,253,0,13,240,18,0,0,4,105,0,16,221,37>>,
+	Sdes2Bin = <<129,202,0,5,0,70,87,111,1,11,81,84,83,32,53,49,49,48,51,56,49,0,0,0>>,
+
+	Sr2 = #sr{
+		ssrc=4609903,
+		ntp=15071873493656068605,
+		timestamp=913426,
+		packets=1129,
+		octets=1105189,
+		rblocks=[]
+	},
+	Sdes2 = #sdes{list=[[{ssrc,4609903},{cname,"QTS 5110381"},{eof,true}]]},
+
+	[
+		{"Decode first SR+SDES pair",
+			fun() -> ?assertEqual({ok, [Sr1, Sdes1]}, rtcp:decode(<<Sr1Bin/binary, Sdes1Bin/binary>>)) end
+		},
+		{"Decode second SR+SDES pair",
+			fun() -> ?assertEqual({ok, [Sr2, Sdes2]}, rtcp:decode(<<Sr2Bin/binary, Sdes2Bin/binary>>)) end
+		},
+		{"Decode Audio RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual({ok, RtpAudio1}, rtp:decode(RtpAudio1Bin)) end
+		},
+		{"Decode Video RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual({ok, RtpVideo1}, rtp:decode(RtpVideo1Bin)) end
+		},
+		{"Decode RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual({ok, Rtp1}, rtp:decode(Rtp1Bin)) end
+		},
+		{"Decode RTP packet #2 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual({ok, Rtp2}, rtp:decode(Rtp2Bin)) end
+		},
+		{"Encode first SR",
+			fun() -> ?assertEqual(Sr1Bin, rtcp:encode(Sr1)) end
+		},
+		{"Encode second SR",
+			fun() -> ?assertEqual(Sr2Bin, rtcp:encode(Sr2)) end
+		},
+		{"Encode first SDES",
+			fun() -> ?assertEqual(Sdes1Bin, rtcp:encode(Sdes1)) end
+		},
+		{"Encode second SDES",
+			fun() -> ?assertEqual(Sdes2Bin, rtcp:encode(Sdes2)) end
+		},
+		{"Encode Audio RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual(RtpAudio1Bin, rtp:encode(RtpAudio1)) end
+		},
+		{"Encode Video RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual(RtpVideo1Bin, rtp:encode(RtpVideo1)) end
+		},
+		{"Encode RTP packet #1 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual(Rtp1Bin, rtp:encode(Rtp1)) end
+		},
+		{"Encode RTP packet #2 (unknown dynamically assigned type)",
+			fun() -> ?assertEqual(Rtp2Bin, rtp:encode(Rtp2)) end
+		}
+	].

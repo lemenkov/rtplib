@@ -1,4 +1,5 @@
 *~
+.eunit/
 c_src/*.o
 ebin/
 erl_crash.dump
