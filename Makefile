@@ -1,7 +1,7 @@
 REBAR ?= $(shell which rebar 2>/dev/null || which ./rebar)
 REBAR_FLAGS ?=
 
-VSN := "0.5.5"
+VSN := "0.5.6"
 BUILD_DATE := `LANG=C date +"%a %b %d %Y"`
 NAME := rtplib
 
