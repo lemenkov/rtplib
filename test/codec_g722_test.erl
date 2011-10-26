@@ -15,9 +15,9 @@ codec_g722_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			% FIXME segfaults here
-%			{"Test decoding from G.722 to PCM",
-%				fun() -> ?assertEqual(true, decode(Codec, G722Raw, PcmRaw)) end
-%			},
+			{"Test decoding from G.722 to PCM",
+				fun() -> ?assertEqual(true, decode(Codec, G722Raw, PcmRaw)) end
+			},
 			{"Test encoding from PCM to G.722",
 				fun() -> ?assertEqual(true, encode(Codec, PcmRaw, G722Raw)) end
 			}
