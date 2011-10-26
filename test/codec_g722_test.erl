@@ -24,8 +24,6 @@ codec_g722_test_() ->
 		]
 	}.
 
-decode(Codec, <<>>, <<>>) ->
-	true;
 decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
 	true;
 decode(Codec, <<G722Frame:160/binary, G722Raw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
@@ -33,8 +31,6 @@ decode(Codec, <<G722Frame:160/binary, G722Raw/binary>>, <<PcmFrame:320/binary, P
 	error_logger:info_msg("~p~n~p~n~n", [PcmFrame, PcmFrame1]),
 	decode(Codec, G722Raw, PcmRaw).
 
-encode(Codec, <<>>, <<>>) ->
-	true;
 encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
 	true;
 encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<G722Frame:160/binary, G722Raw/binary>>) ->
