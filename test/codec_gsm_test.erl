@@ -23,13 +23,13 @@ codec_gsm_test_() ->
 		]
 	}.
 
-decode(Codec, <<>>, <<>>) ->
+decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 33; size(B) < 320 ->
 	true;
 decode(Codec, <<GsmFrame:33/binary, GsmRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
 	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, GsmFrame),
 	decode(Codec, GsmRaw, PcmRaw).
 
-encode(Codec, <<>>, <<>>) ->
+encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 33 ->
 	true;
 encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<GsmFrame:33/binary, GsmRaw/binary>>) ->
 	% FIXME add reference bitstream
