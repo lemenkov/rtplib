@@ -3,7 +3,7 @@
 -include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-codec_gsm_test_() ->	
+codec_gsm_test_() ->
 	% Original GSM stream
 	{ok, GsmRaw} = file:read_file("../test/sample-gsm-16-mono-8khz.raw"),
 	% Decoded PCM
