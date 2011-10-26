@@ -59,9 +59,8 @@ static int codec_drv_control(
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
-			/* FIXME */
-			out = driver_alloc_binary(len / 2);
-			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len);
+			out = driver_alloc_binary(len << 1);
+			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len) << 1;
 			*rbuf = (char *) out;
 			break;
 		 default:
