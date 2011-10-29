@@ -12,7 +12,7 @@ codec_gsm_test_() ->
 
 	{setup,
 		fun() -> Codec end,
-		fun(Codec) -> codec:close(Codec) end,
+		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from GSM to PCM",
 				fun() -> ?assertEqual(true, decode(Codec, GsmRaw, PcmRaw)) end
