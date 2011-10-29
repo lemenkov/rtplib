@@ -12,7 +12,7 @@ codec_pcma_test_() ->
 	% Source PCM for encoding
 	{ok, PcmIn} = file:read_file("../test/raw-pcm16.raw"),
 	% The resulting G.711a bitstream
-	{ok, PCMAOut} = file:read_file("../test/raw-alaw.raw"),
+	{ok, PCMAOut} = file:read_file("../test/raw-alaw.from_pcm"),
 
 	{ok, Codec} = codec:start_link({'PCMA',8000,1}),
 
@@ -38,8 +38,11 @@ decode(Codec, <<PCMAFrame:160/binary, PCMARaw/binary>>, <<PcmFrame:320/binary, P
 encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
 	true;
 encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<PCMAFrame:160/binary, PCMARaw/binary>>) ->
-	% FIXME add reference bitstream
-	{ok, PCMAFrame1} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-%	error_logger:info_msg("~p~n~p~n~n", [PCMAFrame, PCMAFrame1]),
-%	error_logger:info_msg("RET: ~p~n~n", [PCMAFrame == PCMAFrame1]),
+	{ok, PCMAFrame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
 	encode(Codec, PcmRaw, PCMARaw).
+
+compare(<<>>, <<>>, Ret) ->
+	Ret;
+compare(<<A:8, ARest/binary>>, <<B:8, BRest/binary>>, <<Ret/binary>>) ->
+	R = A - B,
+	compare(<<ARest/binary>>, <<BRest/binary>>, <<Ret/binary, R:8>>).
