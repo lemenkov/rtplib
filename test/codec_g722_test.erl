@@ -5,9 +5,9 @@
 
 codec_g722_test_() ->
 	% Original G.722 bitstream
-	{ok, G722Raw} = file:read_file("../test/conf-adminmenu-162.g722"),
+	{ok, G722In} = file:read_file("../test/conf-adminmenu-162.g722"),
 	% Decoded PCM
-	{ok, PcmRaw} = file:read_file("../test/conf-adminmenu-162.raw"),
+	{ok, PcmOut} = file:read_file("../test/conf-adminmenu-162.raw"),
 
 	% Source PCM for encoding
 	{ok, PcmIn} = file:read_file("../test/sample-pcm-16-mono-8khz.raw"),
@@ -21,7 +21,7 @@ codec_g722_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from G.722 to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, G722Raw, PcmRaw)) end
+				fun() -> ?assertEqual(true, decode(Codec, G722In, PcmOut)) end
 			},
 			{"Test encoding from PCM to G.722",
 				fun() -> ?assertEqual(true, encode(Codec, PcmIn, G722Out)) end
