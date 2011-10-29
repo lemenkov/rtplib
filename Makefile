@@ -20,6 +20,7 @@ compile:
 
 check: test
 test: all
+	@rm -rf .eunit
 	$(REBAR) eunit
 
 install: all
