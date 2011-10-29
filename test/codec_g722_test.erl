@@ -32,7 +32,7 @@ codec_g722_test_() ->
 decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
 	true;
 decode(Codec, <<G722Frame:160/binary, G722Raw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame1, 8000, 1, 16}} = codec:decode(Codec, G722Frame),
+	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, G722Frame),
 	decode(Codec, G722Raw, PcmRaw).
 
 encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
