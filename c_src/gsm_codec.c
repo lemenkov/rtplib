@@ -8,7 +8,8 @@
 
 typedef struct {
 	ErlDrvPort port;
-	gsm state;
+	gsm dstate;
+	gsm estate;
 } codec_data;
 
 enum {
@@ -23,7 +24,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->state = gsm_create();
+	d->dstate = gsm_create();
+	d->estate = gsm_create();
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -31,7 +33,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 static void codec_drv_stop(ErlDrvData handle)
 {
 	codec_data *d = (codec_data *) handle;
-	gsm_destroy(d->state);
+	gsm_destroy(d->dstate);
+	gsm_destroy(d->estate);
 	driver_free((char*)handle);
 }
 
@@ -53,18 +56,15 @@ static int codec_drv_control(
 		case CMD_ENCODE:
 			if (len != FRAME_SIZE * 2)
 				break;
-			for (i = 0; i < FRAME_SIZE; i++) {
-				sample[i] = (((gsm_signal) buf[i * 2]) & 0xf8) | (((gsm_signal) buf[i * 2 + 1]) << 8);
-			}
 			out = driver_alloc_binary(GSM_SIZE);
-			gsm_encode(d->state, sample, (gsm_byte *) out->orig_bytes);
+			gsm_encode(d->estate, (gsm_signal *)buf, (gsm_byte *) out->orig_bytes);
 			*rbuf = (char *)out;
 			ret = GSM_SIZE;
 			break;
 		 case CMD_DECODE:
 			if (len != GSM_SIZE)
 				break;
-			gsm_decode(d->state, (gsm_byte *) buf, sample);
+			gsm_decode(d->dstate, (gsm_byte *) buf, sample);
 			out = driver_alloc_binary(FRAME_SIZE * 2);
 			for (i = 0; i < FRAME_SIZE; i++){
 				out->orig_bytes[i * 2] = (char) (sample[i] & 0xff);
