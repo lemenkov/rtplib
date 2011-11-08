@@ -40,9 +40,3 @@ encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 
 encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<PCMAFrame:160/binary, PCMARaw/binary>>) ->
 	{ok, PCMAFrame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
 	encode(Codec, PcmRaw, PCMARaw).
-
-compare(<<>>, <<>>, Ret) ->
-	Ret;
-compare(<<A:8, ARest/binary>>, <<B:8, BRest/binary>>, <<Ret/binary>>) ->
-	R = A - B,
-	compare(<<ARest/binary>>, <<BRest/binary>>, <<Ret/binary, R:8>>).
