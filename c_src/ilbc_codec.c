@@ -5,7 +5,7 @@
 #include <ilbc/iLBC_define.h>
 #include <ilbc/iLBC_decode.h>
 #include <ilbc/iLBC_encode.h>
-#include <syslog.h>
+//#include <syslog.h>
 
 typedef struct {
 	ErlDrvPort port;
@@ -31,7 +31,7 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 	initEncode(&d->estate30, 30);
 	initDecode(&d->dstate30, 30, 0 /* 1=use_enhancer */);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
-	openlog("ilbc_codec_drv", LOG_NDELAY, LOG_USER);
+//	openlog("ilbc_codec_drv", LOG_NDELAY, LOG_USER);
 	return (ErlDrvData)d;
 }
 

@@ -34,7 +34,7 @@ decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 38; size(B) < 3
 decode(Codec, <<IlbcFrame:38/binary, IlbcRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
 	% FIXME add reference bitstream
 	{ok, {PcmFrame1, 8000, 1, 16}} = codec:decode(Codec, IlbcFrame),
-	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [PcmFrame, PcmFrame1, size(PcmFrame1), diff(PcmFrame, PcmFrame1)]),
+%	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [PcmFrame, PcmFrame1, size(PcmFrame1), diff(PcmFrame, PcmFrame1)]),
 	decode(Codec, IlbcRaw, PcmRaw).
 
 encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 38 ->
@@ -45,14 +45,14 @@ encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<IlbcFrame:38/binary, Ilb
 %	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [IlbcFrame, IlbcFrame1, size(IlbcFrame1), diff(IlbcFrame, IlbcFrame1)]),
 	encode(Codec, PcmRaw, IlbcRaw).
 
-diff(A, B) ->
-	diff(<<>>, A, B).
-
-diff(Ret, <<>>, _) ->
-	Ret;
-diff(Ret, _, <<>>) ->
-	Ret;
-
-diff(Ret, <<ByteA:8, RestA/binary>>, <<ByteB:8, RestB/binary>>) ->
-	Diff = ByteA - ByteB,
-	diff(<<Ret/binary, Diff:8>>, RestA, RestB).
+%diff(A, B) ->
+%	diff(<<>>, A, B).
+%
+%diff(Ret, <<>>, _) ->
+%	Ret;
+%diff(Ret, _, <<>>) ->
+%	Ret;
+%
+%diff(Ret, <<ByteA:8, RestA/binary>>, <<ByteB:8, RestB/binary>>) ->
+%	Diff = ByteA - ByteB,
+%	diff(<<Ret/binary, Diff:8>>, RestA, RestB).
