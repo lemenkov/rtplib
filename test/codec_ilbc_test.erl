@@ -33,7 +33,7 @@ decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 38; size(B) < 3
 	true;
 decode(Codec, <<IlbcFrame:38/binary, IlbcRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
 	% FIXME add reference bitstream
-	{ok, {PcmFrame1, 8000, 1, 16}} = codec:decode(Codec, IlbcFrame),
+	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, IlbcFrame),
 %	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [PcmFrame, PcmFrame1, size(PcmFrame1), diff(PcmFrame, PcmFrame1)]),
 	decode(Codec, IlbcRaw, PcmRaw).
 
