@@ -5,14 +5,14 @@
 
 codec_ilbc_test_() ->
 	% Original iLBC stream
-	{ok, IlbcIn} = file:read_file("../test/F00.BIT20"),
+	{ok, IlbcIn} = file:read_file("../test/samples/ilbc/F00.BIT20"),
 	% Decoded PCM
-	{ok, PcmOut} = file:read_file("../test/F00.OUT20"),
+	{ok, PcmOut} = file:read_file("../test/samples/ilbc/F00.OUT20"),
 
 	% Original PCM
-	{ok, PcmIn} = file:read_file("../test/F00.INP"),
+	{ok, PcmIn} = file:read_file("../test/samples/ilbc/F00.INP"),
 	% Original SPEEX stream
-	{ok, IlbcOut} = file:read_file("../test/F00.BIT20"),
+	{ok, IlbcOut} = file:read_file("../test/samples/ilbc/F00.BIT20"),
 
 	{ok, Codec} = codec:start_link({'ILBC',8000,1}),
 
