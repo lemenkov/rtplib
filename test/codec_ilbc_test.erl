@@ -44,15 +44,3 @@ encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<IlbcFrame:38/binary, Ilb
 	{ok, IlbcFrame1} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
 %	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [IlbcFrame, IlbcFrame1, size(IlbcFrame1), diff(IlbcFrame, IlbcFrame1)]),
 	encode(Codec, PcmRaw, IlbcRaw).
-
-%diff(A, B) ->
-%	diff(<<>>, A, B).
-%
-%diff(Ret, <<>>, _) ->
-%	Ret;
-%diff(Ret, _, <<>>) ->
-%	Ret;
-%
-%diff(Ret, <<ByteA:8, RestA/binary>>, <<ByteB:8, RestB/binary>>) ->
-%	Diff = ByteA - ByteB,
-%	diff(<<Ret/binary, Diff:8>>, RestA, RestB).
