@@ -21,22 +21,10 @@ codec_g722_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from G.722 to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, G722In, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("G.722", Codec, G722In, PcmOut, 160, 320)) end
 			},
 			{"Test encoding from PCM to G.722",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, G722Out)) end
+				fun() -> ?assertEqual(true, test_utils:encode("G.722", Codec, PcmIn, G722Out, 320, 160)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
-	true;
-decode(Codec, <<G722Frame:160/binary, G722Raw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, G722Frame),
-	decode(Codec, G722Raw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<G722Frame:160/binary, G722Raw/binary>>) ->
-	{ok, G722Frame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, G722Raw).

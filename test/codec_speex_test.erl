@@ -21,24 +21,10 @@ codec_speex_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from SPEEX to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, SpeexIn, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("SPEEX", Codec, SpeexIn, PcmOut, 38, 320)) end
 			},
 			{"Test encoding from PCM to SPEEX",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, SpeexOut)) end
+				fun() -> ?assertEqual(true, test_utils:encode_f("SPEEX", Codec, PcmIn, SpeexOut, 320, 38)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 38; size(B) < 320 ->
-	true;
-decode(Codec, <<SpeexFrame:38/binary, SpeexRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	% FIXME add reference bitstream
-	{ok, {PcmFrame1, 8000, 1, 16}} = codec:decode(Codec, SpeexFrame),
-	decode(Codec, SpeexRaw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 38 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<SpeexFrame:38/binary, SpeexRaw/binary>>) ->
-	% FIXME add reference bitstream
-	{ok, SpeexFrame1} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, SpeexRaw).

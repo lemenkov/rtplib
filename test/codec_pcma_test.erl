@@ -21,22 +21,10 @@ codec_pcma_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from G.711a to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, PCMAIn, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("G.711a / PCMA", Codec, PCMAIn, PcmOut, 160, 320)) end
 			},
 			{"Test encoding from PCM to G.711a",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, PCMAOut)) end
+				fun() -> ?assertEqual(true, test_utils:encode("G.711a / PCMA", Codec, PcmIn, PCMAOut, 320, 160)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
-	true;
-decode(Codec, <<PCMAFrame:160/binary, PCMARaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, PCMAFrame),
-	decode(Codec, PCMARaw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<PCMAFrame:160/binary, PCMARaw/binary>>) ->
-	{ok, PCMAFrame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, PCMARaw).

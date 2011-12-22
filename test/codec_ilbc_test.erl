@@ -21,26 +21,10 @@ codec_ilbc_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from iLBC to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, IlbcIn, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("iLBC", Codec, IlbcIn, PcmOut, 38, 320)) end
 			},
 			{"Test encoding from PCM to iLBC",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, IlbcOut)) end
+				fun() -> ?assertEqual(true, test_utils:encode_f("iLBC", Codec, PcmIn, IlbcOut, 320, 38)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 38; size(B) < 320 ->
-	true;
-decode(Codec, <<IlbcFrame:38/binary, IlbcRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	% FIXME add reference bitstream
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, IlbcFrame),
-%	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [PcmFrame, PcmFrame1, size(PcmFrame1), diff(PcmFrame, PcmFrame1)]),
-	decode(Codec, IlbcRaw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 38 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<IlbcFrame:38/binary, IlbcRaw/binary>>) ->
-	% FIXME add reference bitstream
-	{ok, IlbcFrame1} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-%	error_logger:info_msg("~p~n~p~n~p ~p~n~n", [IlbcFrame, IlbcFrame1, size(IlbcFrame1), diff(IlbcFrame, IlbcFrame1)]),
-	encode(Codec, PcmRaw, IlbcRaw).

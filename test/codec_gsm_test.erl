@@ -21,22 +21,10 @@ codec_gsm_test_() ->
 		fun(C) -> codec:close(C) end,
 		[
 			{"Test decoding from GSM to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, GsmIn, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("GSM", Codec, GsmIn, PcmOut, 33, 320)) end
 			},
 			{"Test encoding from PCM to GSM",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, GsmOut)) end
+				fun() -> ?assertEqual(true, test_utils:encode("GSM", Codec, PcmIn, GsmOut, 320, 33)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 33; size(B) < 320 ->
-	true;
-decode(Codec, <<GsmFrame:33/binary, GsmRaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, GsmFrame),
-	decode(Codec, GsmRaw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 33 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<GsmFrame:33/binary, GsmRaw/binary>>) ->
-	{ok, GsmFrame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, GsmRaw).

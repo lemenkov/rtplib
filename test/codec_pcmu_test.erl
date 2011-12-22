@@ -22,22 +22,10 @@ codec_pcmu_test_() ->
 		[
 			% FIXME segfaults here
 			{"Test decoding from G.711u to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, PCMUIn, PcmOut)) end
+				fun() -> ?assertEqual(true, test_utils:decode("G.711u / PCMU", Codec, PCMUIn, PcmOut, 160, 320)) end
 			},
 			{"Test encoding from PCM to G.711u",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, PCMUOut)) end
+				fun() -> ?assertEqual(true, test_utils:encode("G.711a / PCMA", Codec, PcmIn, PCMUOut, 320, 160)) end
 			}
 		]
 	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
-	true;
-decode(Codec, <<PCMUFrame:160/binary, PCMURaw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, PCMUFrame),
-	decode(Codec, PCMURaw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<PCMUFrame:160/binary, PCMURaw/binary>>) ->
-	{ok, PCMUFrame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, PCMURaw).
