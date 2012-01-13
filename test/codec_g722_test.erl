@@ -9,8 +9,8 @@ codec_g722_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_decode(
-							"../test/conf-adminmenu-162.g722",
-							"../test/conf-adminmenu-162.raw",
+							"../test/samples/g722/conf-adminmenu-162.g722",
+							"../test/samples/g722/conf-adminmenu-162.raw",
 							160,
 							320,
 							"G.722",
@@ -22,8 +22,8 @@ codec_g722_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_encode(
-							"../test/sample-pcm-16-mono-8khz.raw",
-							"../test/sample-g722-16-mono-8khz.raw",
+							"../test/samples/g722/sample-pcm-16-mono-8khz.raw",
+							"../test/samples/g722/sample-g722-16-mono-8khz.raw",
 							320,
 							160,
 							"G.722",
