@@ -9,8 +9,8 @@ codec_pcma_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_decode(
-							"../test/raw-alaw.raw",
-							"../test/raw-pcm16.from_alaw",
+							"../test/samples/pcma/raw-alaw.raw",
+							"../test/samples/pcma/raw-pcm16.from_alaw",
 							160,
 							320,
 							"G.711a / PCMA",
@@ -22,8 +22,8 @@ codec_pcma_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_encode(
-							"../test/raw-pcm16.raw",
-							"../test/raw-alaw.from_pcm",
+							"../test/samples/pcma/raw-pcm16.raw",
+							"../test/samples/pcma/raw-alaw.from_pcm",
 							320,
 							160,
 							"G.711a / PCMA",
