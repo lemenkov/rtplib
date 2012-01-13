@@ -9,8 +9,8 @@ codec_pcmu_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_decode(
-							"../test/raw-ulaw.raw",
-							"../test/raw-pcm16.from_ulaw",
+							"../test/samples/pcmu/raw-ulaw.raw",
+							"../test/samples/pcmu/raw-pcm16.from_ulaw",
 							160,
 							320,
 							"G.711u / PCMU",
@@ -22,8 +22,8 @@ codec_pcmu_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_encode(
-							"../test/raw-pcm16.raw",
-							"../test/raw-ulaw.raw",
+							"../test/samples/pcmu/raw-pcm16.raw",
+							"../test/samples/pcmu/raw-ulaw.raw",
 							320,
 							160,
 							"G.711u / PCMU",
