@@ -9,8 +9,8 @@ codec_gsm_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_decode(
-							"../test/sample-gsm-16-mono-8khz.raw",
-							"../test/sample-pcm-16-mono-8khz.raw",
+							"../test/samples/gsm/sample-gsm-16-mono-8khz.raw",
+							"../test/samples/gsm/sample-pcm-16-mono-8khz.raw",
 							33,
 							320,
 							"GSM",
@@ -22,8 +22,8 @@ codec_gsm_test_() ->
 			fun() -> ?assertEqual(
 						true,
 						test_utils:codec_encode(
-							"../test/sample-pcm-16-mono-8khz.raw",
-							"../test/sample-gsm-16-mono-8khz.from_pcm",
+							"../test/samples/gsm/sample-pcm-16-mono-8khz.raw",
+							"../test/samples/gsm/sample-gsm-16-mono-8khz.from_pcm",
 							320,
 							33,
 							"GSM",
