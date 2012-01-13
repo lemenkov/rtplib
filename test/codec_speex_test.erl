@@ -20,11 +20,11 @@ codec_speex_test_() ->
 		fun() -> Codec end,
 		fun(C) -> codec:close(C) end,
 		[
-			{"Test decoding from SPEEX to PCM",
-				fun() -> ?assertEqual(true, test_utils:decode("SPEEX", Codec, SpeexIn, PcmOut, 38, 320)) end
-			},
-			{"Test encoding from PCM to SPEEX",
-				fun() -> ?assertEqual(true, test_utils:encode_f("SPEEX", Codec, PcmIn, SpeexOut, 320, 38)) end
-			}
+%			{"Test decoding from SPEEX to PCM",
+%				fun() -> ?assertEqual(true, test_utils:decode("SPEEX", Codec, SpeexIn, PcmOut, 38, 320)) end
+%			},
+%			{"Test encoding from PCM to SPEEX",
+%				fun() -> ?assertEqual(true, test_utils:encode_f("SPEEX", Codec, PcmIn, SpeexOut, 320, 38)) end
+%			}
 		]
 	}.

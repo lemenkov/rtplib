@@ -2,6 +2,30 @@
 
 -compile(export_all).
 
+codec_encode(FileIn, FileOut, FrameSizeIn, FrameSizeOut, CodecName, CodecType) ->
+	{ok, PcmIn}  = file:read_file(FileIn),
+	{ok, BinOut} = file:read_file(FileOut),
+
+	{ok, Codec} = codec:start_link(CodecType),
+
+	Ret = test_utils:encode(CodecName, Codec, PcmIn, BinOut, FrameSizeIn, FrameSizeOut),
+
+	codec:close(Codec),
+
+	Ret.
+
+codec_decode(FileIn, FileOut, FrameSizeIn, FrameSizeOut, CodecName, CodecType) ->
+	{ok, BinIn}  = file:read_file(FileIn),
+	{ok, PcmOut} = file:read_file(FileOut),
+
+	{ok, Codec} = codec:start_link(CodecType),
+
+	Ret = test_utils:decode(CodecName, Codec, BinIn, PcmOut, FrameSizeIn, FrameSizeOut),
+
+	codec:close(Codec),
+
+	Ret.
+
 decode(Name, Codec, <<_/binary>> = A, <<_/binary>> = B, FrameSizeA, FrameSizeB) when size(A) < FrameSizeA; size(B) < FrameSizeB ->
 	true;
 decode(Name, Codec, A, B, FrameSizeA, FrameSizeB) ->
@@ -9,6 +33,18 @@ decode(Name, Codec, A, B, FrameSizeA, FrameSizeB) ->
 	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
 	{ok, {FrameB, 8000, 1, 16}} = codec:decode(Codec, FrameA),
 	decode(Name, Codec, RestA, RestB, FrameSizeA, FrameSizeB).
+
+encode(Name, Codec, <<_/binary>> = A, <<_/binary>> = B, FrameSizeA, FrameSizeB) when size(A) < FrameSizeA; size(B) < FrameSizeB ->
+	true;
+encode(Name, Codec, A, B, FrameSizeA, FrameSizeB) ->
+	<<FrameA:FrameSizeA/binary, RestA/binary>> = A,
+	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
+	{ok, FrameB} = codec:encode(Codec, {FrameA, 8000, 1, 16}),
+	encode(Name, Codec, RestA, RestB, FrameSizeA, FrameSizeB).
+
+%%
+%% These functions are not intended for the end user
+%%
 
 decode_f(Name, Codec, <<_/binary>> = A, <<_/binary>> = B, FrameSizeA, FrameSizeB) when size(A) < FrameSizeA; size(B) < FrameSizeB ->
 	true;
@@ -24,14 +60,6 @@ decode_f(Name, Codec, A, B, FrameSizeA, FrameSizeB) ->
 			)
 	end,
 	decode_f(Name, Codec, RestA, RestB, FrameSizeA, FrameSizeB).
-
-encode(Name, Codec, <<_/binary>> = A, <<_/binary>> = B, FrameSizeA, FrameSizeB) when size(A) < FrameSizeA; size(B) < FrameSizeB ->
-	true;
-encode(Name, Codec, A, B, FrameSizeA, FrameSizeB) ->
-	<<FrameA:FrameSizeA/binary, RestA/binary>> = A,
-	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
-	{ok, FrameB} = codec:encode(Codec, {FrameA, 8000, 1, 16}),
-	encode(Name, Codec, RestA, RestB, FrameSizeA, FrameSizeB).
 
 encode_f(Name, Codec, <<_/binary>> = A, <<_/binary>> = B, FrameSizeA, FrameSizeB) when size(A) < FrameSizeA; size(B) < FrameSizeB ->
 	true;
