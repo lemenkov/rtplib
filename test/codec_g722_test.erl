@@ -4,39 +4,31 @@
 -include_lib("eunit/include/eunit.hrl").
 
 codec_g722_test_() ->
-	% Original G.722 bitstream
-	{ok, G722In} = file:read_file("../test/conf-adminmenu-162.g722"),
-	% Decoded PCM
-	{ok, PcmOut} = file:read_file("../test/conf-adminmenu-162.raw"),
-
-	% Source PCM for encoding
-	{ok, PcmIn} = file:read_file("../test/sample-pcm-16-mono-8khz.raw"),
-	% The resulting G.722 bitstream
-	{ok, G722Out} = file:read_file("../test/sample-g722-16-mono-8khz.raw"),
-
-	{ok, Codec} = codec:start_link({'G722',8000,1}),
-
-	{setup,
-		fun() -> Codec end,
-		fun(C) -> codec:close(C) end,
-		[
-			{"Test decoding from G.722 to PCM",
-				fun() -> ?assertEqual(true, decode(Codec, G722In, PcmOut)) end
-			},
-			{"Test encoding from PCM to G.722",
-				fun() -> ?assertEqual(true, encode(Codec, PcmIn, G722Out)) end
-			}
-		]
-	}.
-
-decode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 160; size(B) < 320 ->
-	true;
-decode(Codec, <<G722Frame:160/binary, G722Raw/binary>>, <<PcmFrame:320/binary, PcmRaw/binary>>) ->
-	{ok, {PcmFrame, 8000, 1, 16}} = codec:decode(Codec, G722Frame),
-	decode(Codec, G722Raw, PcmRaw).
-
-encode(Codec, <<_/binary>> = A, <<_/binary>> = B) when size(A) < 320; size(B) < 160 ->
-	true;
-encode(Codec, <<PcmFrame:320/binary, PcmRaw/binary>>, <<G722Frame:160/binary, G722Raw/binary>>) ->
-	{ok, G722Frame} = codec:encode(Codec, {PcmFrame, 8000, 1, 16}),
-	encode(Codec, PcmRaw, G722Raw).
+	[
+		{"Test decoding from G.722 to PCM",
+			fun() -> ?assertEqual(
+						true,
+						test_utils:codec_decode(
+							"../test/samples/g722/conf-adminmenu-162.g722",
+							"../test/samples/g722/conf-adminmenu-162.raw",
+							160,
+							320,
+							"G.722",
+							{'G722',8000,1}
+						)
+					) end
+		},
+		{"Test encoding from PCM to G.722",
+			fun() -> ?assertEqual(
+						true,
+						test_utils:codec_encode(
+							"../test/samples/g722/sample-pcm-16-mono-8khz.raw",
+							"../test/samples/g722/sample-g722-16-mono-8khz.raw",
+							320,
+							160,
+							"G.722",
+							{'G722',8000,1}
+						)
+					) end
+		}
+	].

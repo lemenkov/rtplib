@@ -2,19 +2,17 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "erl_driver.h"
-#include <ilbc/iLBC_define.h>
-#include <ilbc/iLBC_decode.h>
-#include <ilbc/iLBC_encode.h>
+#include <audio_coding/ilbc.h>
 //#include <syslog.h>
 
 typedef struct {
 	ErlDrvPort port;
 	// 20 msec codec
-	iLBC_Enc_Inst_t estate20;
-	iLBC_Dec_Inst_t dstate20;
+	iLBC_encinst_t* estate20;
+	iLBC_decinst_t* dstate20;
 	// 30 msec codec
-	iLBC_Enc_Inst_t estate30;
-	iLBC_Dec_Inst_t dstate30;
+	iLBC_encinst_t* estate30;
+	iLBC_decinst_t* dstate30;
 } codec_data;
 
 enum {
@@ -26,10 +24,18 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	initEncode(&d->estate20, 20);
-	initDecode(&d->dstate20, 20, 0 /* 1=use_enhancer */);
-	initEncode(&d->estate30, 30);
-	initDecode(&d->dstate30, 30, 0 /* 1=use_enhancer */);
+
+	/* Create structs */
+	WebRtcIlbcfix_EncoderCreate(&d->estate20);
+	WebRtcIlbcfix_EncoderCreate(&d->estate30);
+	WebRtcIlbcfix_EncoderInit(d->estate20, 20);
+	WebRtcIlbcfix_EncoderInit(d->estate30, 30);
+
+	WebRtcIlbcfix_DecoderCreate(&d->dstate20);
+	WebRtcIlbcfix_DecoderCreate(&d->dstate30);
+	WebRtcIlbcfix_DecoderInit(d->dstate20, 20);
+	WebRtcIlbcfix_DecoderInit(d->dstate30, 30);
+
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 //	openlog("ilbc_codec_drv", LOG_NDELAY, LOG_USER);
 	return (ErlDrvData)d;
@@ -37,8 +43,13 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 
 static void codec_drv_stop(ErlDrvData handle)
 {
-	driver_free((char*)handle);
-	closelog();
+	codec_data* d = (codec_data*)handle;
+	WebRtcIlbcfix_EncoderFree(d->estate20);
+	WebRtcIlbcfix_EncoderFree(d->estate30);
+	WebRtcIlbcfix_DecoderFree(d->dstate20);
+	WebRtcIlbcfix_DecoderFree(d->dstate30);
+	driver_free((char*)d);
+//	closelog();
 }
 
 static int codec_drv_control(
@@ -53,9 +64,7 @@ static int codec_drv_control(
 	ErlDrvBinary *out;
 	*rbuf = NULL;
 
-	float block[BLOCKL_MAX];
-	float sample;
-	int i = 0;
+	WebRtc_Word16 i = 1;
 
 //	syslog(LOG_USER | LOG_WARNING, "INIT: %d %d\n", command, len);
 
@@ -64,19 +73,13 @@ static int codec_drv_control(
 			switch(len){
 				case 320: // 20 msec
 					out = driver_alloc_binary(38);
-					for (i = 0; i < 160; i++)
-						block[i] = (float) ((int16_t*)buf)[i];
-					iLBC_encode(out->orig_bytes, block, &d->estate20);
+					ret = WebRtcIlbcfix_Encode(d->estate20, (WebRtc_Word16 *)buf, 160, (WebRtc_Word16 *)out->orig_bytes);
 					*rbuf = (char *)out;
-					ret = 38;
 					break;
 				case 480: // 30 msec
 					out = driver_alloc_binary(50);
-					for (i = 0; i < 240; i++)
-						block[i] = (float) ((int16_t*)buf)[i];
-					iLBC_encode(out->orig_bytes, block, &d->estate30);
+					ret = WebRtcIlbcfix_Encode(d->estate30, (WebRtc_Word16 *)buf, 240, (WebRtc_Word16 *)out->orig_bytes);
 					*rbuf = (char *)out;
-					ret = 50;
 					break;
 				default:
 					break;
@@ -86,33 +89,13 @@ static int codec_drv_control(
 			switch(len){
 				case 38: // 20 msec
 					out = driver_alloc_binary(320);
-					iLBC_decode(block, (unsigned char*)buf, &d->dstate20, 1); /* 1 == normal */
-					for (i = 0; i < 160; i++){
-						sample = block[i];
-						if (sample < MIN_SAMPLE)
-							sample = MIN_SAMPLE;
-						else
-							if (sample > MAX_SAMPLE)
-								sample = MAX_SAMPLE;
-						((int16_t *)out->orig_bytes)[i] = (short) sample;
-					}
+					ret = 2 * WebRtcIlbcfix_Decode(d->dstate20, (WebRtc_Word16*)buf, len, (WebRtc_Word16 *)out->orig_bytes, &i);
 					*rbuf = (char *)out;
-					ret = 320;
 					break;
 				case 50: // 30 msec
 					out = driver_alloc_binary(480);
-					iLBC_decode(block, (unsigned char*)buf, &d->dstate30, 1); /* 1 == normal */
-					for (i = 0; i < 240; i++){
-						sample = block[i];
-						if (sample < MIN_SAMPLE)
-							sample = MIN_SAMPLE;
-						else
-							if (sample > MAX_SAMPLE)
-								sample = MAX_SAMPLE;
-						((int16_t *)out->orig_bytes)[i] = (short) sample;
-					}
+					ret = 2 * WebRtcIlbcfix_Decode(d->dstate30, (WebRtc_Word16*)buf, len, (WebRtc_Word16 *)out->orig_bytes, &i);
 					*rbuf = (char *)out;
-					ret = 480;
 					break;
 				default:
 					break;
