@@ -16,7 +16,7 @@ APP_FILE := $(EBIN_DIR)/$(NAME).app
 all: compile
 
 compile:
-	VSN=$(VSN) BUILD_DATE=$(BUILD_DATE) $(REBAR) compile $(REBAR_FLAGS)
+	@VSN=$(VSN) BUILD_DATE=$(BUILD_DATE) $(REBAR) compile $(REBAR_FLAGS)
 
 check: test
 test: all
@@ -28,4 +28,4 @@ install: all
 	for i in priv/*.so; do install -D -p -m 0755 $$i $(DESTDIR)$(ERLDIR)/$$i ; done
 
 clean:
-	$(REBAR) clean $(REBAR_FLAGS)
+	@$(REBAR) clean $(REBAR_FLAGS)
