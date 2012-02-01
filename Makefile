@@ -4,6 +4,7 @@ REBAR_FLAGS ?=
 VSN := "0.5.6"
 BUILD_DATE := `LANG=C date +"%a %b %d %Y"`
 NAME := rtplib
+UNAME := $(shell uname -s)
 
 ERLANG_ROOT := $(shell erl -eval 'io:format("~s", [code:root_dir()])' -s init stop -noshell)
 ERLDIR=$(ERLANG_ROOT)/lib/$(NAME)-$(VSN)
@@ -24,8 +25,17 @@ test: all
 	$(REBAR) eunit
 
 install: all
+ifeq ($(UNAME), Darwin)
+	@test -d $(ERLDIR) || mkdir -p $(ERLDIR)/{$(EBIN_DIR),include,priv}
+	@install -p -m 0644 ebin/*.beam $(DESTDIR)$(ERLDIR)/$(EBIN_DIR)
+	@install -p -m 0644 ebin/*.app $(DESTDIR)$(ERLDIR)/$(EBIN_DIR)
+	@install -p -m 0644 include/*.hrl $(DESTDIR)$(ERLDIR)/include
+	@install -p -m 0755 priv/*.so $(DESTDIR)$(ERLDIR)/priv
+	@echo "\n $(NAME) installed. \n"
+else
 	for i in ebin/*.beam ebin/*.app include/*.hrl; do install -D -p -m 0644 $$i $(DESTDIR)$(ERLDIR)/$$i ; done
 	for i in priv/*.so; do install -D -p -m 0755 $$i $(DESTDIR)$(ERLDIR)/$$i ; done
+endif
 
 clean:
 	@$(REBAR) clean $(REBAR_FLAGS)
