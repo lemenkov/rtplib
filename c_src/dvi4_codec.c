@@ -42,11 +42,11 @@ static int codec_drv_control(
 	int ret = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
-	char* tmp = NULL;
+	uint8_t* tmp = NULL;
 
 	switch(command) {
 		case CMD_ENCODE:
-			tmp = (char*)calloc(len, sizeof(char));
+			tmp = (uint8_t*)calloc(len, sizeof(uint8_t));
 			ret = ima_adpcm_encode(d->state, tmp, (const int16_t *)buf, len >> 1);
 			out = driver_alloc_binary(ret);
 			memcpy(out->orig_bytes, tmp, ret);
