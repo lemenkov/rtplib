@@ -3,13 +3,15 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <gsm/gsm.h>
 #include "erl_driver.h"
+#include <spandsp/telephony.h>
+#include <spandsp/bit_operations.h>
+#include <spandsp/gsm0610.h>
 
 typedef struct {
 	ErlDrvPort port;
-	gsm dstate;
-	gsm estate;
+	gsm0610_state_t* dstate;
+	gsm0610_state_t* estate;
 } codec_data;
 
 enum {
@@ -24,8 +26,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->dstate = gsm_create();
-	d->estate = gsm_create();
+	d->dstate = gsm0610_init(NULL, GSM0610_PACKING_VOIP);
+	d->estate = gsm0610_init(NULL, GSM0610_PACKING_VOIP);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -33,8 +35,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 static void codec_drv_stop(ErlDrvData handle)
 {
 	codec_data *d = (codec_data *) handle;
-	gsm_destroy(d->dstate);
-	gsm_destroy(d->estate);
+	gsm0610_free(d->dstate);
+	gsm0610_free(d->estate);
 	driver_free((char*)handle);
 }
 
@@ -45,26 +47,26 @@ static int codec_drv_control(
 		char **rbuf, int rlen)
 {
 	codec_data* d = (codec_data*)handle;
-	gsm_signal sample[FRAME_SIZE];
+	int16_t sample[FRAME_SIZE];
 
 	int i;
 	int ret = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
 
+
 	switch(command) {
 		case CMD_ENCODE:
 			if (len != FRAME_SIZE * 2)
 				break;
 			out = driver_alloc_binary(GSM_SIZE);
-			gsm_encode(d->estate, (gsm_signal *)buf, (gsm_byte *) out->orig_bytes);
+			ret = gsm0610_encode(d->estate, (uint8_t*)out->orig_bytes, (const int16_t*)buf, len >> 1);
 			*rbuf = (char *)out;
-			ret = GSM_SIZE;
 			break;
 		 case CMD_DECODE:
 			if (len != GSM_SIZE)
 				break;
-			gsm_decode(d->dstate, (gsm_byte *) buf, sample);
+			gsm0610_decode(d->dstate, sample, (const uint8_t*)buf, len);
 			out = driver_alloc_binary(FRAME_SIZE * 2);
 			for (i = 0; i < FRAME_SIZE; i++){
 				out->orig_bytes[i * 2] = (char) (sample[i] & 0xff);
