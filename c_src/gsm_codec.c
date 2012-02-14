@@ -93,7 +93,18 @@ ErlDrvEntry codec_driver_entry = {
 	NULL,			/* handle */
 	codec_drv_control,	/* F_PTR control, port_command callback */
 	NULL,			/* F_PTR timeout, reserved */
-	NULL			/* F_PTR outputv, reserved */
+	NULL,			/* F_PTR outputv, reserved */
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	ERL_DRV_EXTENDED_MARKER,
+	ERL_DRV_EXTENDED_MAJOR_VERSION,
+	ERL_DRV_EXTENDED_MINOR_VERSION,
+	0,
+	NULL,
+	NULL,
+	NULL
 };
 
 DRIVER_INIT(codec_drv) /* must match name in driver_entry */
