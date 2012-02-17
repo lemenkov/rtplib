@@ -4,27 +4,33 @@
 -include_lib("eunit/include/eunit.hrl").
 
 codec_speex_test_() ->
-	% Original SPEEX stream
-	{ok, SpeexIn} = file:read_file("../test/sample-speex-16-mono-8khz.raw"),
-	% Decoded PCM
-	{ok, PcmOut} = file:read_file("../test/sample-pcm-16-mono-8khz.from_spx"),
-
-	% Original PCM
-	{ok, PcmIn} = file:read_file("../test/sample-pcm-16-mono-8khz.raw"),
-	% Original SPEEX stream
-	{ok, SpeexOut} = file:read_file("../test/sample-speex-16-mono-8khz.from_pcm"),
-
-	{ok, Codec} = codec:start_link({'SPEEX',8000,1}),
-
-	{setup,
-		fun() -> Codec end,
-		fun(C) -> codec:close(C) end,
-		[
-%			{"Test decoding from SPEEX to PCM",
-%				fun() -> ?assertEqual(true, test_utils:decode("SPEEX", Codec, SpeexIn, PcmOut, 38, 320)) end
-%			},
-%			{"Test encoding from PCM to SPEEX",
-%				fun() -> ?assertEqual(true, test_utils:encode_f("SPEEX", Codec, PcmIn, SpeexOut, 320, 38)) end
-%			}
-		]
-	}.
+	[
+		% FIXME decoder appends 160 bytes to the beginning of stream.
+		% Don't know why (yet).
+%		{"Test decoding from SPEEX to PCM",
+%			fun() -> ?assertEqual(
+%						true,
+%						test_utils:codec_decode(
+%							"../test/samples/speex/sample-speex-16-mono-8khz.raw",
+%							"../test/samples/speex/sample-pcm-16-mono-8khz.from_spx",
+%							38,
+%							320,
+%							"SPEEX",
+%							{'SPEEX',8000,1}
+%						)
+%					) end
+%		},
+		{"Test encoding from PCM to SPEEX",
+			fun() -> ?assertEqual(
+						true,
+						test_utils:codec_encode(
+							"../test/samples/speex/sample-pcm-16-mono-8khz.raw",
+							"../test/samples/speex/sample-speex-16-mono-8khz.from_pcm",
+							320,
+							38,
+							"SPEEX",
+							{'SPEEX',8000,1}
+						)
+					) end
+		}
+	].

@@ -22,12 +22,21 @@ enum {
 
 static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
+	int tmp;
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
 	speex_bits_init(&d->bits);
 	/* FIXME hardcoded narrowband mode (speex_wb_mode, speex_uwb_mode) */
 	d->estate = speex_encoder_init(&speex_nb_mode);
 	d->dstate = speex_decoder_init(&speex_nb_mode);
+//	tmp=8;
+//	speex_encoder_ctl(d->estate, SPEEX_SET_QUALITY, &tmp);
+	tmp=3;
+	speex_encoder_ctl(d->estate, SPEEX_SET_COMPLEXITY, &tmp);
+//	tmp=8000;
+//	speex_encoder_ctl(d->estate, SPEEX_SET_SAMPLING_RATE, &tmp);
+	tmp=1;
+	speex_decoder_ctl(d->dstate, SPEEX_SET_ENH, &tmp);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
