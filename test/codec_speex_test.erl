@@ -12,7 +12,6 @@ codec_speex_test_() ->
 							"../test/samples/speex/sample-speex-16-mono-8khz.raw",
 							"../test/samples/speex/sample-pcm-16-mono-8khz.from_spx",
 							38,
-							320,
 							"SPEEX",
 							{'SPEEX',8000,1}
 						)
@@ -25,7 +24,6 @@ codec_speex_test_() ->
 							"../test/samples/speex/sample-pcm-16-mono-8khz.raw",
 							"../test/samples/speex/sample-speex-16-mono-8khz.from_pcm",
 							320,
-							38,
 							"SPEEX",
 							{'SPEEX',8000,1}
 						)

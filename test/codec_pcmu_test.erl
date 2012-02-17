@@ -12,7 +12,6 @@ codec_pcmu_test_() ->
 							"../test/samples/pcmu/raw-ulaw.raw",
 							"../test/samples/pcmu/raw-pcm16.from_ulaw",
 							160,
-							320,
 							"G.711u / PCMU",
 							{'PCMU',8000,1}
 						)
@@ -25,7 +24,6 @@ codec_pcmu_test_() ->
 							"../test/samples/pcmu/raw-pcm16.raw",
 							"../test/samples/pcmu/raw-ulaw.raw",
 							320,
-							160,
 							"G.711u / PCMU",
 							{'PCMU',8000,1}
 						)

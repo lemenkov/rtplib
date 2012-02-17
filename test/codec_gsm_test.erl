@@ -12,7 +12,6 @@ codec_gsm_test_() ->
 							"../test/samples/gsm/sample-gsm-16-mono-8khz.raw",
 							"../test/samples/gsm/sample-pcm-16-mono-8khz.raw",
 							33,
-							320,
 							"GSM",
 							{'GSM',8000,1}
 						)
@@ -25,7 +24,6 @@ codec_gsm_test_() ->
 							"../test/samples/gsm/sample-pcm-16-mono-8khz.raw",
 							"../test/samples/gsm/sample-gsm-16-mono-8khz.from_pcm",
 							320,
-							33,
 							"GSM",
 							{'GSM',8000,1}
 						)
