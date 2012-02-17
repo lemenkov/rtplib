@@ -5,21 +5,19 @@
 
 codec_speex_test_() ->
 	[
-		% FIXME decoder appends 160 bytes to the beginning of stream.
-		% Don't know why (yet).
-%		{"Test decoding from SPEEX to PCM",
-%			fun() -> ?assertEqual(
-%						true,
-%						test_utils:codec_decode(
-%							"../test/samples/speex/sample-speex-16-mono-8khz.raw",
-%							"../test/samples/speex/sample-pcm-16-mono-8khz.from_spx",
-%							38,
-%							320,
-%							"SPEEX",
-%							{'SPEEX',8000,1}
-%						)
-%					) end
-%		},
+		{"Test decoding from SPEEX to PCM",
+			fun() -> ?assertEqual(
+						true,
+						test_utils:codec_decode(
+							"../test/samples/speex/sample-speex-16-mono-8khz.raw",
+							"../test/samples/speex/sample-pcm-16-mono-8khz.from_spx",
+							38,
+							320,
+							"SPEEX",
+							{'SPEEX',8000,1}
+						)
+					) end
+		},
 		{"Test encoding from PCM to SPEEX",
 			fun() -> ?assertEqual(
 						true,
