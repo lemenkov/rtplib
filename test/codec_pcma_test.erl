@@ -12,7 +12,6 @@ codec_pcma_test_() ->
 							"../test/samples/pcma/raw-alaw.raw",
 							"../test/samples/pcma/raw-pcm16.from_alaw",
 							160,
-							320,
 							"G.711a / PCMA",
 							{'PCMA',8000,1}
 						)
@@ -25,7 +24,6 @@ codec_pcma_test_() ->
 							"../test/samples/pcma/raw-pcm16.raw",
 							"../test/samples/pcma/raw-alaw.from_pcm",
 							320,
-							160,
 							"G.711a / PCMA",
 							{'PCMA',8000,1}
 						)

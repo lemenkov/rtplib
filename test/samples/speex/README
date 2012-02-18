@@ -1,0 +1,9 @@
+speexenc --rate 8000  sample-pcm-16-mono-8khz.raw sample-speex-16-mono-8khz.spx
+speexdec sample-speex-16-mono-8khz.spx sample-pcm-16-mono-8khz.wav
+mplayer sample-pcm-16-mono-8khz.wav -dumpaudio
+mv stream.dump sample-pcm-16-mono-8khz.from_spx
+
+speexenc --rate 8000  sample-pcm-16-mono-8khz.raw sample-speex-16-mono-8khz.from_pcm
+mplayer sample-speex-16-mono-8khz.from_pcm -dumpaudio
+mv stream.dump sample-speex-16-mono-8khz.from_pcm
+
