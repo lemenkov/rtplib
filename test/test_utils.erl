@@ -97,10 +97,10 @@ encode_f(Name, Codec, A, B, FrameSizeA) ->
 diff(A, B) ->
 	diff(<<>>, A, B).
 
-diff(Ret, <<>>, _) ->
-	Ret;
-diff(Ret, _, <<>>) ->
-	Ret;
+diff(Ret, <<>>, B) ->
+	<<Ret/binary, B/binary>>;
+diff(Ret, A, <<>>) ->
+	<<Ret/binary, A/binary>>;
 
 diff(Ret, <<ByteA:8, RestA/binary>>, <<ByteB:8, RestB/binary>>) ->
 	Diff = ByteA - ByteB,
