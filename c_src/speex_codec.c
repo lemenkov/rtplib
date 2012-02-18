@@ -9,7 +9,6 @@ typedef struct {
 	SpeexBits bits;
 	void* estate;
 	void* dstate;
-	int first_frame;
 } codec_data;
 
 enum {
@@ -26,7 +25,6 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 	int tmp;
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->port = port;
-	d->first_frame = 1;
 	speex_bits_init(&d->bits);
 	/* FIXME hardcoded narrowband mode (speex_wb_mode, speex_uwb_mode) */
 	d->estate = speex_encoder_init(&speex_nb_mode);
@@ -81,26 +79,10 @@ static int codec_drv_control(
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
-			// FIXME calculate values for the first frame instead of hardcoding
-			if(d->first_frame){
-				out = driver_alloc_binary(FRAME_SIZE);
-				ret = FRAME_SIZE;
-			}
-			else{
-				out = driver_alloc_binary(2*FRAME_SIZE);
-				ret = 2*FRAME_SIZE;
-			}
+			out = driver_alloc_binary(2*FRAME_SIZE);
 			speex_bits_read_from(&d->bits, buf, len);
-			speex_decode_int(d->dstate, &d->bits, cframe);
-
-			if(d->first_frame){
-				d->first_frame = 0;
-				memmove(out->orig_bytes, (char*)cframe + 160, 160);
-			}
-			else{
-				memmove(out->orig_bytes, cframe, 320);
-			}
-
+			speex_decode_int(d->dstate, &d->bits, out->orig_bytes);
+			ret = 2*FRAME_SIZE;
 			*rbuf = (char *) out;
 			break;
 		 default:
