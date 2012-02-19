@@ -81,7 +81,7 @@ static int codec_drv_control(
 		 case CMD_DECODE:
 			out = driver_alloc_binary(2*FRAME_SIZE);
 			speex_bits_read_from(&d->bits, buf, len);
-			speex_decode_int(d->dstate, &d->bits, out->orig_bytes);
+			speex_decode_int(d->dstate, &d->bits, (spx_int16_t *)out->orig_bytes);
 			ret = 2*FRAME_SIZE;
 			*rbuf = (char *) out;
 			break;
