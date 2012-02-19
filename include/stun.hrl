@@ -5,5 +5,6 @@
 		class = null,
 		method = 0,
 		length = 0,
-		transactionid = <<>>
+		transactionid = <<>>,
+		attrs = []
 	}).
