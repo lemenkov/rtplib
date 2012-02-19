@@ -65,7 +65,17 @@ start_link(Args) when
 	Args == {'DVI4',22050,1};
 	Args == {'SPEEX',8000,1};
 	Args == {'SPEEX',16000,1};
-	Args == {'SPEEX',32000,1}
+	Args == {'SPEEX',32000,1};
+	Args == {'OPUS',8000,1};
+	Args == {'OPUS',8000,2};
+	Args == {'OPUS',12000,1};
+	Args == {'OPUS',12000,2};
+	Args == {'OPUS',16000,1};
+	Args == {'OPUS',16000,2};
+	Args == {'OPUS',24000,1};
+	Args == {'OPUS',24000,2};
+	Args == {'OPUS',48000,1};
+	Args == {'OPUS',48000,2}
 	->
 	gen_server:start_link(?MODULE, Args, []);
 start_link(_) ->
@@ -78,7 +88,8 @@ init({Format, SampleRate, Channels}) ->
 		'DVI4' -> dvi4_codec_drv;
 		'PCMA' -> pcma_codec_drv;
 		'G722' -> g722_codec_drv;
-		'SPEEX' -> speex_codec_drv
+		'SPEEX' -> speex_codec_drv;
+		'OPUS' -> opus_codec_drv
 	end,
 	case
 		case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", DriverName) of
