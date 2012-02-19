@@ -34,6 +34,7 @@
 -compile(export_all).
 
 -include("../include/rtp.hrl").
+-include("../include/stun.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -56,7 +57,18 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		csrcs = CSRCs,
 		extension = Extension,
 		payload = Payload
-	}}.
+	}};
+
+decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
+	<<Method:12>> = <<M0:5, M1:3, M2:4>>,
+	Class = case <<C0:1, C1:1>> of
+		<<0:0, 0:1>> -> request;
+		<<0:0, 1:1>> -> indication;
+		<<1:0, 0:1>> -> success;
+		<<1:0, 1:1>> -> error
+	end,
+	Attrs = decode_attrs(Rest, Length, []),
+	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -79,6 +91,20 @@ decode_rfc2833(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
 decode_rfc2833(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
 	{ok, #rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}}.
 
+decode_attrs(<<>>, 0, Attrs) ->
+	Attrs;
+decode_attrs(<<>>, Length, Attrs) ->
+	error_logger:warning_msg("STUN TLV wrong length [~p]~n", [Length]),
+	Attrs;
+decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
+	PaddingLength = case ItemLength rem 4 of
+		0 -> 0;
+		Else -> 4 - Else
+	end,
+	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
+	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
+	decode_attrs(Rest, NewLength, Attrs ++ [{Type, Value}]).
+
 remove_padding(Data, 0) ->
 	{ok, Data};
 remove_padding(Data, 1) when Data /= <<>> ->
@@ -98,7 +124,19 @@ encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, ti
 	CC = length(CSRCs),
 	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
-	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>.
+	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>;
+
+encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
+	<<M0:5, M1:3, M2:4>> = <<Method:12>>,
+	<<C0:1, C1:1>> = case Class of
+		request -><<0:0, 0:1>>;
+		indication -> <<0:0, 1:1>>;
+		success -> <<1:0, 0:1>>;
+		error -> <<1:0, 1:1>>
+	end,
+	BinAttrs = encode_attrs(Attrs, <<>>),
+	Length = size(BinAttrs),
+	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -116,3 +154,15 @@ encode_2833(#rfc2833{event = Event, eof = false, volume = Volume, duration = Dur
 	<<Event:8, 0:1, 0:1, Volume:6, Duration:16>>;
 encode_2833(#rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}) ->
 	<<Event:8, 1:1, 0:1, Volume:6, Duration:16>>.
+
+encode_attrs([], Attrs) ->
+	Attrs;
+encode_attrs([{Type, Value}|Rest], Attrs) ->
+	% FIXME
+	ItemLength = size(Value),
+	PaddingLength = case ItemLength rem 4 of
+		0 -> 0;
+		Else -> (4 - Else)*8
+	end,
+	Attr = <<Type:16, ItemLength:16, Value:ItemLength/binary, 0:PaddingLength>>,
+	encode_attrs(Rest, <<Attrs/binary, Attr/binary>>).
