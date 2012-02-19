@@ -50,6 +50,9 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 
 static void codec_drv_stop(ErlDrvData handle)
 {
+	codec_data *d = (codec_data *) handle;
+	opus_decoder_destroy(d->decoder);
+	opus_encoder_destroy(d->encoder);
 	driver_free((char*)handle);
 }
 
