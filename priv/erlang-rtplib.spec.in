@@ -10,7 +10,7 @@ Summary:	Erlang RTP/RTCP codec library
 Group:		Development/Languages
 License:	BSD
 URL:		http://github.com/lemenkov/rtplib
-# wget --no-check-certificate http://github.com/lemenkov/rtplib/tarball/%VSN%
+# wget --no-check-certificate --content-disposition http://github.com/lemenkov/rtplib/tarball/%VSN%
 Source0:	lemenkov-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	libsamplerate-devel
