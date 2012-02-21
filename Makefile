@@ -26,7 +26,7 @@ test: all
 
 install: all
 ifeq ($(UNAME), Darwin)
-	@test -d $(ERLDIR) || mkdir -p $(ERLDIR)/{$(EBIN_DIR),include,priv}
+	@test -d $(DESTDIR)$(ERLDIR) || mkdir -p $(DESTDIR)$(ERLDIR)/{$(EBIN_DIR),include,priv}
 	@install -p -m 0644 ebin/*.beam $(DESTDIR)$(ERLDIR)/$(EBIN_DIR)
 	@install -p -m 0644 ebin/*.app $(DESTDIR)$(ERLDIR)/$(EBIN_DIR)
 	@install -p -m 0644 include/*.hrl $(DESTDIR)$(ERLDIR)/include
