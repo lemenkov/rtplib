@@ -283,11 +283,11 @@ decode_sdes_items(<<SSRC:32, RawData/binary>>, Result) ->
 	decode_sdes_items(RawDataRest, Result ++ [SdesProplist]).
 
 % All items are ItemID:8_bit, Lenght:8_bit, ItemData:Length_bit
+% AddPac SIP device sends us wrongly produced CNAME item (with 2-byte
+% arbitrary padding inserted):
+decode_sdes_item(<<?SDES_CNAME:8, 19:8, _ArbitraryPadding:16, V:19/binary, Tail/binary>>, Items) when V == <<"AddPac VoIP Gateway">> ->
+	decode_sdes_item(Tail, Items ++ [{cname, "AddPac VoIP Gateway"}]);
 decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
-	% AddPac SIP device sends us wrongly produced CNAME item (with 2-byte
-	% arbitrary padding inserted):
-	% <<?SDES_CNAME:8, 19:8, ArbitraryPadding:16, "AddPac VoIP Gateway":(19*8)/binary>>
-	% I don't think that we need to fix it.
 	decode_sdes_item(Tail, Items ++ [{cname, binary_to_list(V)}]);
 decode_sdes_item(<<?SDES_NAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 	decode_sdes_item(Tail, Items ++ [{name, binary_to_list(V)}]);
