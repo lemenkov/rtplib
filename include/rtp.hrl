@@ -47,6 +47,10 @@
 % http://www.rfc-editor.org/rfc/rfc4733.txt
 -record(dtmf, {event, eof, volume, duration}).
 
+% TONE, see RFC 4733
+% http://www.rfc-editor.org/rfc/rfc4733.txt
+-record(tone, {modulation, divider, volume, duration, frequencies = []}).
+
 % http://www.iana.org/assignments/rtp-parameters
 % http://en.wikipedia.org/wiki/RTP_audio_video_profile
 % See these RFCs for further details:
