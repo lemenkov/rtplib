@@ -35,6 +35,7 @@
 -compile(export_all).
 
 -include("../include/rtp.hrl").
+-include("../include/zrtp.hrl").
 -include("../include/stun.hrl").
 
 % FIXME move to the header?
@@ -65,6 +66,9 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 	}};
 decode(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =< PayloadType, PayloadType =< 82 ->
 	rtcp:decode(Binary);
+
+decode(<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
+	zrtp:decode(Binary);
 
 decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
 	<<Method:12>> = <<M0:5, M1:3, M2:4>>,
@@ -143,7 +147,6 @@ decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data
 	<<Payload:BlockLength/binary, Rest/binary>> = Data,
 	decode_red_payload(Headers, Rest, Payloads ++ [{PayloadType, TimeStampOffset, Payload}]).
 
-
 %%
 %% STUN decoding helpers
 %%
@@ -174,6 +177,9 @@ encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, ti
 	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
 	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>;
+
+encode(#zrtp{} = Zrtp) ->
+	zrtp:encode(Zrtp);
 
 encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
 	<<M0:5, M1:3, M2:4>> = <<Method:12>>,
