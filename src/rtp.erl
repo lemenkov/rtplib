@@ -150,9 +150,9 @@ encode_extension(#extension{type = Type, payload = Payload}) ->
 	Length = size(Payload),
 	{1, <<Type:16, Length:16, Payload:Length/binary>>}.
 
-encode_2833(#rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}) ->
+encode_rfc2833(#rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}) ->
 	<<Event:8, 0:1, 0:1, Volume:6, Duration:16>>;
-encode_2833(#rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}) ->
+encode_rfc2833(#rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}) ->
 	<<Event:8, 1:1, 0:1, Volume:6, Duration:16>>.
 
 encode_attrs([], Attrs) ->
