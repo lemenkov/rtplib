@@ -42,7 +42,10 @@
 
 -record(extension, {type, payload}).
 
--record(rfc2833, {event, eof, volume, duration}).
+% DTMF, see RFC 2833 and RFC 4733
+% http://www.rfc-editor.org/rfc/rfc2833.txt
+% http://www.rfc-editor.org/rfc/rfc4733.txt
+-record(dtmf, {event, eof, volume, duration}).
 
 % http://www.iana.org/assignments/rtp-parameters
 % http://en.wikipedia.org/wiki/RTP_audio_video_profile

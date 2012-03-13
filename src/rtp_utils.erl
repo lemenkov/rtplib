@@ -99,6 +99,7 @@ pp(Rtcps) when is_list(Rtcps) ->
 pp(#rtp{
 		padding = Padding,
 		marker = Marker,
+		% FIXME - this is just wrong
 		payload_type = 101,
 		sequence_number = SN,
 		timestamp = TS,
@@ -107,11 +108,11 @@ pp(#rtp{
 		extension = Extension,
 		payload = Payload}
 ) ->
-	{ok, Rfc2833} = rtp:decode_rfc2833(Payload),
-	Event = Rfc2833#rfc2833.event,
-	Eof = Rfc2833#rfc2833.eof,
-	Volume = Rfc2833#rfc2833.volume,
-	Duration = Rfc2833#rfc2833.duration,
+	{ok, Dtmf} = rtp:decode_dtmf(Payload),
+	Event = Dtmf#dtmf.event,
+	Eof = Dtmf#dtmf.eof,
+	Volume = Dtmf#dtmf.volume,
+	Duration = Dtmf#dtmf.duration,
 	io_lib:format("
 		{	\"type\":\"rtp\",
 			\"padding\":~b,

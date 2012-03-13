@@ -87,10 +87,10 @@ decode_extension(Data, 0) ->
 decode_extension(<<Type:16, Length:16, Payload:Length/binary, Data/binary>>, 1) ->
 	{ok, Data, #extension{type = Type, payload = Payload}}.
 
-decode_rfc2833(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
-	{ok, #rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}};
-decode_rfc2833(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
-	{ok, #rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}}.
+decode_dtmf(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
+	{ok, #dtmf{event = Event, eof = false, volume = Volume, duration = Duration}};
+decode_dtmf(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
+	{ok, #dtmf{event = Event, eof = true, volume = Volume, duration = Duration}}.
 
 decode_attrs(<<>>, 0, Attrs) ->
 	Attrs;
@@ -151,9 +151,9 @@ encode_extension(#extension{type = Type, payload = Payload}) ->
 	Length = size(Payload),
 	{1, <<Type:16, Length:16, Payload:Length/binary>>}.
 
-encode_rfc2833(#rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}) ->
+encode_dtmf(#dtmf{event = Event, eof = false, volume = Volume, duration = Duration}) ->
 	<<Event:8, 0:1, 0:1, Volume:6, Duration:16>>;
-encode_rfc2833(#rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}) ->
+encode_dtmf(#dtmf{event = Event, eof = true, volume = Volume, duration = Duration}) ->
 	<<Event:8, 1:1, 0:1, Volume:6, Duration:16>>.
 
 encode_attrs([], Attrs) ->
