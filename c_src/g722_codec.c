@@ -34,6 +34,9 @@
 #include "erl_driver.h"
 #include <spandsp/telephony.h>
 #include <spandsp/g722.h>
+/* FIXME this should be done within spandsp */
+//#include <endian.h>
+#include <libkern/OSByteOrder.h>
 
 typedef struct {
 	ErlDrvPort port;
@@ -79,18 +82,24 @@ static int codec_drv_control(
 	codec_data* d = (codec_data*)handle;
 
 	int ret = 0;
+	int i = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
 
 	switch(command) {
 		case CMD_ENCODE:
 			out = driver_alloc_binary(len >> 1);
+			for(i = 0; i < len >> 1; i++)
+				((int16_t *)buf)[i] = OSSwapHostToLittleInt16(((int16_t *)buf)[i]);
 			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
 			out = driver_alloc_binary(len << 1);
 			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len) << 1;
+			/* FIXME this should be done within spandsp */
+			for(i = 0; i < ret >> 1; i++)
+				((int16_t *)out->orig_bytes)[i] = OSSwapHostToLittleInt16(((int16_t *)out->orig_bytes)[i]);
 			*rbuf = (char *) out;
 			break;
 		 default:
