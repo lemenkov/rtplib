@@ -97,7 +97,6 @@ static int codec_drv_control(
 	ErlDrvBinary *out;
 	*rbuf = NULL;
 	float frame[FRAME_SIZE];
-	short cframe[FRAME_SIZE];
 	char cbits[200];
 
 	switch(command) {
