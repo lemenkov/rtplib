@@ -50,6 +50,10 @@ enum {
 /* FIXME hardcoded */
 #define FRAME_SIZE 160
 
+#ifndef spx_int16_t
+#define spx_int16_t short
+#endif
+
 static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
 	int tmp;
