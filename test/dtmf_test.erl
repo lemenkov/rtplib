@@ -127,7 +127,7 @@ dtmf_test_() ->
 		extension = null,
 		payload = DtmfZero0Bin
 	},
-	DtmfZero0 = #rfc2833{
+	DtmfZero0 = #dtmf{
 		event = 0,
 		eof = false,
 		volume = 0,
@@ -147,7 +147,7 @@ dtmf_test_() ->
 		extension = null,
 		payload = DtmfZero1Bin
 	},
-	DtmfZero1 = #rfc2833{
+	DtmfZero1 = #dtmf{
 		event = 0,
 		eof = true,
 		volume = 0,
@@ -158,24 +158,24 @@ dtmf_test_() ->
 			fun() -> ?assertMatch({ok, RtpDtmfZero0}, rtp:decode(RtpDtmfZero0Bin)) end
 		},
 		{"Decoding of DTMF Event 0",
-			fun() -> ?assertMatch({ok, DtmfZero0}, rtp:decode_rfc2833(DtmfZero0Bin)) end
+			fun() -> ?assertMatch({ok, DtmfZero0}, rtp:decode_dtmf(DtmfZero0Bin)) end
 		},
 		{"Encoding of RTP with DTMF Event 0 (first packet)",
 			fun() -> ?assertMatch(RtpDtmfZero0Bin, rtp:encode(RtpDtmfZero0)) end
 		},
 		{"Encoding of DTMF Event 0",
-			fun() -> ?assertMatch(DtmfZero0Bin, rtp:encode_rfc2833(DtmfZero0)) end
+			fun() -> ?assertMatch(DtmfZero0Bin, rtp:encode_dtmf(DtmfZero0)) end
 		},
 		{"Decoding of RTP with DTMF Event 0 (last packet)",
 			fun() -> ?assertMatch({ok, RtpDtmfZero1}, rtp:decode(RtpDtmfZero1Bin)) end
 		},
 		{"Decoding of DTMF Event 0",
-			fun() -> ?assertMatch({ok, DtmfZero1}, rtp:decode_rfc2833(DtmfZero1Bin)) end
+			fun() -> ?assertMatch({ok, DtmfZero1}, rtp:decode_dtmf(DtmfZero1Bin)) end
 		},
 		{"Encoding of RTP with DTMF Event 0 (last packet)",
 			fun() -> ?assertMatch(RtpDtmfZero1Bin, rtp:encode(RtpDtmfZero1)) end
 		},
 		{"Encoding of DTMF Event 0",
-			fun() -> ?assertMatch(DtmfZero1Bin, rtp:encode_rfc2833(DtmfZero1)) end
+			fun() -> ?assertMatch(DtmfZero1Bin, rtp:encode_dtmf(DtmfZero1)) end
 		}
 	].

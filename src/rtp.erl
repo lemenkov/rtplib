@@ -37,6 +37,9 @@
 -include("../include/rtp.hrl").
 -include("../include/stun.hrl").
 
+% FIXME move to the header?
+-define(MBZ, 0).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Decoding functions
@@ -77,6 +80,10 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%
+%% RTP decoding helpers
+%%
+
 decode_csrc(Data, 0, CSRCs) ->
 	{ok, Data, CSRCs};
 decode_csrc(<<CSRC:32, Data/binary>>, CC, CSRCs) ->
@@ -87,10 +94,56 @@ decode_extension(Data, 0) ->
 decode_extension(<<Type:16, Length:16, Payload:Length/binary, Data/binary>>, 1) ->
 	{ok, Data, #extension{type = Type, payload = Payload}}.
 
-decode_rfc2833(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
-	{ok, #rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}};
-decode_rfc2833(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
-	{ok, #rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}}.
+remove_padding(Data, 0) ->
+	{ok, Data};
+remove_padding(Data, 1) when Data /= <<>> ->
+	L = size(Data) - 1,
+	<<_:L/binary, C>> = Data,
+	{Payload, _} = split_binary(Data, L+1-C),
+	{ok, Payload}.
+
+%%
+%% RFC 2198, 2833, and 4733 decoding helpers
+%%
+
+% DTMF with zero duration is possible. Im teams that this events lasts forever.
+decode_dtmf(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
+	{ok, #dtmf{event = Event, eof = false, volume = Volume, duration = Duration}};
+decode_dtmf(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
+	{ok, #dtmf{event = Event, eof = true, volume = Volume, duration = Duration}}.
+
+% FIXME Tone with zero duration SHOULD be ignored (just drop it?)
+decode_tone(<<Modulation:9, Divider:1, Volume:6, Duration:16, Rest/binary>>) ->
+	Frequencies = decode_frequencies(Rest),
+	{ok, #tone{modulation = Modulation, divider = Divider, volume = Volume, duration = Duration, frequencies = Frequencies}}.
+
+decode_frequencies(Binary) ->
+	decode_frequencies(Binary, []).
+decode_frequencies(<<>>, Frequencies) ->
+	Frequencies;
+decode_frequencies(<<?MBZ:4, Frequency:12, Rest/binary>>, Frequencies) ->
+	decode_frequencies(Rest, Frequencies ++ [Frequency]).
+
+decode_red(RedundantPayload) ->
+	decode_red_headers(RedundantPayload, []).
+
+decode_red_headers(<<0:1, PayloadType:7, Data/binary>>, Headers) ->
+	decode_red_payload(Headers ++ [{PayloadType, 0, 0, 0}], Data);
+decode_red_headers(<<1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10, Data/binary>>, Headers) ->
+	decode_red_headers(Data, Headers ++ [{PayloadType, TimeStampOffset, BlockLength}]).
+
+decode_red_payload(Headers, Payload) ->
+	decode_red_payload(Headers, Payload, []).
+decode_red_payload([{PayloadType, 0, 0}], <<Payload/binary>>, Payloads) ->
+	{ok, Payloads ++ [{PayloadType, 0, Payload}]};
+decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data, Payloads) ->
+	<<Payload:BlockLength/binary, Rest/binary>> = Data,
+	decode_red_payload(Headers, Rest, Payloads ++ [{PayloadType, TimeStampOffset, Payload}]).
+
+
+%%
+%% STUN decoding helpers
+%%
 
 decode_attrs(<<>>, 0, Attrs) ->
 	Attrs;
@@ -105,14 +158,6 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
 	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
 	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
 	decode_attrs(Rest, NewLength, Attrs ++ [{Type, Value}]).
-
-remove_padding(Data, 0) ->
-	{ok, Data};
-remove_padding(Data, 1) when Data /= <<>> ->
-	L = size(Data) - 1,
-	<<_:L/binary, C>> = Data,
-	{Payload, _} = split_binary(Data, L+1-C),
-	{ok, Payload}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -145,16 +190,47 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%
+%% RTP encoding helpers
+%%
+
 encode_extension(null) ->
 	{0, <<>>};
 encode_extension(#extension{type = Type, payload = Payload}) ->
 	Length = size(Payload),
 	{1, <<Type:16, Length:16, Payload:Length/binary>>}.
 
-encode_rfc2833(#rfc2833{event = Event, eof = false, volume = Volume, duration = Duration}) ->
+%%
+%% RFC 2198, 2833, and 4733 encoding helpers
+%%
+
+encode_dtmf(#dtmf{event = Event, eof = false, volume = Volume, duration = Duration}) ->
 	<<Event:8, 0:1, 0:1, Volume:6, Duration:16>>;
-encode_rfc2833(#rfc2833{event = Event, eof = true, volume = Volume, duration = Duration}) ->
+encode_dtmf(#dtmf{event = Event, eof = true, volume = Volume, duration = Duration}) ->
 	<<Event:8, 1:1, 0:1, Volume:6, Duration:16>>.
+
+encode_tone(#tone{modulation = Modulation, divider = Divider, volume = Volume, duration = Duration, frequencies = Frequencies}) ->
+	FrequenciesBin = encode_frequencies(Frequencies),
+	<<Modulation:9, Divider:1, Volume:6, Duration:16, FrequenciesBin/binary>>.
+
+encode_frequencies(Frequencies) ->
+	encode_frequencies(Frequencies, <<>>).
+encode_frequencies([], FrequenciesBin) ->
+	FrequenciesBin;
+encode_frequencies([Frequency|Rest], FrequenciesBin) ->
+	encode_frequencies(Rest, <<FrequenciesBin/binary, 0:4, Frequency:12>>).
+
+encode_red(RedundantPayloads) ->
+	encode_red(RedundantPayloads, <<>>, <<>>).
+encode_red([{PayloadType, _, Payload}], HeadersBinary, PayloadBinary) ->
+	<<HeadersBinary/binary, 0:1, PayloadType:7, PayloadBinary/binary, Payload/binary>>;
+encode_red([{PayloadType, TimeStampOffset, Payload} | RedundantPayloads], HeadersBinary, PayloadBinary) ->
+	BlockLength = size(Payload),
+	encode_red(RedundantPayloads, <<HeadersBinary/binary, 1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10>>, <<PayloadBinary/binary, Payload/binary>>).
+
+%%
+%% STUN encoding helpers
+%%
 
 encode_attrs([], Attrs) ->
 	Attrs;
