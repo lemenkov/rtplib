@@ -124,6 +124,23 @@ decode_frequencies(<<>>, Frequencies) ->
 decode_frequencies(<<?MBZ:4, Frequency:12, Rest/binary>>, Frequencies) ->
 	decode_frequencies(Rest, Frequencies ++ [Frequency]).
 
+decode_red(RedundantPayload) ->
+	decode_red_headers(RedundantPayload, []).
+
+decode_red_headers(<<0:1, PayloadType:7, Data/binary>>, Headers) ->
+	decode_red_payload(Headers ++ [{PayloadType, 0, 0, 0}], Data);
+decode_red_headers(<<1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10, Data/binary>>, Headers) ->
+	decode_red_headers(Data, Headers ++ [{PayloadType, TimeStampOffset, BlockLength}]).
+
+decode_red_payload(Headers, Payload) ->
+	decode_red_payload(Headers, Payload, []).
+decode_red_payload([{PayloadType, 0, 0}], <<Payload/binary>>, Payloads) ->
+	{ok, Payloads ++ [{PayloadType, 0, Payload}]};
+decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data, Payloads) ->
+	<<Payload:BlockLength/binary, Rest/binary>> = Data,
+	decode_red_payload(Headers, Rest, Payloads ++ [{PayloadType, TimeStampOffset, Payload}]).
+
+
 %%
 %% STUN decoding helpers
 %%
@@ -202,6 +219,14 @@ encode_frequencies([], FrequenciesBin) ->
 	FrequenciesBin;
 encode_frequencies([Frequency|Rest], FrequenciesBin) ->
 	encode_frequencies(Rest, <<FrequenciesBin/binary, 0:4, Frequency:12>>).
+
+encode_red(RedundantPayloads) ->
+	encode_red(RedundantPayloads, <<>>, <<>>).
+encode_red([{PayloadType, _, Payload}], HeadersBinary, PayloadBinary) ->
+	<<HeadersBinary/binary, 0:1, PayloadType:7, PayloadBinary/binary, Payload/binary>>;
+encode_red([{PayloadType, TimeStampOffset, Payload} | RedundantPayloads], HeadersBinary, PayloadBinary) ->
+	BlockLength = size(Payload),
+	encode_red(RedundantPayloads, <<HeadersBinary/binary, 1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10>>, <<PayloadBinary/binary, Payload/binary>>).
 
 %%
 %% STUN encoding helpers
