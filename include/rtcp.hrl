@@ -55,8 +55,8 @@
 -define(RTCP_PSFB, 206). % RFC 4585
 -define(RTCP_XR,   207). % RFC 3611
 -define(RTCP_AVB,  208). % IEEE 1733
-%-define(RTCP_RSI,  209). % RFC 5760
-%-define(RTCP_TOKEN, 210). % RFC 6285
+%-define(RTCP_RSI,  209). % RFC 5760 FIXME
+%-define(RTCP_TOKEN, 210). % RFC 6285 FIXME
 
 -define(SDES_NULL,  0).
 -define(SDES_CNAME, 1).
@@ -67,6 +67,7 @@
 -define(SDES_TOOL,  6).
 -define(SDES_NOTE,  7).
 -define(SDES_PRIV,  8).
+%-define(SDES_H323_CADDR, 9). % FIXME
 
 -define(PADDING_YES, 1).
 -define(PADDING_NO, 0).
