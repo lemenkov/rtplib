@@ -47,7 +47,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % FIXME 0 <= CC <=15
-decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when ((0 =< PayloadType) and (PayloadType =< 34)) or ((96 =< PayloadType) and (PayloadType =< 127)) ->
+%decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when ((0 =< PayloadType) and (PayloadType =< 34)) or ((96 =< PayloadType) and (PayloadType =< 127)) ->
+decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when PayloadType =< 34; 96 =< PayloadType ->
 	{ok, Data0, CSRCs} = decode_csrc(Rest, CC, []),
 	{ok, Data1, Extension} = decode_extension(Data0, ExtensionFlag),
 	{ok, Payload} = remove_padding(Data1, Padding),
