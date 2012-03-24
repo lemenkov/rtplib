@@ -76,23 +76,18 @@ static int codec_drv_control(
 		case CMD_ENCODE:
 			if (len % 2 != 0)
 				break;
-			out = driver_alloc_binary(len / 2);
-			for (i = 0; i < (len / 2); i++) {
-				sample = (buf[i * 2 + 1] << 8) | (buf[i * 2] & 0xff);
-				out->orig_bytes[i] = linear_to_ulaw(sample);
-			}
+			out = driver_alloc_binary(len >> 1);
+			for (i = 0; i < (len >> 1); i++)
+				out->orig_bytes[i] = linear_to_ulaw(((int16_t*)buf)[i]);
 			*rbuf = (char *) out;
-			ret = (len / 2);
+			ret = (len >> 1);
 			break;
 		 case CMD_DECODE:
-			out = driver_alloc_binary(len * 2);
-			for (i = 0; i < len; i++) {
-				sample = ulaw_to_linear((unsigned char) buf[i]);
-				out->orig_bytes[i * 2] = (char) (sample & 0xff);
-				out->orig_bytes[i * 2 + 1] = (char) (sample >> 8);
-			}
+			out = driver_alloc_binary(len << 1);
+			for (i = 0; i < len; i++)
+				((int16_t*)out->orig_bytes)[i] = ulaw_to_linear((unsigned char) buf[i]);
 			*rbuf = (char *) out;
-			ret = (len * 2);
+			ret = (len << 1);
 			break;
 		 default:
 			break;
