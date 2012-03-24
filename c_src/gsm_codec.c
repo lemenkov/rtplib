@@ -37,9 +37,7 @@
 #include <spandsp/telephony.h>
 #include <spandsp/bit_operations.h>
 #include <spandsp/gsm0610.h>
-/* FIXME this should be done within spandsp */
-//#include <endian.h>
-#include <libkern/OSByteOrder.h>
+#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -93,7 +91,7 @@ static int codec_drv_control(
 			if (len != FRAME_SIZE * 2)
 				break;
 			for(i = 0; i < len >> 1; i++)
-				((int16_t *)buf)[i] = OSSwapHostToLittleInt16(((int16_t *)buf)[i]);
+				((int16_t *)buf)[i] = htole16(((int16_t *)buf)[i]);
 			out = driver_alloc_binary(GSM_SIZE);
 			ret = gsm0610_encode(d->estate, (uint8_t*)out->orig_bytes, (const int16_t*)buf, len >> 1);
 			*rbuf = (char *)out;
