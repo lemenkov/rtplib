@@ -37,6 +37,7 @@
 #include <spandsp/telephony.h>
 #include <spandsp/bit_operations.h>
 #include <spandsp/g711.h>
+#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -77,6 +78,9 @@ static int codec_drv_control(
 			if (len % 2 != 0)
 				break;
 			out = driver_alloc_binary(len >> 1);
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)buf, len >> 1);
+#endif
 			for (i = 0; i < (len >> 1); i++)
 				out->orig_bytes[i] = linear_to_alaw(((int16_t*)buf)[i]);
 			*rbuf = (char *) out;
@@ -88,6 +92,9 @@ static int codec_drv_control(
 				((int16_t*)out->orig_bytes)[i] = alaw_to_linear((unsigned char) buf[i]);
 			*rbuf = (char *) out;
 			ret = (len << 1);
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)out->orig_bytes, len);
+#endif
 			break;
 		 default:
 			break;
