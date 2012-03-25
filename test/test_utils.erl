@@ -113,7 +113,7 @@ encode_f(Name, Codec, A, B, FrameSizeA) ->
 		<<FrameB1:FrameSizeB/binary, RestB/binary>> ->
 			error_logger:info_msg(
 				"Bitstream mismatch while encoding from ~s frame.~nExpected:~n~p~nGot:~n~p~nExpected size: ~p.~nDecoded size: ~p.~nDecoded diff: ~p~n",
-				[Name, FrameB1, FrameB, size(FrameB1), size(FrameB), diff(FrameB1, FrameB1)]
+				[Name, FrameB1, FrameB, size(FrameB1), size(FrameB), diff(FrameB1, FrameB)]
 			),
 			encode_f(Name, Codec, RestA, RestB, FrameSizeA);
 		Else ->
