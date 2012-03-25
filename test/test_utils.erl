@@ -38,7 +38,7 @@ codec_encode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 
 	{ok, Codec} = codec:start_link(CodecType),
 
-	Ret = test_utils:encode(CodecName, Codec, PcmIn, BinOut, FrameSize),
+	Ret = test_utils:encode(CodecName, Codec, le16toh(PcmIn), BinOut, FrameSize),
 
 	codec:close(Codec),
 
@@ -50,7 +50,7 @@ codec_decode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 
 	{ok, Codec} = codec:start_link(CodecType),
 
-	Ret = test_utils:decode(CodecName, Codec, BinIn, PcmOut, FrameSize),
+	Ret = test_utils:decode(CodecName, Codec, BinIn, le16toh(PcmOut), FrameSize),
 
 	codec:close(Codec),
 
@@ -89,8 +89,8 @@ decode_f(Name, Codec, A, B, FrameSizeA) ->
 			decode_f(Name, Codec, RestA, RestB, FrameSizeA);
 		<<FrameB1:FrameSizeB/binary, RestB/binary>> ->
 			error_logger:info_msg(
-				"Bitstream mismatch while decoding from ~s frame.~nExpected:~n~p~nGot:~n~p~nDecoded size: ~p.~nDecoded diff: ~p~n",
-				[Name, FrameB1, FrameB, size(FrameB), diff(FrameB1, FrameB)]
+				"Bitstream mismatch while decoding from ~s frame.~nExpected:~n~p~nGot:~n~p~nExpected size: ~p.~nDecoded size: ~p.~nDecoded diff: ~p~n",
+				[Name, FrameB1, FrameB, size(FrameB1), size(FrameB), diff(FrameB1, FrameB)]
 			),
 			decode_f(Name, Codec, RestA, RestB, FrameSizeA);
 		Else ->
@@ -112,8 +112,8 @@ encode_f(Name, Codec, A, B, FrameSizeA) ->
 			encode_f(Name, Codec, RestA, RestB, FrameSizeA);
 		<<FrameB1:FrameSizeB/binary, RestB/binary>> ->
 			error_logger:info_msg(
-				"Bitstream mismatch while encoding from ~s frame.~nExpected:~n~p~nGot:~n~p~nDecoded size: ~p.~nDecoded diff: ~p~n",
-				[Name, FrameB1, FrameB, size(FrameB), diff(FrameB1, FrameB1)]
+				"Bitstream mismatch while encoding from ~s frame.~nExpected:~n~p~nGot:~n~p~nExpected size: ~p.~nDecoded size: ~p.~nDecoded diff: ~p~n",
+				[Name, FrameB1, FrameB, size(FrameB1), size(FrameB), diff(FrameB1, FrameB1)]
 			),
 			encode_f(Name, Codec, RestA, RestB, FrameSizeA);
 		Else ->
@@ -135,3 +135,10 @@ diff(Ret, A, <<>>) ->
 diff(Ret, <<ByteA:8, RestA/binary>>, <<ByteB:8, RestB/binary>>) ->
 	Diff = ByteA - ByteB,
 	diff(<<Ret/binary, Diff:8>>, RestA, RestB).
+
+le16toh(Binary) ->
+	le16toh(Binary, <<>>).
+le16toh(<<>>, Binary) ->
+	Binary;
+le16toh(<<A:16/little-integer, Rest/binary>>, Converted) ->
+	le16toh(Rest, <<Converted/binary, A:16>>).

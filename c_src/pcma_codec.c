@@ -37,6 +37,7 @@
 #include <spandsp/telephony.h>
 #include <spandsp/bit_operations.h>
 #include <spandsp/g711.h>
+#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -76,23 +77,24 @@ static int codec_drv_control(
 		case CMD_ENCODE:
 			if (len % 2 != 0)
 				break;
-			out = driver_alloc_binary(len / 2);
-			for (i = 0; i < (len / 2); i++) {
-				sample = (buf[i * 2 + 1] << 8) | (buf[i * 2] & 0xff);
-				out->orig_bytes[i] = linear_to_alaw(sample);
-			}
+			out = driver_alloc_binary(len >> 1);
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)buf, len >> 1);
+#endif
+			for (i = 0; i < (len >> 1); i++)
+				out->orig_bytes[i] = linear_to_alaw(((int16_t*)buf)[i]);
 			*rbuf = (char *) out;
-			ret = (len / 2);
+			ret = (len >> 1);
 			break;
 		 case CMD_DECODE:
-			out = driver_alloc_binary(len * 2);
-			for (i = 0; i < len; i++) {
-				sample = alaw_to_linear((unsigned char) buf[i]);
-				out->orig_bytes[i * 2] = (char) (sample & 0xff);
-				out->orig_bytes[i * 2 + 1] = (char) (sample >> 8);
-			}
+			out = driver_alloc_binary(len << 1);
+			for (i = 0; i < len; i++)
+				((int16_t*)out->orig_bytes)[i] = alaw_to_linear((unsigned char) buf[i]);
 			*rbuf = (char *) out;
-			ret = (len * 2);
+			ret = (len << 1);
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)out->orig_bytes, len);
+#endif
 			break;
 		 default:
 			break;

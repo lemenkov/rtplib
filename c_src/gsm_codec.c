@@ -37,6 +37,7 @@
 #include <spandsp/telephony.h>
 #include <spandsp/bit_operations.h>
 #include <spandsp/gsm0610.h>
+#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -77,33 +78,31 @@ static int codec_drv_control(
 		char **rbuf, int rlen)
 {
 	codec_data* d = (codec_data*)handle;
-	int16_t sample[FRAME_SIZE];
 
-	int i;
 	int ret = 0;
 	ErlDrvBinary *out;
 	*rbuf = NULL;
-
 
 	switch(command) {
 		case CMD_ENCODE:
 			if (len != FRAME_SIZE * 2)
 				break;
 			out = driver_alloc_binary(GSM_SIZE);
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)buf, len >> 1);
+#endif
 			ret = gsm0610_encode(d->estate, (uint8_t*)out->orig_bytes, (const int16_t*)buf, len >> 1);
 			*rbuf = (char *)out;
 			break;
 		 case CMD_DECODE:
 			if (len != GSM_SIZE)
 				break;
-			gsm0610_decode(d->dstate, sample, (const uint8_t*)buf, len);
 			out = driver_alloc_binary(FRAME_SIZE * 2);
-			for (i = 0; i < FRAME_SIZE; i++){
-				out->orig_bytes[i * 2] = (char) (sample[i] & 0xff);
-				out->orig_bytes[i * 2 + 1] = (char) (sample[i] >> 8);
-			}
+			ret = gsm0610_decode(d->dstate, (int16_t*)out->orig_bytes, (const uint8_t*)buf, len) >> 1;
+#if !defined(__BIG_ENDIAN__)
+			htobe16_map((int16_t*)out->orig_bytes, FRAME_SIZE);
+#endif
 			*rbuf = (char *)out;
-			ret = FRAME_SIZE * 2;
 			break;
 		 default:
 			break;
