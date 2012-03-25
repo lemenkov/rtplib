@@ -32,9 +32,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
-htobe16_map(int16_t* buffer, size_t size)
+void htobe16_map(int16_t* buffer, size_t size)
 {
 	size_t i = 0;
 	for(i = 0; i < size; i++)
 		buffer[i] = htobe16(buffer[i]);
+	return;
 }
