@@ -34,17 +34,43 @@
 -include_lib("eunit/include/eunit.hrl").
 
 codec_opus_test_() ->
+	{ok, BinIn}  = file:read_file("../test/samples/opus/testvector01.bit"),
+	{ok, PcmOut} = file:read_file("../test/samples/opus/testvector01.dec"),
+	{ok, Codec} = codec:start_link({'OPUS',48000,2}),
+%	codec:close(Codec),
 	[
+%		{"Test encoding from PCM to OPUS",
+%			fun() -> ?assertEqual(
+%						true,
+%						test_utils:codec_encode(
+%							"../test/samples/opus/testvector01.dec",
+%							"../test/samples/opus/testvector01.bit",
+%							160,
+%							"OPUS",
+%							{'OPUS',8000,1}
+%						)
+%					) end
+%		},
 		{"Test decoding from OPUS to PCM",
-			fun() -> ?assertEqual(
-						true,
-						test_utils:codec_decode(
-							"../test/samples/opus/testvector01.bit",
-							"../test/samples/opus/testvector01.dec",
-							160,
-							"OPUS",
-							{'OPUS',8000,1}
-						)
-					) end
+			fun() -> ?assertEqual(true, decode("OPUS", Codec, BinIn, PcmOut)) end
+%			fun() -> ?assertEqual(true, decode("OPUS", Codec, BinIn, test_utils:le16toh(PcmOut))) end
 		}
 	].
+
+decode(Name, Codec, <<>>, <<>>) ->
+	true;
+decode(Name, Codec, <<FrameSizeA:32/big-integer, FinalRange:32/big-integer, Rest/binary>> = A, B) ->
+	<<FrameA:FrameSizeA/binary, RestA/binary>> = Rest,
+	{ok, {FrameB, F, Nc, 16}} = codec:decode(Codec, FrameA),
+	FrameSizeB = size(FrameB),
+%	error_logger:info_msg("Frame: ~p~n, Freq: ~p~n, Nc: ~p~n, Size: ~p~n", [FrameB, F, Nc, FrameSizeB]),
+	<<PossibleFrameB:FrameSizeB/binary, RestB/binary>> = B,
+	if
+		FrameB == PossibleFrameB ->
+			ok;
+		true ->
+			error_logger:info_msg("Frame Size: ~p~n", [FrameSizeB div 4, test_utils:diff(FrameB, PossibleFrameB)])
+	end,
+%	error_logger:info_msg("PFrame: ~p~n, Freq: ~p~n, Nc: ~p~n, Size: ~p~n", [PossibleFrameB, F, Nc, FrameSizeB]),
+%	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
+	decode(Name, Codec, RestA, RestB).
