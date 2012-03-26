@@ -37,6 +37,8 @@
 typedef struct {
 	OpusEncoder *encoder;
 	OpusDecoder *decoder;
+	int sampling_rate;
+	int number_of_channels;
 	ErlDrvPort port;
 } codec_data;
 
@@ -51,6 +53,8 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
 	d->encoder = NULL;
 	d->decoder = NULL;
+	d->sampling_rate = 0;
+	d->number_of_channels = 0;
 
 	d->port = port;
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
@@ -87,8 +91,6 @@ static int codec_drv_control(
 
 	// required for the SETUP
 	int err = 0;
-	int sampling_rate = 0;
-	int number_of_channels = 0;
 
 	switch(command) {
 		case CMD_ENCODE:
@@ -98,14 +100,14 @@ static int codec_drv_control(
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
-			ret = 2 * opus_decode(d->decoder, (const unsigned char *)buf, len, pcm, 960*6*STEREO, 0);
+			ret = d->number_of_channels * 2 * opus_decode(d->decoder, (const unsigned char *)buf, len, pcm, 960*6*STEREO, 0);
 			out = driver_alloc_binary(ret);
 			memcpy(out->orig_bytes, pcm, ret);
 			*rbuf = (char *) out;
 			break;
 		case CMD_SETUP:
-			sampling_rate = ((uint32_t*)buf)[0];
-			number_of_channels = ((uint32_t*)buf)[1];
+			d->sampling_rate = ((uint32_t*)buf)[0];
+			d->number_of_channels = ((uint32_t*)buf)[1];
 
 			/* come up with a way to specify these */
 //			int bitrate_bps = bits_per_second;
@@ -117,8 +119,8 @@ static int codec_drv_control(
 //			int bandwidth = BANDWIDTH_FULLBAND;
 
 			if (!d->encoder && !d->decoder){
-				d->encoder = opus_encoder_create(sampling_rate, number_of_channels, OPUS_APPLICATION_VOIP, &err);
-				d->decoder = opus_decoder_create(sampling_rate, number_of_channels, &err);
+				d->encoder = opus_encoder_create(d->sampling_rate, d->number_of_channels, OPUS_APPLICATION_VOIP, &err);
+				d->decoder = opus_decoder_create(d->sampling_rate, d->number_of_channels, &err);
 			}
 //			opus_encoder_ctl(d->encoder, OPUS_SET_MODE(mode));
 //			opus_encoder_ctl(d->encoder, OPUS_SET_BITRATE(bitrate_bps));
