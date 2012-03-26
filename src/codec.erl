@@ -48,6 +48,7 @@
 -export([code_change/3]).
 -export([terminate/2]).
 
+-define(CMD_SETUP, 0).
 -define(CMD_ENCODE, 1).
 -define(CMD_DECODE, 2).
 -define(CMD_RESAMPLE(FromSR, FromCh, ToSR, ToCh), (FromSR div 1000) * 16777216 + FromCh * 65536  + (ToSR div 1000) * 256 + ToCh).
@@ -112,6 +113,7 @@ init({Format, SampleRate, Channels}) ->
 					Port = open_port({spawn, DriverName}, [binary]),
 					PortResampler = open_port({spawn, resampler_drv}, [binary]),
 					% FIXME only 16-bits per sample currently
+					port_control(Port, ?CMD_SETUP, <<SampleRate:32/native-unsigned-integer, Channels:32/native-unsigned-integer>>),
 					{ok, #state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = 16, resampler = PortResampler}};
 				{error, Error2} ->
 					{stop, Error2}

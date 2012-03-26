@@ -41,6 +41,7 @@ typedef struct {
 } codec_data;
 
 enum {
+	CMD_SETUP = 0,
 	CMD_ENCODE = 1,
 	CMD_DECODE = 2
 };
@@ -103,6 +104,10 @@ static int codec_drv_control(
 	opus_int16 pcm[960*6*STEREO];
 	unsigned char opus[MAX_PACKET];
 
+	// required for the SETUP
+	int sampling_rate = 0;
+	int number_of_channels = 0;
+
 	switch(command) {
 		case CMD_ENCODE:
 			ret = opus_encode(d->encoder, (const opus_int16 *)buf, len >> 1, opus, MAX_PACKET);
@@ -115,6 +120,11 @@ static int codec_drv_control(
 			out = driver_alloc_binary(ret);
 			memcpy(out->orig_bytes, pcm, ret);
 			*rbuf = (char *) out;
+			break;
+		case CMD_SETUP:
+			sampling_rate = ((uint32_t*)buf)[0];
+			number_of_channels = ((uint32_t*)buf)[1];
+//			TODO actually setup codec here
 			break;
 		 default:
 			break;
