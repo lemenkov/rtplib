@@ -48,30 +48,9 @@ enum {
 
 static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 {
-	int err = 0;
-
-	/* come up with a way to specify these */
-//	int bitrate_bps = bits_per_second;
-//	int mode = MODE_HYBRID;
-//	int use_vbr = 1;
-//	int complexity = 10;
-//	int use_inbandfec = 1;
-//	int use_dtx = 1;
-//	int bandwidth = BANDWIDTH_FULLBAND;
-	int sampling_rate = 8000;
-	int number_of_channels = 1;
-
 	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
-	d->encoder = opus_encoder_create(sampling_rate, number_of_channels, OPUS_APPLICATION_VOIP, &err);
-	d->decoder = opus_decoder_create(sampling_rate, number_of_channels, &err);
-
-//	opus_encoder_ctl(d->encoder, OPUS_SET_MODE(mode));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_BITRATE(bitrate_bps));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_BANDWIDTH(bandwidth));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_VBR_FLAG(use_vbr));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_COMPLEXITY(complexity));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_INBAND_FEC_FLAG(use_inbandfec));
-//	opus_encoder_ctl(d->encoder, OPUS_SET_DTX_FLAG(use_dtx));
+	d->encoder = NULL;
+	d->decoder = NULL;
 
 	d->port = port;
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
@@ -82,8 +61,10 @@ static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
 static void codec_drv_stop(ErlDrvData handle)
 {
 	codec_data *d = (codec_data *) handle;
-	opus_decoder_destroy(d->decoder);
-	opus_encoder_destroy(d->encoder);
+	if (d->decoder)
+		opus_decoder_destroy(d->decoder);
+	if (d->encoder)
+		opus_encoder_destroy(d->encoder);
 	driver_free((char*)handle);
 }
 
@@ -105,6 +86,7 @@ static int codec_drv_control(
 	unsigned char opus[MAX_PACKET];
 
 	// required for the SETUP
+	int err = 0;
 	int sampling_rate = 0;
 	int number_of_channels = 0;
 
@@ -124,7 +106,27 @@ static int codec_drv_control(
 		case CMD_SETUP:
 			sampling_rate = ((uint32_t*)buf)[0];
 			number_of_channels = ((uint32_t*)buf)[1];
-//			TODO actually setup codec here
+
+			/* come up with a way to specify these */
+//			int bitrate_bps = bits_per_second;
+//			int mode = MODE_HYBRID;
+//			int use_vbr = 1;
+//			int complexity = 10;
+//			int use_inbandfec = 1;
+//			int use_dtx = 1;
+//			int bandwidth = BANDWIDTH_FULLBAND;
+
+			if (!d->encoder && !d->decoder){
+				d->encoder = opus_encoder_create(sampling_rate, number_of_channels, OPUS_APPLICATION_VOIP, &err);
+				d->decoder = opus_decoder_create(sampling_rate, number_of_channels, &err);
+			}
+//			opus_encoder_ctl(d->encoder, OPUS_SET_MODE(mode));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_BITRATE(bitrate_bps));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_BANDWIDTH(bandwidth));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_VBR_FLAG(use_vbr));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_COMPLEXITY(complexity));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_INBAND_FEC_FLAG(use_inbandfec));
+//			opus_encoder_ctl(d->encoder, OPUS_SET_DTX_FLAG(use_dtx));
 			break;
 		 default:
 			break;
