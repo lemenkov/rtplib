@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "erl_driver.h"
-#include <audio_coding/ilbc.h>
+#include <ilbc.h>
 //#include <syslog.h>
 
 typedef struct {
