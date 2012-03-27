@@ -34,43 +34,58 @@
 -include_lib("eunit/include/eunit.hrl").
 
 codec_opus_test_() ->
-	{ok, BinIn}  = file:read_file("../test/samples/opus/testvector01.bit"),
-	{ok, PcmOut} = file:read_file("../test/samples/opus/testvector01.dec"),
-	{ok, Codec} = codec:start_link({'OPUS',48000,2}),
-%	codec:close(Codec),
 	[
-%		{"Test encoding from PCM to OPUS",
-%			fun() -> ?assertEqual(
-%						true,
-%						test_utils:codec_encode(
-%							"../test/samples/opus/testvector01.dec",
-%							"../test/samples/opus/testvector01.bit",
-%							160,
-%							"OPUS",
-%							{'OPUS',8000,1}
-%						)
-%					) end
-%		},
-		{"Test decoding from OPUS to PCM",
-			fun() -> ?assertEqual(true, decode("OPUS", Codec, BinIn, PcmOut)) end
-%			fun() -> ?assertEqual(true, decode("OPUS", Codec, BinIn, test_utils:le16toh(PcmOut))) end
+		{"Test decoding from OPUS to PCM (01)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector01.bit", "../test/samples/opus/testvector01.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (02)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector02.bit", "../test/samples/opus/testvector02.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (03)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector03.bit", "../test/samples/opus/testvector03.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (04)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector04.bit", "../test/samples/opus/testvector04.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (05)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector05.bit", "../test/samples/opus/testvector05.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (06)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector06.bit", "../test/samples/opus/testvector06.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (07)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector07.bit", "../test/samples/opus/testvector07.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (08)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector08.bit", "../test/samples/opus/testvector08.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (09)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector09.bit", "../test/samples/opus/testvector09.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (10)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector10.bit", "../test/samples/opus/testvector10.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (11)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector11.bit", "../test/samples/opus/testvector11.dec")) end
+		},
+		{"Test decoding from OPUS to PCM (12)",
+			fun() -> ?assertEqual(true, decode("../test/samples/opus/testvector12.bit", "../test/samples/opus/testvector12.dec")) end
 		}
 	].
+
+decode(FileIn, FileOut) ->
+	{ok, BinIn}  = file:read_file(FileIn),
+	{ok, PcmOut} = file:read_file(FileOut),
+	{ok, Codec} = codec:start_link({'OPUS', 48000, 2}),
+	Ret = decode("OPUS", Codec, BinIn, PcmOut),
+	codec:close(Codec),
+	Ret.
 
 decode(Name, Codec, <<>>, <<>>) ->
 	true;
 decode(Name, Codec, <<FrameSizeA:32/big-integer, FinalRange:32/big-integer, Rest/binary>> = A, B) ->
 	<<FrameA:FrameSizeA/binary, RestA/binary>> = Rest,
-	{ok, {FrameB, F, Nc, 16}} = codec:decode(Codec, FrameA),
+	{ok, {FrameB, _, _, _}} = codec:decode(Codec, FrameA),
 	FrameSizeB = size(FrameB),
-%	error_logger:info_msg("Frame: ~p~n, Freq: ~p~n, Nc: ~p~n, Size: ~p~n", [FrameB, F, Nc, FrameSizeB]),
-	<<PossibleFrameB:FrameSizeB/binary, RestB/binary>> = B,
-	if
-		FrameB == PossibleFrameB ->
-			ok;
-		true ->
-			error_logger:info_msg("Frame: ~p~n Size: ~p~n", [test_utils:diff(FrameB, PossibleFrameB), FrameSizeB])
-	end,
-%	error_logger:info_msg("PFrame: ~p~n, Freq: ~p~n, Nc: ~p~n, Size: ~p~n", [PossibleFrameB, F, Nc, FrameSizeB]),
-%	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
+	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
 	decode(Name, Codec, RestA, RestB).
