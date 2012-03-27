@@ -69,7 +69,7 @@ decode(Name, Codec, <<FrameSizeA:32/big-integer, FinalRange:32/big-integer, Rest
 		FrameB == PossibleFrameB ->
 			ok;
 		true ->
-			error_logger:info_msg("Frame Size: ~p~n", [FrameSizeB div 4, test_utils:diff(FrameB, PossibleFrameB)])
+			error_logger:info_msg("Frame: ~p~n Size: ~p~n", [test_utils:diff(FrameB, PossibleFrameB), FrameSizeB])
 	end,
 %	error_logger:info_msg("PFrame: ~p~n, Freq: ~p~n, Nc: ~p~n, Size: ~p~n", [PossibleFrameB, F, Nc, FrameSizeB]),
 %	<<FrameB:FrameSizeB/binary, RestB/binary>> = B,
