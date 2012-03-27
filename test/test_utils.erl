@@ -33,6 +33,11 @@
 -compile(export_all).
 
 codec_encode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
+	codec_encode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType).
+codec_decode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
+	codec_decode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType).
+
+codec_encode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 	{ok, PcmIn}  = file:read_file(FileIn),
 	{ok, BinOut} = file:read_file(FileOut),
 
@@ -44,13 +49,37 @@ codec_encode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 
 	Ret.
 
-codec_decode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
+codec_decode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 	{ok, BinIn}  = file:read_file(FileIn),
 	{ok, PcmOut} = file:read_file(FileOut),
 
 	{ok, Codec} = codec:start_link(CodecType),
 
 	Ret = test_utils:decode(CodecName, Codec, BinIn, le16toh(PcmOut), FrameSize),
+
+	codec:close(Codec),
+
+	Ret.
+
+codec_encode_pcmbe(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
+	{ok, PcmIn}  = file:read_file(FileIn),
+	{ok, BinOut} = file:read_file(FileOut),
+
+	{ok, Codec} = codec:start_link(CodecType),
+
+	Ret = test_utils:encode(CodecName, Codec, be16toh(PcmIn), BinOut, FrameSize),
+
+	codec:close(Codec),
+
+	Ret.
+
+codec_decode_pcmbe(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
+	{ok, BinIn}  = file:read_file(FileIn),
+	{ok, PcmOut} = file:read_file(FileOut),
+
+	{ok, Codec} = codec:start_link(CodecType),
+
+	Ret = test_utils:decode(CodecName, Codec, BinIn, be16toh(PcmOut), FrameSize),
 
 	codec:close(Codec),
 
@@ -142,3 +171,10 @@ le16toh(<<>>, Binary) ->
 	Binary;
 le16toh(<<A:16/little-integer, Rest/binary>>, Converted) ->
 	le16toh(Rest, <<Converted/binary, A:16>>).
+
+be16toh(Binary) ->
+	be16toh(Binary, <<>>).
+be16toh(<<>>, Binary) ->
+	Binary;
+be16toh(<<A:16/big-integer, Rest/binary>>, Converted) ->
+	be16toh(Rest, <<Converted/binary, A:16>>).
