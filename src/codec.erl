@@ -62,6 +62,7 @@ start_link(Args) when
 	Args == {'DVI4',16000,1};
 	Args == {'PCMA',8000,1};
 	Args == {'G722',8000,1};
+	Args == {'G726',8000,1};
 	Args == {'DVI4',11025,1};
 	Args == {'DVI4',22050,1};
 	Args == {'SPEEX',8000,1};
@@ -90,6 +91,7 @@ init({Format, SampleRate, Channels}) ->
 		'DVI4' -> dvi4_codec_drv;
 		'PCMA' -> pcma_codec_drv;
 		'G722' -> g722_codec_drv;
+		'G726' -> g726_codec_drv;
 		'SPEEX' -> speex_codec_drv;
 		'ILBC' -> ilbc_codec_drv;
 		'OPUS' -> opus_codec_drv
