@@ -33,6 +33,7 @@
 -module(codec).
 
 -behaviour(gen_server).
+-compile({parse_transform, do}).
 
 -include("../include/rtp.hrl").
 
@@ -98,34 +99,19 @@ init({Format, SampleRate, Channels}) ->
 		'ILBC' -> ilbc_codec_drv;
 		'OPUS' -> opus_codec_drv
 	end,
-	case
-		case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", DriverName) of
-			ok -> ok;
-			{error, already_loaded} -> ok;
-			{error, permanent} -> ok;
-			{error, Error} -> error_logger:error_msg("Can't load ~p codec: ~p~n", [Format, erl_ddll:format_error(Error)]), {error, Error}
-		end
-	of
+	Result = do([error_m ||
+			load_library(DriverName),
+			load_library(resampler_drv)]),
+
+	case Result of
 		ok ->
-			case
-				case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", resampler_drv) of
-					ok -> ok;
-					{error, already_loaded} -> ok;
-					{error, permanent} -> ok;
-					{error, Error0} -> error_logger:error_msg("Can't load ~p resampler: ~p~n", [Format, erl_ddll:format_error(Error0)]), {error, Error0}
-				end
-			of
-				ok ->
-					Port = open_port({spawn, DriverName}, [binary]),
-					PortResampler = open_port({spawn, resampler_drv}, [binary]),
-					% FIXME only 16-bits per sample currently
-					port_control(Port, ?CMD_SETUP, <<SampleRate:32/native-unsigned-integer, Channels:32/native-unsigned-integer>>),
-					{ok, #state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = 16, resampler = PortResampler}};
-				{error, Error2} ->
-					{stop, Error2}
-			end;
-		{error, Error1} ->
-			{stop, Error1}
+			Port = open_port({spawn, DriverName}, [binary]),
+			PortResampler = open_port({spawn, resampler_drv}, [binary]),
+			% FIXME only 16-bits per sample currently
+			port_control(Port, ?CMD_SETUP, <<SampleRate:32/native-unsigned-integer, Channels:32/native-unsigned-integer>>),
+			{ok, #state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = 16, resampler = PortResampler}};
+		{error, Error} ->
+			{stop, Error}
 	end.
 
 % Encoding doesn't require resampling
@@ -202,3 +188,17 @@ decode(Codec, Payload) when is_pid(Codec), is_binary(Payload) ->
 
 encode(Codec, {Payload, SampleRate, Channels, Resolution}) when is_pid(Codec), is_binary(Payload) ->
 	gen_server:call(Codec, {?CMD_ENCODE, {Payload, SampleRate, Channels, Resolution}}).
+
+%%
+%% Private fun
+%%
+
+load_library(Name) ->
+	case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", Name) of
+		ok -> ok;
+		{error, already_loaded} -> ok;
+		{error, permanent} -> ok;
+		{error, Error} ->
+			error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
+			{error, Error}
+	end.
