@@ -185,7 +185,10 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 	end,
 	BinAttrs = encode_attrs(Attrs, <<>>),
 	Length = size(BinAttrs),
-	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
+	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>;
+
+encode(Pkts) ->
+	rtcp:encode(Pkts).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
