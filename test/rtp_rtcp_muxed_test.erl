@@ -34,7 +34,7 @@
 -include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-rtcp_APP_test_() ->
+rtp_rtcp_muxed_test_() ->
 	AppBin = <<133,204,0,8,0,0,4,0,83,84,82,49,72,101,108,108,111,33,32,84,104,105,115,32,105,115,32,97,32,115,116,114,105,110,103,46>>,
 	ByeBin = <<161,203,0,3,0,0,4,0,6,67,97,110,99,101,108,0>>,
 	RBlock1Bin = <<0,0,4,0,2,0,4,2,0,0,4,3,0,0,4,4,0,0,4,5,0,0,4,6>>,
@@ -82,29 +82,53 @@ rtcp_APP_test_() ->
 			fun() -> ?assertEqual({ok, [#app{subtype = 5, ssrc = 1024, name = <<"STR1">>, data = <<"Hello! This is a string.">>}]},
 						rtp:decode(AppBin)) end
 		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(AppBin, rtp:encode(#app{subtype = 5, ssrc = 1024, name = <<"STR1">>, data = <<"Hello! This is a string.">>})) end
+		},
 		{"Simple decoding BYE RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok, [#bye{message = "Cancel", ssrc = [1024]}]}, rtp:decode(ByeBin)) end
+		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(ByeBin, rtp:encode(#bye{message = "Cancel", ssrc = [1024]})) end
 		},
 		{"Simple decoding FIR RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok, [#fir{ssrc = 1024}]}, rtp:decode(<<128,192,0,1,0,0,4,0>>)) end
 		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(<<128,192,0,1,0,0,4,0>>, rtp:encode(#fir{ssrc = 1024})) end
+		},
 		{"Simple decoding NACK RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok, [#nack{ssrc=1024, fsn=2049, blp=4097}]}, rtp:decode(<<128,193,0,2,0,0,4,0,8,1,16,1>>)) end
 		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(<<128,193,0,2,0,0,4,0,8,1,16,1>>, rtp:encode(#nack{ssrc=1024, fsn=2049, blp=4097})) end
+		},
 		{"Simple decoding RR RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok, [RR]}, rtp:decode(RRBin)) end
+		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(RRBin, rtp:encode(RR)) end
 		},
 		{"Simple decoding SDES RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual(
 						{ok, [#sdes{list=[[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]]}]},
 						rtp:decode(SdesBin)) end
 		},
-
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(<<129,202,0,6,0,0,4,0,1,7,104,101,108,108,111,32,49,2,7,104,101,108,108,111,32,50,0,0>>,
+						rtp:encode(#sdes{list=[[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]]})
+					) end
+		},
 		{"Simple decoding SR RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok,[SR]}, rtp:decode(SRBin)) end
 		},
-
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(SRBin, rtp:encode(SR)) end
+		},
 		{"Simple decoding XR RTCP data stream and returning a list with only member - record",
 			fun() -> ?assertEqual({ok, [#xr{ssrc=1024, xrblocks=[XrBlock1, XrBlock2]}]}, rtp:decode(XrBin)) end
+		},
+		{"Check that we can reproduce original data stream from record",
+			fun() -> ?assertEqual(XrBin, rtp:encode(#xr{ssrc=1024, xrblocks=[XrBlock1, XrBlock2]})) end
 		}
 	].
