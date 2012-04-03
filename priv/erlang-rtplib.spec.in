@@ -30,6 +30,7 @@ BuildRequires:	webrtc-devel
 BuildRequires:	libogg-devel
 BuildRequires:	erlang
 BuildRequires:	erlang-eunit
+BuildRequires:	erlang-erlando
 Requires:	erlang
 
 

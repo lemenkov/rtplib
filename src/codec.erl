@@ -120,12 +120,7 @@ handle_call(
 	_From,
 	#state{port = Port, samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
 ) ->
-	case port_control(Port, ?CMD_ENCODE, Binary) of
-		NewBinary when is_binary(NewBinary) ->
-			{reply, {ok, NewBinary}, State};
-		_ ->
-			{reply, {error, codec_error}, State}
-	end;
+	{reply, encode_binary(Port, ?CMD_ENCODE, Binary), State};
 
 % Encoding requires resampling
 handle_call(
@@ -133,17 +128,11 @@ handle_call(
 	_From,
 	#state{port = Port, samplerate = NativeSampleRate, channels = NativeChannels, resolution = NativeResolution, resampler = PortResampler} = State
 ) ->
-	case port_control(PortResampler, ?CMD_RESAMPLE(SampleRate, Channels, NativeSampleRate, NativeChannels), Binary) of
-		ResampledBinary when is_binary(ResampledBinary) ->
-			case port_control(Port, ?CMD_ENCODE, Binary) of
-				NewBinary when is_binary(NewBinary) ->
-					{reply, {ok, NewBinary}, State};
-				_ ->
-					{reply, {error, codec_error}, State}
-			end;
-		_ ->
-			{reply, {error, resampler_error}, State}
-	end;
+	Result = do([error_m ||
+			ResampledBinary <- encode_binary(PortResampler, ?CMD_RESAMPLE(SampleRate, Channels, NativeSampleRate, NativeChannels), Binary),
+			encode_binary(Port, ?CMD_ENCODE, ResampledBinary)]),
+
+	{reply, Result, State};
 
 handle_call(
 	{?CMD_DECODE, Binary},
@@ -201,4 +190,10 @@ load_library(Name) ->
 		{error, Error} ->
 			error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
 			{error, Error}
+	end.
+
+encode_binary(Port, Cmd, BinIn) ->
+	case port_control(Port, Cmd, BinIn) of
+		BinOut when is_binary(BinOut) -> {ok, BinOut};
+		_ -> {error, codec_error}
 	end.
