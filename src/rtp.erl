@@ -64,32 +64,21 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		extension = Extension,
 		payload = Payload
 	}};
+
 decode(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =< PayloadType, PayloadType =< 82 ->
 	rtcp:decode(Binary);
 
 decode(<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
 	zrtp:decode(Binary);
 
-decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
-	<<Method:12>> = <<M0:5, M1:3, M2:4>>,
-	Class = case <<C0:1, C1:1>> of
-		<<0:0, 0:1>> -> request;
-		<<0:0, 1:1>> -> indication;
-		<<1:0, 0:1>> -> success;
-		<<1:0, 1:1>> -> error
-	end,
-	Attrs = decode_attrs(Rest, Length, []),
-	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}}.
+decode(<<?STUN_MARKER:2, _:30, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
+	stun:decode(Binary).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Decoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%
-%% RTP decoding helpers
-%%
 
 decode_csrc(Data, 0, CSRCs) ->
 	{ok, Data, CSRCs};
@@ -147,24 +136,6 @@ decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data
 	<<Payload:BlockLength/binary, Rest/binary>> = Data,
 	decode_red_payload(Headers, Rest, Payloads ++ [{PayloadType, TimeStampOffset, Payload}]).
 
-%%
-%% STUN decoding helpers
-%%
-
-decode_attrs(<<>>, 0, Attrs) ->
-	Attrs;
-decode_attrs(<<>>, Length, Attrs) ->
-	error_logger:warning_msg("STUN TLV wrong length [~p]~n", [Length]),
-	Attrs;
-decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
-	PaddingLength = case ItemLength rem 4 of
-		0 -> 0;
-		Else -> 4 - Else
-	end,
-	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
-	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
-	decode_attrs(Rest, NewLength, Attrs ++ [{Type, Value}]).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Encoding functions
@@ -181,17 +152,8 @@ encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, ti
 encode(#zrtp{} = Zrtp) ->
 	zrtp:encode(Zrtp);
 
-encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
-	<<M0:5, M1:3, M2:4>> = <<Method:12>>,
-	<<C0:1, C1:1>> = case Class of
-		request -><<0:0, 0:1>>;
-		indication -> <<0:0, 1:1>>;
-		success -> <<1:0, 0:1>>;
-		error -> <<1:0, 1:1>>
-	end,
-	BinAttrs = encode_attrs(Attrs, <<>>),
-	Length = size(BinAttrs),
-	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>;
+encode(#stun{} = Stun) ->
+	stun:encode(Stun);
 
 encode(Pkts) ->
 	rtcp:encode(Pkts).
@@ -201,10 +163,6 @@ encode(Pkts) ->
 %%% Encoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%
-%% RTP encoding helpers
-%%
 
 encode_extension(null) ->
 	{0, <<>>};
@@ -239,19 +197,3 @@ encode_red([{PayloadType, _, Payload}], HeadersBinary, PayloadBinary) ->
 encode_red([{PayloadType, TimeStampOffset, Payload} | RedundantPayloads], HeadersBinary, PayloadBinary) ->
 	BlockLength = size(Payload),
 	encode_red(RedundantPayloads, <<HeadersBinary/binary, 1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10>>, <<PayloadBinary/binary, Payload/binary>>).
-
-%%
-%% STUN encoding helpers
-%%
-
-encode_attrs([], Attrs) ->
-	Attrs;
-encode_attrs([{Type, Value}|Rest], Attrs) ->
-	% FIXME
-	ItemLength = size(Value),
-	PaddingLength = case ItemLength rem 4 of
-		0 -> 0;
-		Else -> (4 - Else)*8
-	end,
-	Attr = <<Type:16, ItemLength:16, Value:ItemLength/binary, 0:PaddingLength>>,
-	encode_attrs(Rest, <<Attrs/binary, Attr/binary>>).
