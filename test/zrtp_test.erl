@@ -262,6 +262,15 @@ zrtp_test_() ->
 	},
 	Confirm2Zrtp = #zrtp{sequence = 6, ssrc = 2197972423, message = Confirm2Message},
 
+	% CONF2ACK data
+
+	Conf2ACKSequence = <<0,7>>, % 7
+	Conf2ACKSSRC = <<131,2,99,21>>,
+	Conf2ACKPayload = <<80,90,0,3,67,111,110,102,50,65,67,75>>,
+	Conf2ACKCRC = <<71,238,193,114>>,
+	Conf2ACKZrtpBin = <<ZrtpMarker/binary, Conf2ACKSequence/binary, MagicCookie/binary, Conf2ACKSSRC/binary, Conf2ACKPayload/binary, Conf2ACKCRC/binary>>,
+	Conf2ACKZrtp = #zrtp{sequence = 7, ssrc = 2197971733, message = conf2ack},
+
 	% tests
 
 	[
@@ -354,5 +363,18 @@ zrtp_test_() ->
 		},
 		{"Check that we can reproduce original CONFIRM2 data stream from CONFIRM2 record",
 			fun() -> ?assertEqual(Confirm2ZrtpBin, rtp:encode(Confirm2Zrtp)) end
+		},
+
+		{"Simple decoding of ZRTP CONF2ACK message payload",
+			fun() -> ?assertEqual({ok, conf2ack}, zrtp:decode_message(Conf2ACKPayload)) end
+		},
+		{"Simple encoding of ZRTP CONF2ACK message to binary",
+			fun() -> ?assertEqual(Conf2ACKPayload, zrtp:encode_message(conf2ack)) end
+		},
+		{"Simple decoding of ZRTP CONF2ACK data packet",
+			fun() -> ?assertEqual({ok, Conf2ACKZrtp}, rtp:decode(Conf2ACKZrtpBin)) end
+		},
+		{"Check that we can reproduce original CONF2ACK data stream from CONF2ACK record",
+			fun() -> ?assertEqual(Conf2ACKZrtpBin, rtp:encode(Conf2ACKZrtp)) end
 		}
 	].
