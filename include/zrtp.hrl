@@ -143,25 +143,27 @@
 -record(confirm1, {
 		conf_mac,
 		cfb_init_vect,
-		h0,
-		pbx_enrollement,
-		sas_verified,
-		allow_clear,
-		disclosure,
-		cache_exp_interval,
-		signature = null
+		h0 = null,
+		pbx_enrollement = null,
+		sas_verified = null,
+		allow_clear = null,
+		disclosure = null,
+		cache_exp_interval = null,
+		signature = null,
+		encrypted_data = null
 	}).
 
 -record(confirm2, {
 		conf_mac,
 		cfb_init_vect,
-		h0,
-		pbx_enrollement,
-		sas_verified,
-		allow_clear,
-		disclosure,
-		cache_exp_interval,
-		signature = null
+		h0 = null,
+		pbx_enrollement = null,
+		sas_verified = null,
+		allow_clear = null,
+		disclosure = null,
+		cache_exp_interval = null,
+		signature = null,
+		encrypted_data = null
 	}).
 
 -record(error, {code}).

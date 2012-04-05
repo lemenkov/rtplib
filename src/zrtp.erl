@@ -158,6 +158,12 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMa
 			cache_exp_interval = CacheExpInterval,
 			signature = Signature
 	}};
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
+	{ok, #confirm1{
+			conf_mac = ConfMac,
+			cfb_init_vect = CFBInitVect,
+			encrypted_data = EncryptedData
+	}};
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, HashPreimageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>>) ->
 	Signature = case SigLen of
 		0 -> null;
@@ -176,6 +182,12 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMa
 			disclosure = D,
 			cache_exp_interval = CacheExpInterval,
 			signature = Signature
+	}};
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
+	{ok, #confirm2{
+			conf_mac = ConfMac,
+			cfb_init_vect = CFBInitVect,
+			encrypted_data = EncryptedData
 	}};
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_CONF2ACK>>) ->
 	{ok, conf2ack};
@@ -248,7 +260,7 @@ encode_message(#dhpart1{h1 = HashImageH1,rs1IDr = Rs1IDr,rs2IDr = Rs2IDr,auxsecr
 encode_message(#dhpart2{h1 = HashImageH1,rs1IDi = Rs1IDi,rs2IDi = Rs2IDi,auxsecretIDi = AuxsecretIDi,pbxsecretIDi = PbxsecretIDi,pvi = PVI,mac = MAC}) ->
 	Length = 1 + 2 + 8 + 2 + 2 + 2 + 2 + size(PVI) div 4 + 2,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART2, HashImageH1:32/binary, Rs1IDi:8/binary, Rs2IDi:8/binary, AuxsecretIDi:8/binary, PbxsecretIDi:8/binary, PVI/binary, MAC/binary>>;
-encode_message(#confirm1{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = HashPreimageH0,pbx_enrollement = E,sas_verified = V,allow_clear = A,disclosure = D,cache_exp_interval = CacheExpInterval,signature = Signature}) ->
+encode_message(#confirm1{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = HashPreimageH0,pbx_enrollement = E,sas_verified = V,allow_clear = A,disclosure = D,cache_exp_interval = CacheExpInterval,signature = Signature, encrypted_data = null}) ->
 	SignatureBin = case Signature of
 		null -> <<>>;
 		#signature{type = SigType, data = SigData} ->
@@ -257,7 +269,10 @@ encode_message(#confirm1{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = Has
 	SigLen = size(SignatureBin) div 4,
 	Length = 19 + SigLen,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, HashPreimageH0:32/binary, 0:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, SignatureBin/binary>>;
-encode_message(#confirm2{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = HashPreimageH0,pbx_enrollement = E,sas_verified = V,allow_clear = A,disclosure = D,cache_exp_interval = CacheExpInterval,signature = Signature}) ->
+encode_message(#confirm1{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = null,pbx_enrollement = null,sas_verified = null,allow_clear = null,disclosure = null,cache_exp_interval = null,signature = null, encrypted_data = EncryptedData}) ->
+	Length = (36 + size(EncryptedData)) div 4,
+	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>;
+encode_message(#confirm2{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = HashPreimageH0,pbx_enrollement = E,sas_verified = V,allow_clear = A,disclosure = D,cache_exp_interval = CacheExpInterval,signature = Signature, encrypted_data = null}) ->
 	SignatureBin = case Signature of
 		null -> <<>>;
 		#signature{type = SigType, data = SigData} ->
@@ -266,6 +281,9 @@ encode_message(#confirm2{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = Has
 	SigLen = size(SignatureBin) div 4,
 	Length = 19 + SigLen,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, HashPreimageH0:32/binary, 0:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, SignatureBin/binary>>;
+encode_message(#confirm2{conf_mac = ConfMac,cfb_init_vect = CFBInitVect,h0 = null,pbx_enrollement = null,sas_verified = null,allow_clear = null,disclosure = null,cache_exp_interval = null,signature = null, encrypted_data = EncryptedData}) ->
+	Length = (36 + size(EncryptedData)) div 4,
+	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>;
 encode_message(conf2ack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_CONF2ACK>>;
 encode_message(#error{code = ErrorCode}) ->
