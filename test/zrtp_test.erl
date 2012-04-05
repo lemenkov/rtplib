@@ -232,6 +232,21 @@ zrtp_test_() ->
 	},
 	Dhpart2Zrtp = #zrtp{sequence = 4, ssrc = 2197972423, message = Dhpart2Message},
 
+	% CONFIRM1 data
+
+	Confirm1Sequence = <<0,5>>, % 5
+	Confirm1SSRC = <<131,2,99,21>>,
+	Confirm1Payload = <<80,90,0,19,67,111,110,102,105,114,109,49,148,85,245,187,36,114,4,245,27,255,83,15,219,187,180,150,86,252,19,114,15,137,228,193,42,194,141,49,6,235,134,46,114,51,142,61,187,35,120,228,210,137,88,52,234,86,24,37,117,95,151,114,171,242,12,246,82,13,76,137,3,214,248,95>>,
+	Confirm1CRC = <<132,175,88,228>>,
+	Confirm1ZrtpBin = <<ZrtpMarker/binary, Confirm1Sequence/binary, MagicCookie/binary, Confirm1SSRC/binary, Confirm1Payload/binary, Confirm1CRC/binary>>,
+
+	Confirm1Message = #confirm1{
+		conf_mac = <<148,85,245,187,36,114,4,245>>,
+		cfb_init_vect = <<27,255,83,15,219,187,180,150,86,252,19,114,15,137,228,193>>,
+		encrypted_data = <<42,194,141,49,6,235,134,46,114,51,142,61,187,35,120,228,210,137,88,52,234,86,24,37,117,95,151,114,171,242,12,246,82,13,76,137,3,214,248,95>>
+	},
+	Confirm1Zrtp = #zrtp{sequence = 5, ssrc = 2197971733, message = Confirm1Message},
+
 	% tests
 
 	[
@@ -298,5 +313,18 @@ zrtp_test_() ->
 		},
 		{"Check that we can reproduce original DHPART2 data stream from DHPART2 record",
 			fun() -> ?assertEqual(Dhpart2ZrtpBin, rtp:encode(Dhpart2Zrtp)) end
+		},
+
+		{"Simple decoding of ZRTP CONFIRM1 message payload",
+			fun() -> ?assertEqual({ok, Confirm1Message}, zrtp:decode_message(Confirm1Payload)) end
+		},
+		{"Simple encoding of ZRTP CONFIRM1 message to binary",
+			fun() -> ?assertEqual(Confirm1Payload, zrtp:encode_message(Confirm1Message)) end
+		},
+		{"Simple decoding of ZRTP CONFIRM1 data packet",
+			fun() -> ?assertEqual({ok, Confirm1Zrtp}, rtp:decode(Confirm1ZrtpBin)) end
+		},
+		{"Check that we can reproduce original CONFIRM1 data stream from CONFIRM1 record",
+			fun() -> ?assertEqual(Confirm1ZrtpBin, rtp:encode(Confirm1Zrtp)) end
 		}
 	].
