@@ -55,12 +55,13 @@ encode(#zrtp{sequence = Sequence, ssrc = SSRC, message = Message}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, _Mbz:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>) ->
-	{Hashes, R1} = cut_chunks(HC, 4, Rest),
-	{Ciphers, R2} = cut_chunks(CC, 4, R1),
-	{Auths, R3} = cut_chunks(AC, 4, R2),
-	{KeyAgreements, R4} = cut_chunks(KC, 4, R3),
-	{SASTypes, R5} = cut_chunks(SC, 4, R4),
-	<<MAC:8/binary>> = R5,
+	[HCs, CCs, ACs, KCs, SCs] = [ X*4 || X <- [HC, CC, AC, KC, SC] ],
+	<<HashesBin:HCs/binary, CiphersBin:CCs/binary, AuthsBin:ACs/binary, KeyAgreementsBin:KCs/binary, SASTypesBin:SCs/binary, MAC:8/binary>> = Rest,
+	Hashes = [ X || <<X:4/binary>> <= HashesBin ],
+	Ciphers = [ X || <<X:4/binary>> <= CiphersBin ],
+	Auths = [ X || <<X:4/binary>> <= AuthsBin ],
+	KeyAgreements = [ X || <<X:4/binary>> <= KeyAgreementsBin ],
+	SASTypes = [ X || <<X:4/binary>> <= SASTypesBin ],
 	{ok, #hello{
 		clientid = ClientIdentifier,
 		h3 = HashImageH3,
@@ -238,11 +239,11 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	AC = length(Auths),
 	KC = length(KeyAgreements),
 	SC = length(SASTypes),
-	BinHashes = paste_chunks(Hashes),
-	BinCiphers = paste_chunks(Ciphers),
-	BinAuths = paste_chunks(Auths),
-	BinKeyAgreements = paste_chunks(KeyAgreements),
-	BinSASTypes = paste_chunks(SASTypes),
+	BinHashes = << <<X/binary>> || <<X/binary>> <- Hashes >>,
+	BinCiphers = << <<X/binary>> || <<X/binary>> <- Ciphers >>,
+	BinAuths = << <<X/binary>> || <<X/binary>> <- Auths >>,
+	BinKeyAgreements = << <<X/binary>> || <<X/binary>> <- KeyAgreements >>,
+	BinSASTypes = << <<X/binary>> || <<X/binary>> <- SASTypes >>,
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
@@ -329,21 +330,6 @@ make_crc32c(Message) ->
 	CRC = port_control(Port, 0, Message),
 	port_close(Port),
 	CRC.
-
-cut_chunks(Nchunks, Size, Binary) ->
-	cut_chunks(Nchunks, Size, Binary, []).
-cut_chunks(0, _, Binary, Ret) ->
-	{Ret, Binary};
-cut_chunks(N, Size, Binary, Ret) ->
-	<<Chunk:Size/binary, Rest/binary>> = Binary,
-	cut_chunks(N-1, Size, Rest, Ret ++ [Chunk]).
-
-paste_chunks(Chunks) ->
-	paste_chunks(Chunks,<<>>).
-paste_chunks([], Binary) ->
-	Binary;
-paste_chunks([Chunk | Rest], Binary) ->
-	paste_chunks(Rest, <<Binary/binary, Chunk/binary>>).
 
 % FIXME remove this
 load_library(Name) ->

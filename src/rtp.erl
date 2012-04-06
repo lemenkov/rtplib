@@ -133,7 +133,7 @@ decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data
 
 encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}) ->
 	CC = length(CSRCs),
-	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
+	CSRC_Data = << <<CSRC:32>> || CSRC <- CSRCs >>,
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
 	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>;
 
@@ -168,15 +168,8 @@ encode_dtmf(#dtmf{event = Event, eof = true, volume = Volume, duration = Duratio
 	<<Event:8, 1:1, 0:1, Volume:6, Duration:16>>.
 
 encode_tone(#tone{modulation = Modulation, divider = Divider, volume = Volume, duration = Duration, frequencies = Frequencies}) ->
-	FrequenciesBin = encode_frequencies(Frequencies),
+	FrequenciesBin = << <<0:4, Frequency:12>> || Frequency <- Frequencies >> ,
 	<<Modulation:9, Divider:1, Volume:6, Duration:16, FrequenciesBin/binary>>.
-
-encode_frequencies(Frequencies) ->
-	encode_frequencies(Frequencies, <<>>).
-encode_frequencies([], FrequenciesBin) ->
-	FrequenciesBin;
-encode_frequencies([Frequency|Rest], FrequenciesBin) ->
-	encode_frequencies(Rest, <<FrequenciesBin/binary, 0:4, Frequency:12>>).
 
 encode_red(RedundantPayloads) ->
 	encode_red(RedundantPayloads, <<>>, <<>>).
