@@ -49,8 +49,7 @@
 
 decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when PayloadType =< 34; 96 =< PayloadType ->
 	{ok, Data0, CSRCs} = decode_csrc(Rest, CC, []),
-	{ok, Data1, Extension} = decode_extension(Data0, ExtensionFlag),
-	{ok, Payload} = remove_padding(Data1, Padding),
+	{ok, Payload, Extension} = decode_extension(Data0, ExtensionFlag),
 	{ok, #rtp{
 		padding = Padding,
 		marker = Marker,
@@ -88,6 +87,8 @@ decode_extension(Data, 0) ->
 decode_extension(<<Type:16, Length:16, Payload:Length/binary, Data/binary>>, 1) ->
 	{ok, Data, #extension{type = Type, payload = Payload}}.
 
+% We simply can't use it since we don't know whether payload is encrypted or not
+% FIXME remove it from here
 remove_padding(Data, 0) ->
 	{ok, Data};
 remove_padding(Data, 1) when Data /= <<>> ->
