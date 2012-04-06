@@ -114,7 +114,7 @@ check(Message, CRC) when is_binary(Message), is_binary(CRC) ->
 	CRC == make(Message).
 make(Message) when is_binary(Message) ->
 	Crc32c = compute_crc32c(16#ffffffff, Message),
-	<<(bnot Crc32c):32/native>>.
+	<<(bnot Crc32c):32/little-integer>>.
 
 compute_crc32c(Val, <<>>) ->
 	Val;
