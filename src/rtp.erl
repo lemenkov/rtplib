@@ -87,16 +87,6 @@ decode_extension(Data, 0) ->
 decode_extension(<<Type:16, Length:16, Payload:Length/binary, Data/binary>>, 1) ->
 	{ok, Data, #extension{type = Type, payload = Payload}}.
 
-% We simply can't use it since we don't know whether payload is encrypted or not
-% FIXME remove it from here
-remove_padding(Data, 0) ->
-	{ok, Data};
-remove_padding(Data, 1) when Data /= <<>> ->
-	L = size(Data) - 1,
-	<<_:L/binary, C>> = Data,
-	{Payload, _} = split_binary(Data, L+1-C),
-	{ok, Payload}.
-
 %%
 %% RFC 2198, 2833, and 4733 decoding helpers
 %%
@@ -141,7 +131,6 @@ decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO Padding
 encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}) ->
 	CC = length(CSRCs),
 	CSRC_Data = list_to_binary([<<CSRC:32>> || CSRC <- CSRCs]),
