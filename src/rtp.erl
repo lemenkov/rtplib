@@ -102,7 +102,7 @@ decode_red(RedundantPayload) ->
 	decode_red_headers(RedundantPayload, []).
 
 decode_red_headers(<<0:1, PayloadType:7, Data/binary>>, Headers) ->
-	decode_red_payload(Headers ++ [{PayloadType, 0, 0, 0}], Data);
+	decode_red_payload(Headers ++ [{PayloadType, 0, 0}], Data);
 decode_red_headers(<<1:1, PayloadType:7, TimeStampOffset:14, BlockLength:10, Data/binary>>, Headers) ->
 	decode_red_headers(Data, Headers ++ [{PayloadType, TimeStampOffset, BlockLength}]).
 
