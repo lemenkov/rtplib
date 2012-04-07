@@ -69,7 +69,7 @@ decode(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =<
 decode(<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
 	zrtp:decode(Binary);
 
-decode(<<?STUN_MARKER:2, _:30, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
+decode(<<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Binary) ->
 	stun:decode(Binary).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

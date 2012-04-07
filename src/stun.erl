@@ -36,7 +36,7 @@
 
 -include("../include/stun.hrl").
 
-decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
+decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
 	Method = case <<M0:5, M1:3, M2:4>> of
 		<<1:12>> -> binding;
 		<<Other:12>> -> Other
@@ -64,7 +64,7 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 	end,
 	BinAttrs = << <<(encode_bin(encode_attr(T, V, TransactionID)))/binary>> || {T, V} <- Attrs >>,
 	Length = size(BinAttrs),
-	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
+	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -122,12 +122,12 @@ decode_attr_addr(<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, 
 	{{I0, I1, I2, I3, I4, I5, I6, I7}, Port}.
 
 decode_attr_xaddr(<<0:8, 1:8, XPort:16, XAddr:32>>, _) ->
-	Port = XPort bxor (?MAGIC_COOKIE bsr 16),
-	<<I0:8, I1:8, I2:8, I3:8>> = <<(XAddr bxor ?MAGIC_COOKIE):32>>,
+	Port = XPort bxor (?STUN_MAGIC_COOKIE bsr 16),
+	<<I0:8, I1:8, I2:8, I3:8>> = <<(XAddr bxor ?STUN_MAGIC_COOKIE):32>>,
 	{{I0, I1, I2, I3}, Port};
 decode_attr_xaddr(<<0:8, 2:8, XPort:16, XAddr:128>>, TID) ->
-	Port = XPort bxor (?MAGIC_COOKIE bsr 16),
-	<<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>> = <<(XAddr bxor ((?MAGIC_COOKIE bsl 96) bor TID)):128>>,
+	Port = XPort bxor (?STUN_MAGIC_COOKIE bsr 16),
+	<<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>> = <<(XAddr bxor ((?STUN_MAGIC_COOKIE bsl 96) bor TID)):128>>,
 	{{I0, I1, I2, I3, I4, I5, I6, I7}, Port}.
 
 decode_attr_err(<<_Mbz:20, Class:4, Number:8, Reason/binary>>) ->
@@ -175,14 +175,14 @@ encode_attr_addr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}) ->
 	<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>.
 
 encode_attr_xaddr({{I0, I1, I2, I3}, Port}, _) ->
-	XPort = Port bxor (?MAGIC_COOKIE bsr 16),
+	XPort = Port bxor (?STUN_MAGIC_COOKIE bsr 16),
 	<<Addr:32>> = <<I0:8, I1:8, I2:8, I3:8>>,
-	XAddr = Addr bxor ?MAGIC_COOKIE,
+	XAddr = Addr bxor ?STUN_MAGIC_COOKIE,
 	<<0:8, 1:8, XPort:16, XAddr:32>>;
 encode_attr_xaddr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}, TID) ->
-	XPort = Port bxor (?MAGIC_COOKIE bsr 16),
+	XPort = Port bxor (?STUN_MAGIC_COOKIE bsr 16),
 	<<Addr:128>> = <<I0:8, I1:8, I2:8, I3:8, I4:8, I5:8, I6:8, I7:8>>,
-	XAddr = Addr bxor ((?MAGIC_COOKIE bsl 96) bor TID),
+	XAddr = Addr bxor ((?STUN_MAGIC_COOKIE bsl 96) bor TID),
 	<<0:8, 2:8, XPort:16, XAddr:128>>.
 
 encode_attr_err({ErrorCode, Reason}) ->
