@@ -47,7 +47,7 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE
 		<<1:1, 0:1>> -> success;
 		<<1:1, 1:1>> -> error
 	end,
-	Attrs = decode_attrs(Rest, Length, []),
+	Attrs = decode_attrs(Rest, Length, TransactionID, []),
 	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}}.
 
 encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
@@ -62,7 +62,7 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 		success -> <<1:1, 0:1>>;
 		error -> <<1:1, 1:1>>
 	end,
-	BinAttrs = encode_attrs(Attrs, <<>>),
+	BinAttrs = << <<(encode_bin(encode_attr(T, V, TransactionID)))/binary>> || {T, V} <- Attrs >>,
 	Length = size(BinAttrs),
 	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
 
@@ -76,12 +76,12 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 %% STUN decoding helpers
 %%
 
-decode_attrs(<<>>, 0, Attrs) ->
+decode_attrs(<<>>, 0, _, Attrs) ->
 	Attrs;
-decode_attrs(<<>>, Length, Attrs) ->
+decode_attrs(<<>>, Length, _, Attrs) ->
 	error_logger:warning_msg("STUN TLV wrong length [~p]~n", [Length]),
 	Attrs;
-decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
+decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 	PaddingLength = case ItemLength rem 4 of
 		0 -> 0;
 		Else -> 4 - Else
@@ -101,24 +101,33 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
 		16#000b -> {'REFLECTED-FROM', Value}; % Obsolete
 		16#0014 -> {'REALM', Value};
 		16#0015 -> {'NONCE', Value};
-		16#0020 -> {'XOR-MAPPED-ADDRESS', Value};
+		16#0020 -> {'XOR-MAPPED-ADDRESS', decode_attr_xaddr(Value, TID)};
 
-		16#8020 -> {'X-VOVIDA-XOR-MAPPED-ADDRESS', Value}; % VOVIDA non-standart
+		16#8020 -> {'X-VOVIDA-XOR-MAPPED-ADDRESS', decode_attr_xaddr(Value, TID)}; % VOVIDA non-standart
 		16#8021 -> {'X-VOVIDA-XOR-ONLY', Value}; % VOVIDA non-standart
 
 		16#8022 -> {'SOFTWARE', Value}; % VOVIDA 'SERVER-NAME'
 		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
 		16#8028 -> {'FINGERPRINT', Value};
 
-		16#8050 -> {'X-VOVIDA-SECONDARY-ADDRESS', Value}; % VOVIDA non-standart
+		16#8050 -> {'X-VOVIDA-SECONDARY-ADDRESS', decode_attr_addr(Value)}; % VOVIDA non-standart
 		Other -> {Other, Value}
 	end,
 	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
-	decode_attrs(Rest, NewLength, Attrs ++ [{T, V}]).
+	decode_attrs(Rest, NewLength, TID, Attrs ++ [{T, V}]).
 
 decode_attr_addr(<<0:8, 1:8, Port:16, I0:8, I1:8, I2:8, I3:8>>) ->
 	{{I0, I1, I2, I3}, Port};
 decode_attr_addr(<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>) ->
+	{{I0, I1, I2, I3, I4, I5, I6, I7}, Port}.
+
+decode_attr_xaddr(<<0:8, 1:8, XPort:16, XAddr:32>>, _) ->
+	Port = XPort bxor (?MAGIC_COOKIE bsr 16),
+	<<I0:8, I1:8, I2:8, I3:8>> = <<(XAddr bxor ?MAGIC_COOKIE):32>>,
+	{{I0, I1, I2, I3}, Port};
+decode_attr_xaddr(<<0:8, 2:8, XPort:16, XAddr:128>>, TID) ->
+	Port = XPort bxor (?MAGIC_COOKIE bsr 16),
+	<<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>> = <<(XAddr bxor ((?MAGIC_COOKIE bsl 96) bor TID)):128>>,
 	{{I0, I1, I2, I3, I4, I5, I6, I7}, Port}.
 
 decode_attr_err(<<_Mbz:20, Class:4, Number:8, Reason/binary>>) ->
@@ -130,45 +139,51 @@ decode_attr_err(<<_Mbz:20, Class:4, Number:8, Reason/binary>>) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode_attrs([], Attrs) ->
-	Attrs;
-encode_attrs([{Type, Value}|Rest], Attrs) ->
-	{T, V} = case Type of
-		'MAPPED-ADDRESS' -> {16#0001, encode_attr_addr(Value)};
-		'RESPONSE-ADDRESS' -> {16#0002, encode_attr_addr(Value)};
-		'CHANGE-ADDRESS' -> {16#0003, encode_attr_addr(Value)};
-		'SOURCE-ADDRESS' -> {16#0004, encode_attr_addr(Value)};
-		'CHANGED-ADDRESS' -> {16#0005, encode_attr_addr(Value)};
-		'USERNAME' -> {16#0006, Value};
-		'PASSWORD' -> {16#0007, Value};
-		'MESSAGE-INTEGRITY' -> {16#0008, Value};
-		'ERROR-CODE' -> {16#0009, encode_attr_err(Value)};
-		'UNKNOWN-ATTRIBUTES' -> {16#000a, Value};
-		'REFLECTED-FROM' -> {16#000b, Value};
-		'REALM' -> {16#0014, Value};
-		'NONCE' -> {16#0015, Value};
-		'XOR-MAPPED-ADDRESS' -> {16#0020, Value};
-
-		'X-VOVIDA-XOR-MAPPED-ADDRESS' -> {16#8020, Value};
-		'X-VOVIDA-XOR-ONLY' -> {16#8021, Value};
-		'SOFTWARE' -> {16#8022, Value};
-		'ALTERNATE-SERVER' -> {16#8023, encode_attr_addr(Value)};
-		'FINGERPRINT' -> {16#8028, Value};
-		'X-VOVIDA-SECONDARY-ADDRESS' -> {16#8050, Value};
-		Other -> {Other, Value}
-	end,
-	ItemLength = size(V),
-	PaddingLength = case ItemLength rem 4 of
+encode_bin({T, V}) ->
+	L = size(V),
+	PaddingLength = case L rem 4 of
 		0 -> 0;
 		Else -> (4 - Else)*8
 	end,
-	Attr = <<T:16, ItemLength:16, V:ItemLength/binary, 0:PaddingLength>>,
-	encode_attrs(Rest, <<Attrs/binary, Attr/binary>>).
+	Attr = <<T:16, L:16, V:L/binary, 0:PaddingLength>>.
+
+encode_attr('MAPPED-ADDRESS', Value, _) -> {16#0001, encode_attr_addr(Value)};
+encode_attr('RESPONSE-ADDRESS', Value, _) -> {16#0002, encode_attr_addr(Value)};
+encode_attr('CHANGE-ADDRESS', Value, _) -> {16#0003, encode_attr_addr(Value)};
+encode_attr('SOURCE-ADDRESS', Value, _) -> {16#0004, encode_attr_addr(Value)};
+encode_attr('CHANGED-ADDRESS', Value, _) -> {16#0005, encode_attr_addr(Value)};
+encode_attr('USERNAME', Value, _) -> {16#0006, Value};
+encode_attr('PASSWORD', Value, _) -> {16#0007, Value};
+encode_attr('MESSAGE-INTEGRITY', Value, _) -> {16#0008, Value};
+encode_attr('ERROR-CODE', Value, _) -> {16#0009, encode_attr_err(Value)};
+encode_attr('UNKNOWN-ATTRIBUTES', Value, _) -> {16#000a, Value};
+encode_attr('REFLECTED-FROM', Value, _) -> {16#000b, Value};
+encode_attr('REALM', Value, _) -> {16#0014, Value};
+encode_attr('NONCE', Value, _) -> {16#0015, Value};
+encode_attr('XOR-MAPPED-ADDRESS', Value, TID) -> {16#0020, encode_attr_xaddr(Value, TID)};
+encode_attr('X-VOVIDA-XOR-MAPPED-ADDRESS', Value, TID) -> {16#8020, encode_attr_xaddr(Value, TID)};
+encode_attr('X-VOVIDA-XOR-ONLY', Value, _) -> {16#8021, Value};
+encode_attr('SOFTWARE', Value, _) -> {16#8022, Value};
+encode_attr('ALTERNATE-SERVER', Value, _) -> {16#8023, encode_attr_addr(Value)};
+encode_attr('FINGERPRINT', Value, _) -> {16#8028, Value};
+encode_attr('X-VOVIDA-SECONDARY-ADDRESS', Value, _) -> {16#8050, Value};
+encode_attr(Other, Value, _) -> {Other, Value}.
 
 encode_attr_addr({{I0, I1, I2, I3}, Port}) ->
 	<<0:8, 1:8, Port:16, I0:8, I1:8, I2:8, I3:8>>;
 encode_attr_addr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}) ->
 	<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>.
+
+encode_attr_xaddr({{I0, I1, I2, I3}, Port}, _) ->
+	XPort = Port bxor (?MAGIC_COOKIE bsr 16),
+	<<Addr:32>> = <<I0:8, I1:8, I2:8, I3:8>>,
+	XAddr = Addr bxor ?MAGIC_COOKIE,
+	<<0:8, 1:8, XPort:16, XAddr:32>>;
+encode_attr_xaddr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}, TID) ->
+	XPort = Port bxor (?MAGIC_COOKIE bsr 16),
+	<<Addr:128>> = <<I0:8, I1:8, I2:8, I3:8, I4:8, I5:8, I6:8, I7:8>>,
+	XAddr = Addr bxor ((?MAGIC_COOKIE bsl 96) bor TID),
+	<<0:8, 2:8, XPort:16, XAddr:128>>.
 
 encode_attr_err({ErrorCode, Reason}) ->
 	Class = ErrorCode div 100,
