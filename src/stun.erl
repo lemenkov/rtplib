@@ -86,9 +86,30 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
 		0 -> 0;
 		Else -> 4 - Else
 	end,
+	T = case Type of
+		16#0001 -> 'MAPPED-ADDRESS';
+		16#0002 -> 'RESPONSE-ADDRESS'; % Obsolete
+		16#0003 -> 'CHANGE-ADDRESS'; % Obsolete
+		16#0004 -> 'SOURCE-ADDRESS'; % Obsolete
+		16#0005 -> 'CHANGED-ADDRESS'; % Obsolete
+		16#0006 -> 'USERNAME';
+		16#0007 -> 'PASSWORD'; % Obsolete
+		16#0008 -> 'MESSAGE-INTEGRITY';
+		16#0009 -> 'ERROR-CODE';
+		16#000a -> 'UNKNOWN-ATTRIBUTES';
+		16#000b -> 'REFLECTED-FROM'; % Obsolete
+		16#0014 -> 'REALM';
+		16#0015 -> 'NONCE';
+		16#0020 -> 'XOR-MAPPED-ADDRESS';
+
+		16#8022 -> 'SOFTWARE';
+		16#8023 -> 'ALTERNATE-SERVER';
+		16#8028 -> 'FINGERPRINT';
+		Other -> Other
+	end,
 	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
 	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
-	decode_attrs(Rest, NewLength, Attrs ++ [{Type, Value}]).
+	decode_attrs(Rest, NewLength, Attrs ++ [{T, Value}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -105,5 +126,26 @@ encode_attrs([{Type, Value}|Rest], Attrs) ->
 		0 -> 0;
 		Else -> (4 - Else)*8
 	end,
-	Attr = <<Type:16, ItemLength:16, Value:ItemLength/binary, 0:PaddingLength>>,
+	T = case Type of
+		'MAPPED-ADDRESS' -> 16#0001;
+		'RESPONSE-ADDRESS' -> 16#0002;
+		'CHANGE-ADDRESS' -> 16#0003;
+		'SOURCE-ADDRESS' -> 16#0004;
+		'CHANGED-ADDRESS' -> 16#0005;
+		'USERNAME' -> 16#0006;
+		'PASSWORD' -> 16#0007;
+		'MESSAGE-INTEGRITY' -> 16#0008;
+		'ERROR-CODE' -> 16#0009;
+		'UNKNOWN-ATTRIBUTES' -> 16#000a;
+		'REFLECTED-FROM' -> 16#000b;
+		'REALM' -> 16#0014;
+		'NONCE' -> 16#0015;
+		'XOR-MAPPED-ADDRESS' -> 16#0020;
+
+		'SOFTWARE' -> 16#8022;
+		'ALTERNATE-SERVER' -> 16#8023;
+		'FINGERPRINT' -> 16#8028;
+		Other -> Other
+	end,
+	Attr = <<T:16, ItemLength:16, Value:ItemLength/binary, 0:PaddingLength>>,
 	encode_attrs(Rest, <<Attrs/binary, Attr/binary>>).
