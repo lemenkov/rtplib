@@ -39,10 +39,10 @@
 decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
 	<<Method:12>> = <<M0:5, M1:3, M2:4>>,
 	Class = case <<C0:1, C1:1>> of
-		<<0:0, 0:1>> -> request;
-		<<0:0, 1:1>> -> indication;
-		<<1:0, 0:1>> -> success;
-		<<1:0, 1:1>> -> error
+		<<0:1, 0:1>> -> request;
+		<<0:1, 1:1>> -> indication;
+		<<1:1, 0:1>> -> success;
+		<<1:1, 1:1>> -> error
 	end,
 	Attrs = decode_attrs(Rest, Length, []),
 	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}}.
@@ -50,10 +50,10 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?MAGIC_COOKIE
 encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
 	<<M0:5, M1:3, M2:4>> = <<Method:12>>,
 	<<C0:1, C1:1>> = case Class of
-		request -><<0:0, 0:1>>;
-		indication -> <<0:0, 1:1>>;
-		success -> <<1:0, 0:1>>;
-		error -> <<1:0, 1:1>>
+		request -><<0:1, 0:1>>;
+		indication -> <<0:1, 1:1>>;
+		success -> <<1:1, 0:1>>;
+		error -> <<1:1, 1:1>>
 	end,
 	BinAttrs = encode_attrs(Attrs, <<>>),
 	Length = size(BinAttrs),
