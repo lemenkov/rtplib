@@ -42,6 +42,8 @@
 
 -export([pp/1]).
 
+-export([fix_null_terminated/1]).
+
 -include("../include/rtcp.hrl").
 -include("../include/rtp.hrl").
 
@@ -208,10 +210,12 @@ pp_sdes_item(priv, V) -> io_lib:format("\"priv\":~p,", [V]);
 pp_sdes_item(eof, true) -> io_lib:format("\"eof\":true}", []);
 pp_sdes_item(eof, V) -> io_lib:format("\"eof\"~p}", [V]).
 
-fix_null_terminated(String) ->
+fix_null_terminated(String) when is_list(String) ->
 	% FIXME should we print \0 anyway?
 %	[ case X of 0 -> "\\0"; _ -> X end || X <- String ].
-	[ X || X <- String, X /= 0 ].
+	[ X || X <- String, X /= 0 ];
+fix_null_terminated(Binary) when is_binary(Binary) ->
+	<< <<X:8>> || <<X:8>> <= Binary, X /= 0 >>.
 
 % http://www.iana.org/assignments/rtp-parameters
 print_rtp_payload_type(?RTP_PAYLOAD_PCMU) -> "PCMU";
