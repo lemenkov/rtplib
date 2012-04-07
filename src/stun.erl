@@ -106,7 +106,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#8020 -> {'X-VOVIDA-XOR-MAPPED-ADDRESS', decode_attr_xaddr(Value, TID)}; % VOVIDA non-standart
 		16#8021 -> {'X-VOVIDA-XOR-ONLY', Value}; % VOVIDA non-standart
 
-		16#8022 -> {'SOFTWARE', Value}; % VOVIDA 'SERVER-NAME'
+		16#8022 -> {'SOFTWARE', rtp_utils:fix_null_terminated(Value)}; % VOVIDA 'SERVER-NAME'
 		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
 		16#8028 -> {'FINGERPRINT', Value};
 
