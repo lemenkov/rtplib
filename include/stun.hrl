@@ -36,7 +36,6 @@
 -record(stun, {
 		class = null,
 		method = 0,
-		length = 0,
 		transactionid = <<>>,
 		attrs = []
 	}).
