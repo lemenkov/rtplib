@@ -48,8 +48,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when PayloadType =< 34; 96 =< PayloadType ->
-	{ok, Data0, CSRCs} = decode_csrc(Rest, CC, []),
-	{ok, Payload, Extension} = decode_extension(Data0, ExtensionFlag),
+	Size = CC*4,
+	<<CSRCs:Size/binary, Data/binary>> = Rest,
+	{ok, Payload, Extension} = decode_extension(Data, ExtensionFlag),
 	{ok, #rtp{
 		padding = Padding,
 		marker = Marker,
@@ -57,7 +58,7 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		sequence_number = SequenceNumber,
 		timestamp = Timestamp,
 		ssrc = SSRC,
-		csrcs = CSRCs,
+		csrcs = [ CSRC || <<CSRC:32>> <= CSRCs],
 		extension = Extension,
 		payload = Payload
 	}};
@@ -76,11 +77,6 @@ decode(<<?STUN_MARKER:2, _:30, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
 %%% Decoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-decode_csrc(Data, 0, CSRCs) ->
-	{ok, Data, CSRCs};
-decode_csrc(<<CSRC:32, Data/binary>>, CC, CSRCs) ->
-	decode_csrc(Data, CC-1, CSRCs ++ [CSRC]).
 
 decode_extension(Data, 0) ->
 	{ok, Data, null};
