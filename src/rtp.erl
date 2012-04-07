@@ -95,15 +95,8 @@ decode_dtmf(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
 
 % FIXME Tone with zero duration SHOULD be ignored (just drop it?)
 decode_tone(<<Modulation:9, Divider:1, Volume:6, Duration:16, Rest/binary>>) ->
-	Frequencies = decode_frequencies(Rest),
+	Frequencies = [ Frequency || <<?MBZ:4, Frequency:12>> <= Rest ],
 	{ok, #tone{modulation = Modulation, divider = Divider, volume = Volume, duration = Duration, frequencies = Frequencies}}.
-
-decode_frequencies(Binary) ->
-	decode_frequencies(Binary, []).
-decode_frequencies(<<>>, Frequencies) ->
-	Frequencies;
-decode_frequencies(<<?MBZ:4, Frequency:12, Rest/binary>>, Frequencies) ->
-	decode_frequencies(Rest, Frequencies ++ [Frequency]).
 
 decode_red(RedundantPayload) ->
 	decode_red_headers(RedundantPayload, []).
