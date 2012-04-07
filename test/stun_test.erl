@@ -34,4 +34,40 @@
 -include_lib("eunit/include/eunit.hrl").
 
 stun_test_() ->
-	[].
+	% samples taken from http://thread.gmane.org/gmane.comp.voip.pjsip/s9522
+	StunBindReqBin = <<0,1,0,16,33,18,164,66,147,49,141,31,86,17,126,65,130,38,1,0,128,34,0,12,112,106,110,97,116,104,45,49,46,52,0,0>>,
+	StunBindReq = #stun{
+		class = request,
+		method = binding,
+		transactionid = 45554200240623869818762035456,
+		attrs = [{'SOFTWARE',<<"pjnath-1.4", 0, 0>>}]
+	},
+
+	StunBindRespBin = <<1,1,0,68,33,18,164,66,147,49,141,31,86,17,126,65,130,38,1,0,0,1,0,8,0,1,224,252,88,198,53,113,0,4,0,8,0,1,13,150,208,109,222,137,0,5,0,8,0,1,13,151,208,109,222,148,128,32,0,8,0,1,193,238,121,212,145,51,128,34,0,16,86,111,118,105,100,97,46,111,114,103,32,48,46,57,54,0>>,
+	StunBindResp = #stun{
+		class = success,
+		method = binding,
+		transactionid = 45554200240623869818762035456,
+		attrs = [
+			{'MAPPED-ADDRESS',{{88,198,53,113},57596}},
+			{'SOURCE-ADDRESS',{{208,109,222,137},3478}},
+			{'CHANGED-ADDRESS',{{208,109,222,148},3479}},
+			{'X-VOVIDA-XOR-MAPPED-ADDRESS',<<0,1,193,238,121,212,145,51>>},
+			{'SOFTWARE',<<"Vovida.org 0.96", 0>>}
+		]
+	},
+
+	[
+		{"Simple decoding of STUN Binding Request",
+			fun() -> ?assertEqual({ok, StunBindReq}, stun:decode(StunBindReqBin)) end
+		},
+		{"Simple encoding of STUN Binding Request",
+			fun() -> ?assertEqual(StunBindReqBin, stun:encode(StunBindReq)) end
+		},
+		{"Simple decoding of STUN Binding Responce",
+			fun() -> ?assertEqual({ok, StunBindResp}, stun:decode(StunBindRespBin)) end
+		},
+		{"Simple encoding of STUN Binding Responce",
+			fun() -> ?assertEqual(StunBindRespBin, stun:encode(StunBindResp)) end
+		}
+	].
