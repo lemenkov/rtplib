@@ -86,30 +86,43 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
 		0 -> 0;
 		Else -> 4 - Else
 	end,
-	T = case Type of
-		16#0001 -> 'MAPPED-ADDRESS';
-		16#0002 -> 'RESPONSE-ADDRESS'; % Obsolete
-		16#0003 -> 'CHANGE-ADDRESS'; % Obsolete
-		16#0004 -> 'SOURCE-ADDRESS'; % Obsolete
-		16#0005 -> 'CHANGED-ADDRESS'; % Obsolete
-		16#0006 -> 'USERNAME';
-		16#0007 -> 'PASSWORD'; % Obsolete
-		16#0008 -> 'MESSAGE-INTEGRITY';
-		16#0009 -> 'ERROR-CODE';
-		16#000a -> 'UNKNOWN-ATTRIBUTES';
-		16#000b -> 'REFLECTED-FROM'; % Obsolete
-		16#0014 -> 'REALM';
-		16#0015 -> 'NONCE';
-		16#0020 -> 'XOR-MAPPED-ADDRESS';
-
-		16#8022 -> 'SOFTWARE';
-		16#8023 -> 'ALTERNATE-SERVER';
-		16#8028 -> 'FINGERPRINT';
-		Other -> Other
-	end,
 	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
+	{T,V} = case Type of
+		16#0001 -> {'MAPPED-ADDRESS', decode_attr_addr(Value)};
+		16#0002 -> {'RESPONSE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
+		16#0003 -> {'CHANGE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
+		16#0004 -> {'SOURCE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
+		16#0005 -> {'CHANGED-ADDRESS', decode_attr_addr(Value)}; % Obsolete
+		16#0006 -> {'USERNAME', Value};
+		16#0007 -> {'PASSWORD', Value}; % Obsolete
+		16#0008 -> {'MESSAGE-INTEGRITY', Value};
+		16#0009 -> {'ERROR-CODE', decode_attr_err(Value)};
+		16#000a -> {'UNKNOWN-ATTRIBUTES', Value};
+		16#000b -> {'REFLECTED-FROM', Value}; % Obsolete
+		16#0014 -> {'REALM', Value};
+		16#0015 -> {'NONCE', Value};
+		16#0020 -> {'XOR-MAPPED-ADDRESS', Value};
+
+		16#8020 -> {'X-VOVIDA-XOR-MAPPED-ADDRESS', Value}; % VOVIDA non-standart
+		16#8021 -> {'X-VOVIDA-XOR-ONLY', Value}; % VOVIDA non-standart
+
+		16#8022 -> {'SOFTWARE', Value}; % VOVIDA 'SERVER-NAME'
+		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
+		16#8028 -> {'FINGERPRINT', Value};
+
+		16#8050 -> {'X-VOVIDA-SECONDARY-ADDRESS', Value}; % VOVIDA non-standart
+		Other -> {Other, Value}
+	end,
 	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
-	decode_attrs(Rest, NewLength, Attrs ++ [{T, Value}]).
+	decode_attrs(Rest, NewLength, Attrs ++ [{T, V}]).
+
+decode_attr_addr(<<0:8, 1:8, Port:16, I0:8, I1:8, I2:8, I3:8>>) ->
+	{{I0, I1, I2, I3}, Port};
+decode_attr_addr(<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>) ->
+	{{I0, I1, I2, I3, I4, I5, I6, I7}, Port}.
+
+decode_attr_err(<<_Mbz:20, Class:4, Number:8, Reason/binary>>) ->
+	{Class*100 + Number, Reason}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -120,32 +133,44 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, Attrs) ->
 encode_attrs([], Attrs) ->
 	Attrs;
 encode_attrs([{Type, Value}|Rest], Attrs) ->
-	% FIXME
-	ItemLength = size(Value),
+	{T, V} = case Type of
+		'MAPPED-ADDRESS' -> {16#0001, encode_attr_addr(Value)};
+		'RESPONSE-ADDRESS' -> {16#0002, encode_attr_addr(Value)};
+		'CHANGE-ADDRESS' -> {16#0003, encode_attr_addr(Value)};
+		'SOURCE-ADDRESS' -> {16#0004, encode_attr_addr(Value)};
+		'CHANGED-ADDRESS' -> {16#0005, encode_attr_addr(Value)};
+		'USERNAME' -> {16#0006, Value};
+		'PASSWORD' -> {16#0007, Value};
+		'MESSAGE-INTEGRITY' -> {16#0008, Value};
+		'ERROR-CODE' -> {16#0009, encode_attr_err(Value)};
+		'UNKNOWN-ATTRIBUTES' -> {16#000a, Value};
+		'REFLECTED-FROM' -> {16#000b, Value};
+		'REALM' -> {16#0014, Value};
+		'NONCE' -> {16#0015, Value};
+		'XOR-MAPPED-ADDRESS' -> {16#0020, Value};
+
+		'X-VOVIDA-XOR-MAPPED-ADDRESS' -> {16#8020, Value};
+		'X-VOVIDA-XOR-ONLY' -> {16#8021, Value};
+		'SOFTWARE' -> {16#8022, Value};
+		'ALTERNATE-SERVER' -> {16#8023, encode_attr_addr(Value)};
+		'FINGERPRINT' -> {16#8028, Value};
+		'X-VOVIDA-SECONDARY-ADDRESS' -> {16#8050, Value};
+		Other -> {Other, Value}
+	end,
+	ItemLength = size(V),
 	PaddingLength = case ItemLength rem 4 of
 		0 -> 0;
 		Else -> (4 - Else)*8
 	end,
-	T = case Type of
-		'MAPPED-ADDRESS' -> 16#0001;
-		'RESPONSE-ADDRESS' -> 16#0002;
-		'CHANGE-ADDRESS' -> 16#0003;
-		'SOURCE-ADDRESS' -> 16#0004;
-		'CHANGED-ADDRESS' -> 16#0005;
-		'USERNAME' -> 16#0006;
-		'PASSWORD' -> 16#0007;
-		'MESSAGE-INTEGRITY' -> 16#0008;
-		'ERROR-CODE' -> 16#0009;
-		'UNKNOWN-ATTRIBUTES' -> 16#000a;
-		'REFLECTED-FROM' -> 16#000b;
-		'REALM' -> 16#0014;
-		'NONCE' -> 16#0015;
-		'XOR-MAPPED-ADDRESS' -> 16#0020;
-
-		'SOFTWARE' -> 16#8022;
-		'ALTERNATE-SERVER' -> 16#8023;
-		'FINGERPRINT' -> 16#8028;
-		Other -> Other
-	end,
-	Attr = <<T:16, ItemLength:16, Value:ItemLength/binary, 0:PaddingLength>>,
+	Attr = <<T:16, ItemLength:16, V:ItemLength/binary, 0:PaddingLength>>,
 	encode_attrs(Rest, <<Attrs/binary, Attr/binary>>).
+
+encode_attr_addr({{I0, I1, I2, I3}, Port}) ->
+	<<0:8, 1:8, Port:16, I0:8, I1:8, I2:8, I3:8>>;
+encode_attr_addr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}) ->
+	<<0:8, 2:8, Port:16, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>.
+
+encode_attr_err({ErrorCode, Reason}) ->
+	Class = ErrorCode div 100,
+	Number = ErrorCode rem 100,
+	<<0:20, Class:4, Number:8, Reason/binary>>.
