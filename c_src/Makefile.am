@@ -16,7 +16,7 @@ dvi4_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 dvi4_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 dvi4_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
-g722_codec_drv_la_SOURCES = g722_codec.c endianness.c
+g722_codec_drv_la_SOURCES = g722_codec.c endianness.c endianness.h
 g722_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 g722_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 g722_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
@@ -31,7 +31,7 @@ lpc_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 lpc_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 lpc_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
-gsm_codec_drv_la_SOURCES = gsm_codec.c endianness.c
+gsm_codec_drv_la_SOURCES = gsm_codec.c endianness.c endianness.h
 gsm_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 gsm_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 gsm_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
@@ -41,12 +41,12 @@ opus_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @OPUS_CFLAGS@
 opus_codec_drv_la_LIBADD = @OPUS_LIBS@ @ERLANG_LIBS@
 opus_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
-pcmu_codec_drv_la_SOURCES = pcmu_codec.c endianness.c
+pcmu_codec_drv_la_SOURCES = pcmu_codec.c endianness.c endianness.h
 pcmu_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 pcmu_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 pcmu_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
-pcma_codec_drv_la_SOURCES = pcma_codec.c endianness.c
+pcma_codec_drv_la_SOURCES = pcma_codec.c endianness.c endianness.h
 pcma_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
 pcma_codec_drv_la_LIBADD = @SPANDSP_LIBS@ @ERLANG_LIBS@
 pcma_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
