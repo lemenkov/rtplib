@@ -12,9 +12,9 @@ clean-local:
 	@./rebar clean
 
 install-exec-local:
-	$(MKDIR_P) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/ebin/
+	$(mkdir_p) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/ebin/
 	$(install_sh_DATA) ebin/*.beam ebin/rtplib.app $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/ebin/
-	$(MKDIR_P) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/include/
+	$(mkdir_p) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/include/
 	$(install_sh_DATA) include/*.hrl $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/include/
 
 
