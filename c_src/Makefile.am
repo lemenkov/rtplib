@@ -83,3 +83,7 @@ resampler_drv_la_SOURCES = resampler.c
 resampler_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SAMPLERATE_CFLAGS@
 resampler_drv_la_LIBADD = @SAMPLERATE_LIBS@ @ERLANG_LIBS@
 resampler_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
+
+install:
+	$(MKDIR_P) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
+	$(install_sh_PROGRAM) .libs/*.so $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
