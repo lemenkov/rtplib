@@ -20,23 +20,9 @@ AC_DEFUN([AM_WITH_ERLANG],
 start() ->
     EIDirS = code:lib_dir("erl_interface") ++ "\n",
     EILibS =  libpath("erl_interface") ++ "\n",
-    EXMPPDir = code:lib_dir("exmpp"),
-    case EXMPPDir of
-        {error, bad_name} -> exit("exmpp not found");
-        _                 -> ok
-    end,
-    EXMPPDirS = EXMPPDir ++ "\n",
     RootDirS = code:root_dir() ++ "\n",
-    file:write_file("conftest.out", list_to_binary(EIDirS ++ EILibS ++ ssldef() ++ EXMPPDirS ++ RootDirS)),
+    file:write_file("conftest.out", list_to_binary(EIDirS ++ EILibS ++ RootDirS)),
     halt().
-
-ssldef() -> 
-   OTP = (catch erlang:system_info(otp_release)),
-   if
-	OTP >= "R14" -> "-DSSL40\n";
-	OTP >= "R12" -> "-DSSL39\n";
-        true -> "\n"
-   end.
 
 %% return physical architecture based on OS/Processor
 archname() ->
@@ -85,10 +71,6 @@ _EOF
    ERLANG_EI_DIR=`cat conftest.out | head -n 1`
    # Second line
    ERLANG_EI_LIB=`cat conftest.out | head -n 2 | tail -n 1`
-   # Third line
-   ERLANG_SSLVER=`cat conftest.out | head -n 3 | tail -n 1`
-   # Fourth line
-   ERLANG_EXMPP=`cat conftest.out | head -n 4 | tail -n 1`
    # End line
    ERLANG_DIR=`cat conftest.out | tail -n 1`
 
@@ -97,8 +79,6 @@ _EOF
 
    AC_SUBST(ERLANG_CFLAGS)
    AC_SUBST(ERLANG_LIBS)
-   AC_SUBST(ERLANG_SSLVER)
-   AC_SUBST(ERLANG_EXMPP)
    AC_SUBST(ERLC)
    AC_SUBST(ERL)
 ])
