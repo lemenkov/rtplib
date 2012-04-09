@@ -4,7 +4,7 @@
 
 
 Name:		erlang-%{realname}
-Version:	%VSN%
+Version:	@PACKAGE_VERSION@
 Release:	1%{?dist}
 Summary:	Erlang RTP/RTCP codec library
 Group:		Development/Languages
@@ -76,5 +76,5 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* %DATE% Peter Lemenkov <lemenkov@gmail.com> - %VSN%-1
-- Ver. %VSN%
+* @BUILD_DATE@ Peter Lemenkov <lemenkov@gmail.com> - @PACKAGE_VERSION@-1
+- Ver. @PACKAGE_VERSION@
