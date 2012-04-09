@@ -11,6 +11,8 @@ AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip tar-ustar foreign])
 AC_PROG_CC
 AC_PROG_LIBTOOL
 
+AM_WITH_ERLANG
+
 # Checks for libraries.
 
 # Checks for header files.
@@ -116,8 +118,6 @@ AC_CHECK_LIB([samplerate],
 
 BUILD_DATE=`LANG=C date +"%a %b %d %Y"`
 AC_SUBST([BUILD_DATE])
-COMMON_CFLAGS=" -I${libdir}/erlang/usr/include"
-AC_SUBST([COMMON_CFLAGS])
 
 AC_CONFIG_FILES([
 		 c_src/Makefile
