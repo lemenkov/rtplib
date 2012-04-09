@@ -116,7 +116,7 @@ AC_CHECK_LIB([samplerate],
 
 BUILD_DATE=`LANG=C date +"%a %b %d %Y"`
 AC_SUBST([BUILD_DATE])
-COMMON_CFLAGS=" -I/usr/lib64/erlang/usr/include"
+COMMON_CFLAGS=" -I${libdir}/erlang/usr/include"
 AC_SUBST([COMMON_CFLAGS])
 
 AC_CONFIG_FILES([
