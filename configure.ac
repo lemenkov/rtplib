@@ -27,6 +27,17 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_CHECK_FUNCS([floor])
 
+AC_ARG_WITH([audiocodec-opus],
+	    AC_HELP_STRING([--with-audiocodec-opus],[enable OPUS audiocodec.]),
+	    [audiocodec_opus="$withval"],[audiocodec_opus="yes"])
+
+AC_ARG_WITH([audiocodec-speex],
+	    AC_HELP_STRING([--with-audiocodec-speex],[enable SPEEX audiocodec.]),
+	    [audiocodec_speex="$withval"],[audiocodec_speex="yes"])
+
+AC_ARG_WITH([audiocodec-ilbc],
+	    AC_HELP_STRING([--with-audiocodec-ilbc],[enable iLBC audiocodec.]),
+	    [audiocodec_ilbc="$withval"],[audiocodec_ilbc="yes"])
 
 AC_CHECK_HEADER([spandsp/telephony.h],,[AC_MSG_ERROR([<spandsp/telephony.h> header not found])])
 AC_CHECK_HEADER([spandsp/ima_adpcm.h],,[AC_MSG_ERROR([<spandsp/ima_adpcm.h> header not found])],[
@@ -68,6 +79,8 @@ AC_CHECK_LIB([spandsp],
 	     [AC_MSG_ERROR([spandsp library missing])]
 )
 
+if test "$audiocodec_opus" = "yes"
+then
 #AC_CHECK_HEADER([opus.h],,[AC_MSG_ERROR([<opus.h> header not found])])
 AC_CHECK_LIB([opus],
 	     [opus_encoder_create],
@@ -79,7 +92,10 @@ AC_CHECK_LIB([opus],
 	     ],
 	     [AC_MSG_ERROR([opus library missing])]
 )
+fi
 
+if test "$audiocodec_speex" = "yes"
+then
 AC_CHECK_HEADER([speex/speex.h],,[AC_MSG_ERROR([<speex/speex.h> header not found])])
 AC_CHECK_LIB([speex],
 	     [speex_encoder_init],
@@ -91,7 +107,10 @@ AC_CHECK_LIB([speex],
 	     ],
 	     [AC_MSG_ERROR([speex library missing])]
 )
+fi
 
+if test "$audiocodec_ilbc" = "yes"
+then
 #AC_CHECK_HEADER([ilbc.h],,[AC_MSG_ERROR([<ilbc.h> header not found])])
 AC_CHECK_LIB([webrtc_codecs_ilbc],
 	     [WebRtcIlbcfix_EncoderCreate],
@@ -103,6 +122,7 @@ AC_CHECK_LIB([webrtc_codecs_ilbc],
 	     ],
 	     [AC_MSG_ERROR([ilbc library missing])]
 )
+fi
 
 AC_CHECK_HEADER([samplerate.h],,[AC_MSG_ERROR([<samplerate.h> header not found])])
 AC_CHECK_LIB([samplerate],
@@ -118,6 +138,10 @@ AC_CHECK_LIB([samplerate],
 
 BUILD_DATE=`LANG=C date +"%a %b %d %Y"`
 AC_SUBST([BUILD_DATE])
+
+AM_CONDITIONAL(WITH_ILBC, test "$audiocodec_ilbc" = "yes")
+AM_CONDITIONAL(WITH_OPUS, test "$audiocodec_opus" = "yes")
+AM_CONDITIONAL(WITH_SPEEX, test "$audiocodec_speex" = "yes")
 
 AC_CONFIG_FILES([
 		 c_src/Makefile
