@@ -46,7 +46,7 @@ rtcp_XR_test_() ->
 		98,108,111,99,107,32,100,97,116,97,32,49,127,128,0,5,116,101,115,
 		116,50,32,120,114,98,108,111,99,107,32,100,97,116,97,32,50>>,
 
-	Xr = #xr{ssrc=1024, xrblocks=[XrBlock1, XrBlock2]},
+	Xr = #rtcp{ payloads = [#xr{ssrc=1024, xrblocks=[XrBlock1, XrBlock2]}]},
 
 	[
 		{"Check correct eXtended Report Blocks processing",
@@ -56,7 +56,7 @@ rtcp_XR_test_() ->
 			fun() -> ?assertEqual(XrBin, rtcp:encode_xr(1024, [XrBlock1, XrBlock2])) end
 		},
 		{"Simple decoding XR RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok, [Xr]}, rtcp:decode(XrBin)) end
+			fun() -> ?assertEqual({ok, Xr}, rtcp:decode(XrBin)) end
 		},
 		{"Check that we can reproduce original data stream from record",
 			fun() -> ?assertEqual(XrBin, rtcp:encode(Xr)) end

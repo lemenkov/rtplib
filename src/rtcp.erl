@@ -59,7 +59,7 @@ decode(Data) when is_binary(Data) ->
 
 decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
-	{ok, DecodedRtcps};
+	{ok, #rtcp{payloads = DecodedRtcps}};
 
 decode(<<1:8, Rest/binary>>, DecodedRtcps) ->
 	% FIXME Should we do this at all?
@@ -332,7 +332,7 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode(List) when is_list(List) ->
+encode(#rtcp{payloads = List}) when is_list(List) ->
 	<< <<(encode(X))/binary>> || X <- List >>;
 
 encode(#fir{ssrc = SSRC}) ->

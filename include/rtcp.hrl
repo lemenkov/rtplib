@@ -75,6 +75,12 @@
 % Must be zero
 -define(MBZ, 0).
 
+% A compound structure for RTCP (or multiple RTCP packets stacked together
+-record(rtcp, {
+		payloads = [],
+		encrypted = <<>>
+	}).
+
 % Full INTRA-frame Request (h.261 specific)
 -record(fir, {ssrc}).
 % Negative ACKnowledgements (h.261 specific)
