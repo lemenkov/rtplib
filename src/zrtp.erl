@@ -159,6 +159,7 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMa
 			cache_exp_interval = CacheExpInterval,
 			signature = Signature
 	}};
+% We need this for the case when we can't decrypt the payload (full proxy mode)
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
 	{ok, #confirm1{
 			conf_mac = ConfMac,
@@ -184,6 +185,7 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMa
 			cache_exp_interval = CacheExpInterval,
 			signature = Signature
 	}};
+% We need this for the case when we can't decrypt the payload (full proxy mode)
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
 	{ok, #confirm2{
 			conf_mac = ConfMac,
