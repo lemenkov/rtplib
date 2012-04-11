@@ -34,6 +34,7 @@
 % FIXME - don't forget to remove from final version!
 -compile(export_all).
 
+-include("../include/rtcp.hrl").
 -include("../include/rtp.hrl").
 -include("../include/zrtp.hrl").
 -include("../include/stun.hrl").
@@ -132,8 +133,8 @@ encode(#zrtp{} = Zrtp) ->
 encode(#stun{} = Stun) ->
 	stun:encode(Stun);
 
-encode(Pkts) ->
-	rtcp:encode(Pkts).
+encode(#rtcp{} = Rtcp) ->
+	rtcp:encode(Rtcp).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
