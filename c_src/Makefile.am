@@ -93,3 +93,7 @@ resampler_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 install:
 	$(mkdir_p) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
 	$(install_sh_PROGRAM) .libs/*.so $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
+
+uninstall-local:
+	@rm $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/*.so
+	@rm -r $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
