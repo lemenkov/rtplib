@@ -35,19 +35,16 @@
 
 rtcp_SDES_test_() ->
 	SdesBin = <<129,202,0,6,0,0,4,0,1,7,104,101,108,108,111,32,49,2,7,104,101,108,108,111,32,50,0,0>>,
+	Sdes = #sdes{list=[[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]]},
 	[
 		{"Simple encoding of SDES RTCP data stream",
 			fun() -> ?assertEqual(SdesBin, rtcp:encode_sdes([[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]])) end
 		},
 		{"Simple decoding SDES RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual(
-						{ok, [#sdes{list=[[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]]}]},
-						rtcp:decode(SdesBin)) end
+			fun() -> ?assertEqual({ok, [Sdes]}, rtcp:decode(SdesBin)) end
 		},
 		{"Check that we can reproduce original data stream from record",
-			fun() -> ?assertEqual(<<129,202,0,6,0,0,4,0,1,7,104,101,108,108,111,32,49,2,7,104,101,108,108,111,32,50,0,0>>,
-						rtcp:encode(#sdes{list=[[{ssrc, 1024}, {cname,"hello 1"}, {name, "hello 2"}, {eof, true}]]})
-					) end
+			fun() -> ?assertEqual(SdesBin, rtcp:encode(Sdes)) end
 		}
 	].
 

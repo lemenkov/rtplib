@@ -35,15 +35,16 @@
 
 rtcp_BYE_test_() ->
 	ByeBin = <<161,203,0,3,0,0,4,0,6,67,97,110,99,101,108,0>>,
+	Bye = #bye{message = "Cancel", ssrc = [1024]},
 	[
 		{"Simple encoding of BYE RTCP data stream",
 			fun() -> ?assertEqual(ByeBin, rtcp:encode_bye([1024], "Cancel")) end
 		},
 		{"Simple decoding BYE RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok, [#bye{message = "Cancel", ssrc = [1024]}]}, rtcp:decode(ByeBin)) end
+			fun() -> ?assertEqual({ok, [Bye]}, rtcp:decode(ByeBin)) end
 		},
 		{"Check that we can reproduce original data stream from record",
-			fun() -> ?assertEqual(ByeBin, rtcp:encode(#bye{message = "Cancel", ssrc = [1024]})) end
+			fun() -> ?assertEqual(ByeBin, rtcp:encode(Bye)) end
 		}
 	].
 
