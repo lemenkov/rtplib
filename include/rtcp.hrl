@@ -72,9 +72,6 @@
 -define(PADDING_YES, 1).
 -define(PADDING_NO, 0).
 
-% Must be zero
--define(MBZ, 0).
-
 % A compound structure for RTCP (or multiple RTCP packets stacked together
 -record(rtcp, {
 		payloads = [],

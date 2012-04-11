@@ -48,6 +48,9 @@
 
 -include("../include/rtcp.hrl").
 
+% FIXME move to the header?
+-define(MBZ, 0).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Decoding functions
