@@ -18,4 +18,4 @@ install-exec-local:
 	$(install_sh_DATA) include/*.hrl $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/include/
 
 
-EXTRA_DIST = priv/erlang-rtplib-0001-Disable-Opus-on-RHEL5.patch include/*.hrl src/*.erl src/rtplib.app.src test/samples test/*.erl rebar rebar.config
+EXTRA_DIST = include/*.hrl src/*.erl src/rtplib.app.src test/samples test/*.erl rebar rebar.config
