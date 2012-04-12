@@ -28,23 +28,19 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(rtcp_app_test).
+-module(srtcp_test).
 
 -include("rtcp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-rtcp_APP_test_() ->
-	AppBin = <<133,204,0,8,0,0,4,0,83,84,82,49,72,101,108,108,111,33,32,84,104,105,115,32,105,115,32,97,32,115,116,114,105,110,103,46>>,
-	App = #rtcp{payloads = [#app{subtype = 5, ssrc = 1024, name = <<"STR1">>, data = <<"Hello! This is a string.">>}]},
-
+zrtp_test_() ->
+	SrtcpSrBin = <<129,200,0,12,131,2,101,199,102,248,250,11,232,111,44,166,210,29,192,15,102,98,25,191,215,224,156,194,134,209,132,213,198,231,202,132,85,127,137,8,253,142,229,114,2,151,209,173,42,238,131,200,170,244,100,163,18,43,48,105,212,99,7,227,26,180,246,78,83,154,31,36,213,204,121,109,0,29,1,116,9,90,69,67,47,219,29,45,213,160,168,102,15,31,248,218,79,25,173,4,111,185,89,143,175,62,209,121,192,26,218,244,69,244,237,152,20,231,248,11,108,139,148,75,103,59,69,148,57,183,249,149,149,11,186,0,128,0,0,0,178,174,231,18>>,
+	SrtcpSr = #rtcp{encrypted = SrtcpSrBin},
 	[
-		{"Simple encoding of APP RTCP data stream",
-			fun() -> ?assertEqual(AppBin, rtcp:encode_app(5, 1024, "STR1", <<"Hello! This is a string.">>)) end
+		{"Simple pass-thru decrypting of the SRTCP data",
+			fun() -> ?assertEqual({ok, SrtcpSr}, srtp:decrypt(SrtcpSrBin, passthru)) end
 		},
-		{"Simple decoding APP RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok, App}, rtcp:decode(AppBin)) end
-		},
-		{"Check that we can reproduce original data stream from record",
-			fun() -> ?assertEqual(AppBin, rtcp:encode(App)) end
+		{"Simple pass-thru encrypting of the SRTP structure",
+			fun() -> ?assertEqual(SrtcpSrBin, srtp:encrypt(SrtcpSr, passthru)) end
 		}
 	].

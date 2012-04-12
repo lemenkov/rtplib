@@ -68,11 +68,13 @@ vendor_addpac_test_() ->
 		]
 	},
 
+	SrSdes = #rtcp{payloads = [Sr, Sdes]},
+
 	[
 		{"Decode the entire SR+SDES packet",
-			fun() -> ?assertEqual({ok, [Sr, Sdes]}, rtcp:decode(SrSdesBin)) end
+			fun() -> ?assertEqual({ok, SrSdes}, rtcp:decode(SrSdesBin)) end
 		},
 		{"Encode the entire SR+SDES packet",
-			fun() -> ?assertEqual(SrSdesBinFixed, rtcp:encode([Sr, Sdes])) end
+			fun() -> ?assertEqual(SrSdesBinFixed, rtcp:encode(SrSdes)) end
 		}
 	].

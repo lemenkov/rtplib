@@ -1,5 +1,5 @@
 %%%----------------------------------------------------------------------
-%%% Copyright (c) 2008-2012 Peter Lemenkov <lemenkov@gmail.com>
+%%% Copyright (c) 2012 Peter Lemenkov <lemenkov@gmail.com>
 %%%
 %%% All rights reserved.
 %%%
@@ -28,23 +28,33 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(rtcp_app_test).
+-module(srtp).
+-author('lemenkov@gmail.com').
 
--include("rtcp.hrl").
--include_lib("eunit/include/eunit.hrl").
+-export([encrypt/2]).
+-export([decrypt/2]).
 
-rtcp_APP_test_() ->
-	AppBin = <<133,204,0,8,0,0,4,0,83,84,82,49,72,101,108,108,111,33,32,84,104,105,115,32,105,115,32,97,32,115,116,114,105,110,103,46>>,
-	App = #rtcp{payloads = [#app{subtype = 5, ssrc = 1024, name = <<"STR1">>, data = <<"Hello! This is a string.">>}]},
+-include("../include/rtcp.hrl").
+-include("../include/rtp.hrl").
 
-	[
-		{"Simple encoding of APP RTCP data stream",
-			fun() -> ?assertEqual(AppBin, rtcp:encode_app(5, 1024, "STR1", <<"Hello! This is a string.">>)) end
-		},
-		{"Simple decoding APP RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok, App}, rtcp:decode(AppBin)) end
-		},
-		{"Check that we can reproduce original data stream from record",
-			fun() -> ?assertEqual(AppBin, rtcp:encode(App)) end
-		}
-	].
+encrypt(#rtp{} = Rtp, passthru) ->
+	rtp:encode(Rtp);
+encrypt(#rtcp{encrypted = Data} = Rctp, passthru) ->
+	Data;
+encrypt(#rtp{} = Rtp, Key) ->
+	% TODO - 
+	rtp:encode(Rtp);
+encrypt(#rtcp{} = Rctp, Key) ->
+	% TODO - 
+	rtcp:encode(Rctp).
+
+decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when PayloadType =< 34; 96 =< PayloadType ->
+	rtp:decode(Data);
+decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when 64 =< PayloadType, PayloadType =< 82 ->
+	{ok, #rtcp{encrypted = Data}};
+decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, Key) when PayloadType =< 34; 96 =< PayloadType ->
+	% TODO
+	rtp:decode(Data);
+decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when 64 =< PayloadType, PayloadType =< 82 ->
+	% TODO
+	rtcp:decode(Data).

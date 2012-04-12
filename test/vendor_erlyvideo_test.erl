@@ -228,6 +228,8 @@ vendor_erlyvideo_test_() ->
 	},
 	Sdes1 = #sdes{list=[[{ssrc,355697},{cname,"QTS 5110381"},{eof,true}]]},
 
+	SrSdes1 = #rtcp{payloads = [Sr1, Sdes1]},
+
 	Sr2Bin = <<128,200,0,6,0,70,87,111,209,42,13,22,152,254,225,253,0,13,240,18,0,0,4,105,0,16,221,37>>,
 	Sdes2Bin = <<129,202,0,5,0,70,87,111,1,11,81,84,83,32,53,49,49,48,51,56,49,0,0,0>>,
 
@@ -241,12 +243,14 @@ vendor_erlyvideo_test_() ->
 	},
 	Sdes2 = #sdes{list=[[{ssrc,4609903},{cname,"QTS 5110381"},{eof,true}]]},
 
+	SrSdes2 = #rtcp{payloads = [Sr2, Sdes2]},
+
 	[
 		{"Decode first SR+SDES pair",
-			fun() -> ?assertEqual({ok, [Sr1, Sdes1]}, rtcp:decode(<<Sr1Bin/binary, Sdes1Bin/binary>>)) end
+			fun() -> ?assertEqual({ok, SrSdes1}, rtcp:decode(<<Sr1Bin/binary, Sdes1Bin/binary>>)) end
 		},
 		{"Decode second SR+SDES pair",
-			fun() -> ?assertEqual({ok, [Sr2, Sdes2]}, rtcp:decode(<<Sr2Bin/binary, Sdes2Bin/binary>>)) end
+			fun() -> ?assertEqual({ok, SrSdes2}, rtcp:decode(<<Sr2Bin/binary, Sdes2Bin/binary>>)) end
 		},
 		{"Decode Audio RTP packet #1 (unknown dynamically assigned type)",
 			fun() -> ?assertEqual({ok, RtpAudio1}, rtp:decode(RtpAudio1Bin)) end
@@ -261,16 +265,16 @@ vendor_erlyvideo_test_() ->
 			fun() -> ?assertEqual({ok, Rtp2}, rtp:decode(Rtp2Bin)) end
 		},
 		{"Encode first SR",
-			fun() -> ?assertEqual(Sr1Bin, rtcp:encode(Sr1)) end
+			fun() -> ?assertEqual(Sr1Bin, rtcp:encode(#rtcp{payloads = [Sr1]})) end
 		},
 		{"Encode second SR",
-			fun() -> ?assertEqual(Sr2Bin, rtcp:encode(Sr2)) end
+			fun() -> ?assertEqual(Sr2Bin, rtcp:encode(#rtcp{payloads = [Sr2]})) end
 		},
 		{"Encode first SDES",
-			fun() -> ?assertEqual(Sdes1Bin, rtcp:encode(Sdes1)) end
+			fun() -> ?assertEqual(Sdes1Bin, rtcp:encode(#rtcp{payloads = [Sdes1]})) end
 		},
 		{"Encode second SDES",
-			fun() -> ?assertEqual(Sdes2Bin, rtcp:encode(Sdes2)) end
+			fun() -> ?assertEqual(Sdes2Bin, rtcp:encode(#rtcp{payloads = [Sdes2]})) end
 		},
 		{"Encode Audio RTP packet #1 (unknown dynamically assigned type)",
 			fun() -> ?assertEqual(RtpAudio1Bin, rtp:encode(RtpAudio1)) end

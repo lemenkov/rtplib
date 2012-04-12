@@ -48,13 +48,16 @@ rtcp_SR_test_() ->
 	SRBin = <<130,200,0,18,0,0,16,0,210,79,225,24,250,129,85,222,0,0,16,2,0,
 		0,255,255,0,1,0,0, RBlocksBin/binary>>,
 
-	SR = #sr{
-		ssrc=4096,
-		ntp=15154578768523253214,
-		timestamp=4098,
-		packets=65535,
-		octets=65536,
-		rblocks=[RBlock1, RBlock2]
+	SR = #rtcp{payloads = [
+			#sr{
+				ssrc=4096,
+				ntp=15154578768523253214,
+				timestamp=4098,
+				packets=65535,
+				octets=65536,
+				rblocks=[RBlock1, RBlock2]
+			}
+		]
 	},
 
 	[
@@ -77,7 +80,7 @@ rtcp_SR_test_() ->
 					) end
 		},
 		{"Simple decoding SR RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok,[SR]}, rtcp:decode(SRBin)) end
+			fun() -> ?assertEqual({ok,SR}, rtcp:decode(SRBin)) end
 		},
 		{"Check that we can reproduce original data stream from record",
 			fun() -> ?assertEqual(SRBin, rtcp:encode(SR)) end

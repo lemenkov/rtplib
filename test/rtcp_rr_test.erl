@@ -43,7 +43,7 @@ rtcp_RR_test_() ->
 	RBlock1 = #rblock{ssrc=1024, fraction=2, lost=1026, last_seq=1027, jitter=1028, lsr=1029, dlsr=1030},
 	RBlock2 = #rblock{ssrc=100024, fraction=2, lost=100026, last_seq=100027, jitter=100028, lsr=100029, dlsr=100030},
 
-	RR = #rr{ssrc=4096, rblocks=[RBlock1, RBlock2]},
+	RR = #rtcp{payloads = [#rr{ssrc=4096, rblocks=[RBlock1, RBlock2]}]},
 
 	[
 		{"Encode one RBlock",
@@ -62,7 +62,7 @@ rtcp_RR_test_() ->
 			fun() -> ?assertEqual(RRBin, rtcp:encode_rr(4096, [RBlock1, RBlock2])) end
 		},
 		{"Simple decoding RR RTCP data stream and returning a list with only member - record",
-			fun() -> ?assertEqual({ok, [RR]}, rtcp:decode(RRBin)) end
+			fun() -> ?assertEqual({ok, RR}, rtcp:decode(RRBin)) end
 		},
 		{"Check that we can reproduce original data stream from record",
 			fun() -> ?assertEqual(RRBin, rtcp:encode(RR)) end

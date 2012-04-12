@@ -44,6 +44,9 @@ vendor_unknown_test_() ->
 	Sdes1 = #sdes{list=[[{ssrc,262129718},{cname,"0.0.0@192.168.100.54"},{eof,true}]]},
 	Bye1 = #bye{message=[],ssrc=[262129718]},
 
+	RrSdesBye1 = #rtcp{payloads = [Rr1, Sdes1, Bye1]},
+
+
 	% Another quite complex RTCP packet with coupled SR, SDES and BYE
 	% SDES packet contains 'priv' extension
 	SrSdesBye2Bin = <<128,200,0,6,55,82,152,102,209,215,221,218,198,102,
@@ -60,17 +63,19 @@ vendor_unknown_test_() ->
 	Sdes2 = #sdes{list=[[{ssrc,928159846},{cname,"A424CC73125A420DBD5BCF1AABED9CCF@unique.z23EA517BD3034B5B.org"},{priv,{"x-rtp-session-id",<<"30F2E3713D4E469BA32BEC4A05E629DB">>}},{eof,true}]]},
 	Bye2 = #bye{message=[], ssrc=[928159846]},
 
+	SrSdesBye2 = #rtcp{payloads = [Sr2, Sdes2, Bye2]},
+
 	[
 		{"Encode the entire RR+SDES+BYE packet",
-			fun() -> ?assertEqual({ok, [Rr1, Sdes1, Bye1]}, rtcp:decode(RrSdesBye1Bin)) end
+			fun() -> ?assertEqual({ok, RrSdesBye1}, rtcp:decode(RrSdesBye1Bin)) end
 		},
 		{"Encode the entire SR+SDES+BYE packet",
-			fun() -> ?assertEqual({ok, [Sr2, Sdes2, Bye2]}, rtcp:decode(SrSdesBye2Bin)) end
+			fun() -> ?assertEqual({ok, SrSdesBye2}, rtcp:decode(SrSdesBye2Bin)) end
 		},
 		{"Check what we could reproduce previous packet from RR+SDES+BYE",
-			fun() -> ?assertEqual(RrSdesBye1Bin, rtcp:encode([Rr1, Sdes1, Bye1])) end
+			fun() -> ?assertEqual(RrSdesBye1Bin, rtcp:encode(RrSdesBye1)) end
 		},
 		{"Check what we could reproduce previous packet from SR+SDES+BYE",
-			fun() -> ?assertEqual(SrSdesBye2Bin, rtcp:encode([Sr2, Sdes2, Bye2])) end
+			fun() -> ?assertEqual(SrSdesBye2Bin, rtcp:encode(SrSdesBye2)) end
 		}
 	].

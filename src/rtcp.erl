@@ -48,6 +48,9 @@
 
 -include("../include/rtcp.hrl").
 
+% FIXME move to the header?
+-define(MBZ, 0).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Decoding functions
@@ -59,7 +62,7 @@ decode(Data) when is_binary(Data) ->
 
 decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
-	{ok, DecodedRtcps};
+	{ok, #rtcp{payloads = DecodedRtcps}};
 
 decode(<<1:8, Rest/binary>>, DecodedRtcps) ->
 	% FIXME Should we do this at all?
@@ -120,7 +123,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_IJ:8, Length:16, Rest/binar
 	<<IJs:ByteLength/binary, Tail/binary>> = Rest,
 	case lists:reverse(DecodedRtcps) of
 		[#rr{ssrc=SSRC, rblocks = ReportBlocks} = RR | Other] when RC == length(ReportBlocks) ->
-			decode(Tail, list:reverse([RR#rr{ijs=decode_ijs(IJs)} | Other]));
+			decode(Tail, list:reverse([RR#rr{ijs=[IJ||<<IJ:32>><=IJs]} | Other]));
 		_ ->
 			decode(Tail, DecodedRtcps)
 	end;
@@ -156,7 +159,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_XR:8, Length:16, SSRC:32,
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, 1:5, ?RTCP_RTPFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 8,
 	<<NackBlocks:ByteLength/binary, Tail>> = Rest,
-	GNACKs = decode_gnacks(NackBlocks, ByteLength, []),
+	GNACKs = [ {PID, BLP} || <<PID:16, BLP:16>> <= NackBlocks ],
 	decode(Tail, DecodedRtcps ++ [#gnack{ssrc_s=SSRC_Sender, ssrc_m = SSRC_Media, list=GNACKs}]);
 
 % Payload-Specific FeedBack message - Picture Loss Indication (PLI)
@@ -167,7 +170,7 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, 1:5, ?RTCP_PSFB:8, 2:16, SSRC_Sender:32
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 8,
 	<<SliBlocks:ByteLength/binary, Tail>> = Rest,
-	Slis = decode_slis(SliBlocks, ByteLength, []),
+	Slis = [{First, Number, PictureID} || <<First:13, Number:13, PictureID:6>> <= SliBlocks],
 	decode(Tail, DecodedRtcps ++ [#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}]);
 
 % Payload-Specific FeedBack message - Reference Picture Selection Indication (RPSI)
@@ -208,6 +211,7 @@ decode_rblocks(Data, RC) ->
 % If no data was left, then we ignore the RC value and return what we already
 % decoded
 decode_rblocks(<<>>, _RC, Rblocks) ->
+	error_logger:warning_msg("ReportBlocks wrong RC count~n"),
 	Rblocks;
 
 % The packets can contain padding filling space up to 32-bit boundaries
@@ -254,20 +258,6 @@ decode_xrblocks(<<BT:8, TS:8, BlockLength:16, Rest/binary>>, Length, Result) ->
 	<<BlockData:ByteLength/binary, Next/binary>> = Rest,
 	decode_xrblocks(Next, Length - (BlockLength * 4 + 4) , Result ++ [#xrblock{type=BT, ts=TS, data=BlockData}]).
 
-decode_gnacks(<<>>, _, Result) ->
-	Result;
-decode_gnacks(_, 0, Result) ->
-	Result;
-decode_gnacks(<<PID:16, BLP:16, Rest/binary>>, Length, Result) ->
-	decode_gnacks(Rest, Length - 4, Result ++ [{PID, BLP}]).
-
-decode_slis(<<>>, _, Result) ->
-	Result;
-decode_slis(_, 0, Result) ->
-	Result;
-decode_slis(<<First:13, Number:13, PictureID:6, Rest/binary>>, Length, Result) ->
-	decode_slis(Rest, Length - 4, Result ++ [{First, Number, PictureID}]).
-
 % Recursively process each chunk and return list of SDES-items
 decode_sdes_items(<<>>, Result) ->
 	Result;
@@ -286,7 +276,7 @@ decode_sdes_items(<<SSRC:32, RawData/binary>>, Result) ->
 % All items are ItemID:8_bit, Lenght:8_bit, ItemData:Length_bit
 % AddPac SIP device sends us wrongly produced CNAME item (with 2-byte
 % arbitrary padding inserted):
-decode_sdes_item(<<?SDES_CNAME:8, 19:8, _ArbitraryPadding:16, V:19/binary, Tail/binary>>, Items) when V == <<"AddPac VoIP Gateway">> ->
+decode_sdes_item(<<?SDES_CNAME:8, 19:8, _ArbitraryPadding:16, "AddPac VoIP Gateway", Tail/binary>>, Items) ->
 	decode_sdes_item(Tail, Items ++ [{cname, "AddPac VoIP Gateway"}]);
 decode_sdes_item(<<?SDES_CNAME:8, L:8, V:L/binary, Tail/binary>>, Items) ->
 	decode_sdes_item(Tail, Items ++ [{cname, binary_to_list(V)}]);
@@ -339,21 +329,14 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 	% SSRC of stream, which just ends
 	decode_bye(Tail, RC-1, Ret ++ [SSRC]).
 
-decode_ijs(Binary) ->
-	decode_ijs(Binary, []).
-decode_ijs(<<>>, List) ->
-	List;
-decode_ijs(<<IJ:32, Rest/binary>>, Decoded) ->
-	decode_ijs(Rest, Decoded ++ [IJ]).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Encoding functions
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode(List) when is_list(List) ->
-	encode_list(List, <<>>);
+encode(#rtcp{payloads = List}) when is_list(List) ->
+	<< <<(encode(X))/binary>> || X <- List >>;
 
 encode(#fir{ssrc = SSRC}) ->
 	encode_fir(SSRC);
@@ -380,7 +363,7 @@ encode(#xr{ssrc = SSRC, xrblocks = XRBlocks}) ->
 	encode_xr(SSRC, XRBlocks);
 
 encode(#gnack{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, list = GNACKs}) ->
-	BinaryGNACKs = encode_gnack(GNACKs, <<>>),
+	BinaryGNACKs = << <<PID:16, BLP:16>> || {PID, BLP} <- GNACKs >>,
 	Length = (size(BinaryGNACKs) + 8) / 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_RTPFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, BinaryGNACKs/binary>>;
 
@@ -388,8 +371,8 @@ encode(#pli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media}) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 1:5, ?RTCP_PSFB:8, 2:16, SSRC_Sender:32, SSRC_Media:32>>;
 
 encode(#sli{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, slis = Slis}) ->
+	SliBlocks = << <<First:13, Number:13, PictureID:6>> || {First, Number, PictureID} <- Slis >>,
 	Length = length(Slis) + 2,
-	SliBlocks = encode_slis(Slis, <<>>),
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, 2:5, ?RTCP_PSFB:8, Length:16, SSRC_Sender:32, SSRC_Media:32, SliBlocks/binary>>;
 
 encode(#rpsi{ssrc_s = SSRC_Sender, ssrc_m = SSRC_Media, type = PayloadType, bitlength = BitLength, payload = Payload}) ->
@@ -412,12 +395,6 @@ encode(#avb{ssrc = SSRC, name = Name, gmtbi = GMTBI, gmid = GMID, sid = SID, ast
 %%% Encoding helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-encode_list([], Data) ->
-	Data;
-encode_list([Head | Tail], Data) ->
-	Enc = encode(Head),
-	encode_list(Tail, <<Data/binary, Enc/binary>>).
 
 encode_fir(SSRC) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_FIR:8, 1:16, SSRC:32>>.
@@ -456,7 +433,7 @@ encode_rr(SSRC, ReportBlocks) when is_list(ReportBlocks) ->
 encode_sdes(SdesItemsList) when is_list (SdesItemsList) ->
 	RC = length(SdesItemsList),
 
-	SdesData = list_to_binary ([encode_sdes_items(X) || X <- SdesItemsList]),
+	SdesData = << <<(encode_sdes_items(X))/binary>> || X <- SdesItemsList >>,
 
 	Length = size(SdesData) div 4,
 
@@ -466,13 +443,13 @@ encode_sdes(SdesItemsList) when is_list (SdesItemsList) ->
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, RC:5, ?RTCP_SDES:8, Length:16, SdesData/binary>>.
 
 encode_bye(SSRCsList, []) when is_list(SSRCsList) ->
-	SSRCs=list_to_binary([<<S:32>> || S <- SSRCsList]),
+	SSRCs= << <<S:32>> || S <- SSRCsList >>,
 	SC = size(SSRCs) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, SC:5, ?RTCP_BYE:8, SC:16, SSRCs/binary>>;
 
 encode_bye(SSRCsList, MessageList) when is_list(SSRCsList), is_list(MessageList) ->
 	Message = list_to_binary(MessageList),
-	SSRCs = list_to_binary([<<S:32>> || S <- SSRCsList]),
+	SSRCs= << <<S:32>> || S <- SSRCsList >>,
 	SC = size(SSRCs) div 4,
 	% FIXME no more than 255 symbols
 	TextLength = size(Message),
@@ -502,24 +479,8 @@ encode_xr(SSRC, XRBlocks) when is_list(XRBlocks) ->
 	Length = 1 + size(XRBlocksData) div 4,
 	<<?RTCP_VERSION:2, ?PADDING_NO:1, ?MBZ:5, ?RTCP_XR:8, Length:16, SSRC:32, XRBlocksData/binary>>.
 
-encode_gnack([], Result) ->
-	Result;
-encode_gnack([{PID, BLP} | Rest], Result) ->
-	encode_gnack(Rest, <<Result/binary, PID:16, BLP:16>>).
-
-encode_slis([], Result) ->
-	Result;
-encode_slis([{First, Number, PictureID} | Rest], Result) ->
-	encode_slis(Rest, <<Result/binary, First:13, Number:13, PictureID:6>>).
-
 encode_rblocks(RBlocks) when is_list (RBlocks) ->
-	encode_rblocks(RBlocks, []).
-
-encode_rblocks([],  EncodedRBlocks) ->
-	list_to_binary(EncodedRBlocks);
-
-encode_rblocks([ RBlock | Rest],  EncodedRBlocks) ->
-	encode_rblocks(Rest, EncodedRBlocks ++ [encode_rblock(RBlock)]).
+	<< <<(encode_rblock(RBlock))/binary>> || RBlock <- RBlocks >>.
 
 % * SSRC - SSRC of the source
 % * FL - fraction lost
@@ -536,7 +497,7 @@ encode_rblock(SSRC, FL, CNPL, EHSNR, IJ, LSR, DLSR) ->
 	<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32>>.
 
 encode_sdes_items(SdesItems) when is_list (SdesItems) ->
-	SdesChunkData = list_to_binary ([ encode_sdes_item(X,Y) || {X,Y} <- SdesItems]),
+	SdesChunkData = << <<(encode_sdes_item(X,Y))/binary>> || {X,Y} <- SdesItems >>,
 
 	PaddingSize = case size(SdesChunkData) rem 4 of
 		0 -> 0;
@@ -578,12 +539,7 @@ encode_sdes_item(SdesType, Value) when is_binary (Value) ->
 	<<SdesType:8, L:8, Value:L/binary>>.
 
 encode_xrblocks(XRBlocks) when is_list (XRBlocks) ->
-	encode_xrblocks(XRBlocks, []).
-
-encode_xrblocks([],  EncodedXRBlocks) ->
-	list_to_binary(EncodedXRBlocks);
-encode_xrblocks([ XRBlock | Rest],  EncodedXRBlocks) ->
-	encode_xrblocks(Rest, EncodedXRBlocks ++ [encode_xrblock(XRBlock)]).
+	<< <<(encode_xrblock(XRBlock))/binary>> || XRBlock <- XRBlocks >>.
 
 encode_xrblock(#xrblock{type = BT, ts = TS, data = Data}) ->
 	encode_xrblock(BT, TS,  Data);
