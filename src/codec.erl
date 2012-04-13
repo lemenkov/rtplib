@@ -183,7 +183,7 @@ encode(Codec, {Payload, SampleRate, Channels, Resolution}) when is_pid(Codec), i
 %%
 
 load_library(Name) ->
-	case erl_ddll:load_driver(code:lib_dir(rtplib) ++ "/priv/", Name) of
+	case erl_ddll:load_driver(code:lib_dir(rtplib, priv), Name) of
 		ok -> ok;
 		{error, already_loaded} -> ok;
 		{error, permanent} -> ok;
