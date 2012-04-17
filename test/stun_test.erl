@@ -73,3 +73,77 @@ stun_test_() ->
 			fun() -> ?assertEqual(StunBindRespBinFixed, stun:encode(StunBindResp)) end
 		}
 	].
+
+%% Server names are taken from Ejabberd's tests
+public_servers() ->
+	[
+		% address ------- UDP -- TCP -- TLS
+		{"stun.ekiga.net",	3478, 3478, 5349},
+%		{"stun.fwdnet.net",	3478, 3478, 5349},
+		{"stun.ideasip.com",	3478, 3478, 5349},
+%		{"stun01.sipphone.com",	3478, 3478, 5349},
+		{"stun.softjoys.com",	3478, 3478, 5349},
+		{"stun.voipbuster.com",	3478, 3478, 5349},
+		{"stun.voxgratia.org",	3478, 3478, 5349},
+%		{"stun.xten.com",	3478, 3478, 5349},
+		{"stunserver.org",	3478, 3478, 5349},
+		{"stun.sipgate.net",	10000, 10000, 5349},
+		{"numb.viagenie.ca",	3478, 3478, 5349},
+		{"stun.ipshka.com",	3478, 3478, 5349}
+	].
+
+mkstun() ->
+	stun:encode(
+		#stun{
+			class = request,
+			method = binding,
+			transactionid = random:uniform(1 bsl 96),
+			attrs = [{'SOFTWARE',<<"rtplib v. 0.5.12">>}]
+		}
+	).
+
+test_recv(Addr, Port, Mod) ->
+	{ok, Sock} = case Mod of
+		gen_udp ->
+			Mod:open(0, [binary, {active, false}]);
+		_ ->
+			Mod:connect(Addr, Port, [binary, {active, false}], 1000)
+	end,
+	case  Mod of
+		gen_udp ->
+			Mod:send(Sock, Addr, Port, mkstun());
+		_ ->
+			Mod:send(Sock, mkstun())
+	end,
+	{ok, Ret} = case Mod:recv(Sock, 0, 1000) of
+		{ok, {_, _, Data}} ->
+			stun:decode(Data);
+		{ok, Data} ->
+			stun:decode(Data)
+	end,
+	Mod:close(Sock),
+	error_logger:info_msg("GOT STUN: ~p", [Ret]),
+	Ret.
+
+stun_public_serve_test_() ->
+%	ssl:start(),
+	lists:flatten(
+	lists:map(fun({Addr, UdpP, TcpP, TlsP}) ->
+				[
+					{"Receive STUN resp via UDP from " ++ Addr,
+						fun() ->
+								?assertMatch(#stun{}, test_recv(Addr, UdpP, gen_udp))
+						end
+%					},
+%					{"Receive STUN resp via TCP from " ++ Addr,
+%						fun() ->
+%								?assertMatch(#stun{}, test_recv(Addr, TcpP, gen_tcp))
+%						end
+%					},
+%					{"Receive STUN resp via TLS from " ++ Addr,
+%						fun() ->
+%								?assertMatch(#stun{}, test_recv(Addr, TlsP, gen_udp))
+%						end
+					}
+				]
+		end, public_servers())).
