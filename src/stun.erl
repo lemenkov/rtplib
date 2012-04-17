@@ -84,7 +84,11 @@ decode_attrs(<<>>, Length, _, Attrs) ->
 decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 	PaddingLength = case ItemLength rem 4 of
 		0 -> 0;
-		Else -> 4 - Else
+		Else ->
+			case ItemLength == size(Bin) of
+				true -> 0;
+				_ -> 4 - Else
+			end
 	end,
 	<<Value:ItemLength/binary, _:PaddingLength/binary, Rest/binary>> = Bin,
 	{T,V} = case Type of
