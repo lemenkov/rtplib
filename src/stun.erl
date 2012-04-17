@@ -113,6 +113,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#8022 -> {'SOFTWARE', rtp_utils:fix_null_terminated(Value)}; % VOVIDA 'SERVER-NAME'
 		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
 		16#8028 -> {'FINGERPRINT', Value};
+		16#802B -> {'RESPONSE-ORIGIN', decode_attr_addr(Value)};
 
 		16#8050 -> {'X-VOVIDA-SECONDARY-ADDRESS', decode_attr_addr(Value)}; % VOVIDA non-standart
 		Other -> {Other, Value}
@@ -170,6 +171,7 @@ encode_attr('X-VOVIDA-XOR-ONLY', Value, _) -> {16#8021, Value};
 encode_attr('SOFTWARE', Value, _) -> {16#8022, Value};
 encode_attr('ALTERNATE-SERVER', Value, _) -> {16#8023, encode_attr_addr(Value)};
 encode_attr('FINGERPRINT', Value, _) -> {16#8028, Value};
+encode_attr('RESPONSE-ORIGIN', Value, _) -> {16#802B, encode_attr_addr(Value)};
 encode_attr('X-VOVIDA-SECONDARY-ADDRESS', Value, _) -> {16#8050, Value};
 encode_attr(Other, Value, _) -> {Other, Value}.
 
