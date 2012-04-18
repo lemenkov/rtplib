@@ -116,19 +116,47 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#0009 -> {'ERROR-CODE', decode_attr_err(Value)};
 		16#000a -> {'UNKNOWN-ATTRIBUTES', Value};
 		16#000b -> {'REFLECTED-FROM', Value}; % Obsolete
+		16#000c -> {'CHANNEL-NUMBER', Value}; % draft-ietf-behave-turn-10
+		16#000d -> {'LIFETIME', Value}; % draft-ietf-behave-turn-10
+		16#000e -> {'ALTERNATE-SERVER', decode_attr_addr(Value)}; % Obsolete -> 16#8023
+		16#000f -> {'MAGIC-COOKIE', Value};
+		16#0010 -> {'BANDWIDTH', Value}; % turn-07
+		16#0011 -> {'DESTINATION-ADDRESS', decode_attr_addr(Value)};
+		16#0012 -> {'XOR-PEER-ADDRESS', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-turn-10 - was REMOTE-ADDRESS
+		16#0013 -> {'DATA', Value}; % draft-ietf-behave-turn-10
 		16#0014 -> {'REALM', Value};
 		16#0015 -> {'NONCE', Value};
+		16#0016 -> {'XOR-RELAYED-ADDRESS', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-turn-10
+		16#0017 -> {'REQUESTED-ADDRESS-TYPE', Value}; % draft-ietf-behave-turn-ipv6-03
+		16#0018 -> {'EVEN-PORT', Value}; % draft-ietf-behave-turn-10
+		16#0019 -> {'REQUESTED-TRANSPORT', Value}; % draft-ietf-behave-turn-10
+		16#001a -> {'DONT-FRAGMENT', Value}; % draft-ietf-behave-turn-10
 		16#0020 -> {'XOR-MAPPED-ADDRESS', decode_attr_xaddr(Value, TID)};
+		16#0022 -> {'RESERVATION-TOKEN', Value}; % draft-ietf-behave-turn-10
+		16#0024 -> {'PRIORITY', Value}; % draft-ietf-mmusic-ice-19
+		16#0025 -> {'USE-CANDIDATE', Value}; % draft-ietf-mmusic-ice-19
+		16#0026 -> {'PADDING', Value}; % draft-ietf-behave-nat-behavior-discovery-03
+		16#0027 -> {'XOR-RESPONSE-TARGET', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
+		16#0028 -> {'XOR-REFLECTED-FROM', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
+		16#0030 -> {'ICMP', Value}; % Moved from TURN to a future I-D
 
 		16#8020 -> {'X-VOVIDA-XOR-MAPPED-ADDRESS', decode_attr_xaddr(Value, TID)}; % VOVIDA non-standart
 		16#8021 -> {'X-VOVIDA-XOR-ONLY', Value}; % VOVIDA non-standart
 
 		16#8022 -> {'SOFTWARE', rtp_utils:fix_null_terminated(Value)}; % VOVIDA 'SERVER-NAME'
 		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
+		16#8027 -> {'CACHE_TIMEOUT', Value}; % draft-ietf-behave-nat-behavior-discovery-03
 		16#8028 -> {'FINGERPRINT', Value};
-		16#802B -> {'RESPONSE-ORIGIN', decode_attr_addr(Value)};
+		16#8029 -> {'ICE-CONTROLLED', Value}; % draft-ietf-mmusic-ice-19
+		16#802a -> {'ICE-CONTROLLING', Value}; % draft-ietf-mmusic-ice-19
+		16#802b -> {'RESPONSE-ORIGIN', decode_attr_addr(Value)};
+		16#802c -> {'OTHER-ADDRESS', decode_attr_addr(Value)};
 
 		16#8050 -> {'X-VOVIDA-SECONDARY-ADDRESS', decode_attr_addr(Value)}; % VOVIDA non-standart
+
+		16#c001 -> {'CONNECTION-REQUEST-BINDING', Value};
+		16#c002 -> {'BINDING-CHANGE', Value};
+
 		Other -> {Other, Value}
 	end,
 	NewLength = Length - (2 + 2 + ItemLength + PaddingLength),
@@ -176,16 +204,41 @@ encode_attr('MESSAGE-INTEGRITY', Value, _) -> {16#0008, Value};
 encode_attr('ERROR-CODE', Value, _) -> {16#0009, encode_attr_err(Value)};
 encode_attr('UNKNOWN-ATTRIBUTES', Value, _) -> {16#000a, Value};
 encode_attr('REFLECTED-FROM', Value, _) -> {16#000b, Value};
+encode_attr('CHANNEL-NUMBER', Value, _) -> {16#000c, Value};
+encode_attr('LIFETIME', Value, _) -> {16#000d, Value};
+encode_attr('MAGIC-COOKIE', Value, _) -> {16#000f, Value};
+encode_attr('BANDWIDTH', Value, _) -> {16#0010, Value};
+encode_attr('DESTINATION-ADDRESS', Value, _) -> {16#0011, encode_attr_addr(Value)};
+encode_attr('XOR-PEER-ADDRESS', Value, TID) -> {16#0012, encode_attr_xaddr(Value, TID)};
+encode_attr('DATA', Value, _) -> {16#0013, Value};
 encode_attr('REALM', Value, _) -> {16#0014, Value};
 encode_attr('NONCE', Value, _) -> {16#0015, Value};
+encode_attr('XOR-RELAYED-ADDRESS', Value, TID) -> {16#0016, encode_attr_xaddr(Value, TID)};
+encode_attr('REQUESTED-ADDRESS-TYPE', Value, _) -> {16#0017, Value};
+encode_attr('EVEN-PORT', Value, _) -> {16#0018, Value};
+encode_attr('REQUESTED-TRANSPORT', Value, _) -> {16#0019, Value};
+encode_attr('DONT-FRAGMENT', Value, _) -> {16#001a, Value};
 encode_attr('XOR-MAPPED-ADDRESS', Value, TID) -> {16#0020, encode_attr_xaddr(Value, TID)};
+encode_attr('RESERVATION-TOKEN', Value, _) -> {16#0022, Value};
+encode_attr('PRIORITY', Value, _) -> {16#0024, Value};
+encode_attr('USE-CANDIDATE', Value, _) -> {16#0025, Value};
+encode_attr('PADDING', Value, _) -> {16#0026, Value};
+encode_attr('XOR-RESPONSE-TARGET', Value, TID) -> {16#0027, encode_attr_xaddr(Value, TID)};
+encode_attr('XOR-REFLECTED-FROM', Value, TID) -> {16#0028, encode_attr_xaddr(Value, TID)};
+encode_attr('PING', Value, _) -> {16#0030, Value};
 encode_attr('X-VOVIDA-XOR-MAPPED-ADDRESS', Value, TID) -> {16#8020, encode_attr_xaddr(Value, TID)};
 encode_attr('X-VOVIDA-XOR-ONLY', Value, _) -> {16#8021, Value};
 encode_attr('SOFTWARE', Value, _) -> {16#8022, Value};
 encode_attr('ALTERNATE-SERVER', Value, _) -> {16#8023, encode_attr_addr(Value)};
+encode_attr('CACHE_TIMEOUT', Value, _) -> {16#8027, Value};
 encode_attr('FINGERPRINT', Value, _) -> {16#8028, Value};
-encode_attr('RESPONSE-ORIGIN', Value, _) -> {16#802B, encode_attr_addr(Value)};
+encode_attr('ICE-CONTROLLED', Value, _) -> {16#8029, Value};
+encode_attr('ICE-CONTROLLING', Value, _) -> {16#802a, Value};
+encode_attr('RESPONSE-ORIGIN', Value, _) -> {16#802b, encode_attr_addr(Value)};
+encode_attr('OTHER-ADDRESS', Value, _) -> {16#802c, encode_attr_addr(Value)};
 encode_attr('X-VOVIDA-SECONDARY-ADDRESS', Value, _) -> {16#8050, Value};
+encode_attr('CONNECTION-REQUEST-BINDING', Value, _) -> {16#c001, Value};
+encode_attr('BINDING-CHANGE', Value, _) -> {16#c002, Value};
 encode_attr(Other, Value, _) -> {Other, Value}.
 
 encode_attr_addr({{I0, I1, I2, I3}, Port}) ->
