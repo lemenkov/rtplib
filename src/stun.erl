@@ -39,6 +39,13 @@
 decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
 	Method = case <<M0:5, M1:3, M2:4>> of
 		<<1:12>> -> binding;
+		<<3:12>> -> allocate; % TURN
+		<<4:12>> -> refresh; % TURN
+		<<6:12>> -> send; % TURN
+		<<7:12>> -> data; % TURN
+		<<8:12>> -> createperm; % TURN
+		<<9:12>> -> channelbind; % TURN
+
 		<<Other:12>> -> Other
 	end,
 	Class = case <<C0:1, C1:1>> of
@@ -53,6 +60,12 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_C
 encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
 	M = case Method of
 		binding -> 1;
+		allocate -> 3;
+		refresh -> 4;
+		send -> 6;
+		data -> 7;
+		createperm -> 8;
+		channelbind -> 9;
 		Other -> Other
 	end,
 	<<M0:5, M1:3, M2:4>> = <<M:12>>,
