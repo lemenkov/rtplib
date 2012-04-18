@@ -89,7 +89,23 @@ public_servers() ->
 		{"stunserver.org",	3478, 3478, 5349},
 		{"stun.sipgate.net",	10000, 10000, 5349},
 		{"numb.viagenie.ca",	3478, 3478, 5349},
-		{"stun.ipshka.com",	3478, 3478, 5349}
+		{"stun.ipshka.com",	3478, 3478, 5349},
+
+		{"stun.faktortel.com.au",	3478, 3478, 5349},
+		{"provserver.televolution.net",	3478, 3478, 5349},
+		{"sip1.lakedestiny.cordiaip.com",	3478, 3478, 5349},
+		{"stun1.voiceeclipse.net",	3478, 3478, 5349},
+		{"stun.callwithus.com",	3478, 3478, 5349},
+		{"stun.counterpath.net",	3478, 3478, 5349},
+		{"stun.endigovoip.com",	3478, 3478, 5349},
+		{"stun.internetcalls.com",	3478, 3478, 5349},
+%		{"stun.ipns.com",	3478, 3478, 5349},
+		{"stun.noc.ams-ix.net",	3478, 3478, 5349},
+		{"stun.phonepower.com",	3478, 3478, 5349},
+		{"stun.phoneserve.com",	3478, 3478, 5349},
+		{"stun.rnktel.com",	3478, 3478, 5349},
+%		{"stun.voxalot.com",	3478, 3478, 5349},
+		{"stun.voip.aebc.com",	3478, 3478, 5349}
 	].
 
 mkstun() ->
