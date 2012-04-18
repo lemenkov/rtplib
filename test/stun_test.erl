@@ -93,7 +93,8 @@ public_servers() ->
 
 		{"stun.faktortel.com.au",	3478, 3478, 5349},
 		{"provserver.televolution.net",	3478, 3478, 5349},
-		{"sip1.lakedestiny.cordiaip.com",	3478, 3478, 5349},
+		%% it seems that they banned me
+%		{"sip1.lakedestiny.cordiaip.com",	3478, 3478, 5349},
 		{"stun1.voiceeclipse.net",	3478, 3478, 5349},
 		{"stun.callwithus.com",	3478, 3478, 5349},
 		{"stun.counterpath.net",	3478, 3478, 5349},
