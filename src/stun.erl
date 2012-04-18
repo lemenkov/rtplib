@@ -191,7 +191,7 @@ encode_bin({T, V}) ->
 		0 -> 0;
 		Else -> (4 - Else)*8
 	end,
-	Attr = <<T:16, L:16, V:L/binary, 0:PaddingLength>>.
+	<<T:16, L:16, V:L/binary, 0:PaddingLength>>.
 
 encode_attr('MAPPED-ADDRESS', Value, _) -> {16#0001, encode_attr_addr(Value)};
 encode_attr('RESPONSE-ADDRESS', Value, _) -> {16#0002, encode_attr_addr(Value)};
