@@ -118,26 +118,20 @@ mkstun() ->
 		}
 	).
 
+test_recv(Addr, Port, gen_udp) ->
+	{ok, Sock} = gen_udp:open(0, [binary, {active, false}]),
+	gen_udp:send(Sock, Addr, Port, mkstun()),
+	{ok, {_, _, Data}} = gen_udp:recv(Sock, 0, 1000),
+	gen_udp:close(Sock),
+	{ok, Ret} = stun:decode(Data),
+	error_logger:info_msg("GOT STUN: ~p", [Ret]),
+	Ret;
 test_recv(Addr, Port, Mod) ->
-	{ok, Sock} = case Mod of
-		gen_udp ->
-			Mod:open(0, [binary, {active, false}]);
-		_ ->
-			Mod:connect(Addr, Port, [binary, {active, false}], 1000)
-	end,
-	case  Mod of
-		gen_udp ->
-			Mod:send(Sock, Addr, Port, mkstun());
-		_ ->
-			Mod:send(Sock, mkstun())
-	end,
-	{ok, Ret} = case Mod:recv(Sock, 0, 1000) of
-		{ok, {_, _, Data}} ->
-			stun:decode(Data);
-		{ok, Data} ->
-			stun:decode(Data)
-	end,
+	{ok, Sock} = Mod:connect(Addr, Port, [binary, {active, false}], 1000),
+	Mod:send(Sock, mkstun()),
+	{ok, Data} = Mod:recv(Sock, 0, 1000),
 	Mod:close(Sock),
+	{ok, Ret} = stun:decode(Data),
 	error_logger:info_msg("GOT STUN: ~p", [Ret]),
 	Ret.
 
