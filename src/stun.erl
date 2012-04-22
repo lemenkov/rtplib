@@ -280,12 +280,14 @@ check_fingerprint(StunBinary) ->
 	Size = size(StunBinary) - 8,
 	case StunBinary of
 		<<Message:Size/binary, 16#80:8, 16#28:8, 16#00:8, 16#04:8, CRC:32>> ->
+			% Die if CRC doesn't match
+			CRC = (erlang:crc32(Message) bxor 16#5354554e),
 			<<H:16, OldSize:16, Payload/binary>> = Message,
 			NewSize = OldSize - 8,
-			{crc, {erlang:crc32(Message) bxor 16#5354554e == CRC, <<H:16, NewSize:16, Payload/binary>>}};
+			{true, <<H:16, NewSize:16, Payload/binary>>};
 		_ ->
 			error_logger:warning_msg("No CRC was found in a STUN message."),
-			{nocrc, StunBinary}
+			{false, StunBinary}
 	end.
 insert_fingerprint(StunBinary) ->
 	<<H:16, _:16, Message/binary>> = StunBinary,
