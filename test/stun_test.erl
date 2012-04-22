@@ -75,7 +75,7 @@ stun_test_() ->
 	].
 
 stun_rfc5769_test_() ->
-	Req1Bin = <<16#00,16#01,16#00,16#58,16#21,16#12,16#a4,16#42,16#b7,16#e7,
+	ReqBin = <<16#00,16#01,16#00,16#58,16#21,16#12,16#a4,16#42,16#b7,16#e7,
 		16#a7,16#01,16#bc,16#34,16#d6,16#86,16#fa,16#87,16#df,16#ae,
 		16#80,16#22,16#00,16#10,16#53,16#54,16#55,16#4e,16#20,16#74,
 		16#65,16#73,16#74,16#20,16#63,16#6c,16#69,16#65,16#6e,16#74,
@@ -87,7 +87,7 @@ stun_rfc5769_test_() ->
 		16#f2,16#b5,16#b2,16#d3,16#f2,16#49,16#c1,16#b5,16#71,16#a2,
 		16#80,16#28,16#00,16#04,16#e5,16#7a,16#3b,16#cf>>,
 
-	Req1 = #stun{
+	Req = #stun{
 		class = request,
 		method = binding,
 		transactionid = 56915807328848210473588875182,
@@ -171,10 +171,10 @@ stun_rfc5769_test_() ->
 	},
 	[
 		{"Simple decoding of STUN Request",
-			fun() -> ?assertEqual({ok, Req1}, stun:decode(Req1Bin)) end
+			fun() -> ?assertEqual({ok, Req}, stun:decode(ReqBin)) end
 		},
 		{"Simple encoding of STUN Request",
-			fun() -> ?assertEqual(Req1Bin, stun:encode(Req1)) end
+			fun() -> ?assertEqual(ReqBin, stun:encode(Req)) end
 		},
 		{"Simple decoding of STUN IPv4 Response",
 			fun() -> ?assertEqual({ok, RespIPv4}, stun:decode(RespIPv4Bin)) end
