@@ -37,6 +37,6 @@
 		class = null,
 		method = 0,
 		transactionid = <<>>,
-		fingerprint = false,
+		fingerprint = true,
 		attrs = []
 	}).

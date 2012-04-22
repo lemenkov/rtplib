@@ -40,6 +40,7 @@ stun_test_() ->
 		class = request,
 		method = binding,
 		transactionid = 45554200240623869818762035456,
+		fingerprint = false,
 		attrs = [{'SOFTWARE',<<"pjnath-1.4">>}]
 	},
 	StunBindReqBinFixed = <<0,1,0,16,33,18,164,66,147,49,141,31,86,17,126,65,130,38,1,0,128,34,0,10,112,106,110,97,116,104,45,49,46,52,0,0>>,
@@ -49,6 +50,7 @@ stun_test_() ->
 		class = success,
 		method = binding,
 		transactionid = 45554200240623869818762035456,
+		fingerprint = false,
 		attrs = [
 			{'MAPPED-ADDRESS',{{88,198,53,113},57596}},
 			{'SOURCE-ADDRESS',{{208,109,222,137},3478}},
@@ -193,6 +195,7 @@ stun_rfc5769_test_() ->
 		class = request,
 		method = binding,
 		transactionid = 37347591863512021035078271278,
+		fingerprint = false,
 		attrs = [
 			{'USERNAME',<<227,131,158,227,131,136,227,131,170,227,131,131,227,130,175,227,130,185>>},
 			{'NONCE',<<102,47,47,52,57,57,107,57,53,52,100,54,79,76,51,52,111,76,57,70,83,84,118,121,54,52,115,65>>},
@@ -268,6 +271,7 @@ mkstun() ->
 			class = request,
 			method = binding,
 			transactionid = random:uniform(1 bsl 96),
+			fingerprint = true,
 			attrs = [{'SOFTWARE',<<"rtplib v. 0.5.12">>}]
 		}
 	).
