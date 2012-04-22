@@ -189,10 +189,9 @@ encode_bin({T, V}) ->
 	L = size(V),
 	PaddingLength = case L rem 4 of
 		0 -> 0;
-		Else -> 4 - Else
+		Else -> (4 - Else)*8
 	end,
-	Padding = << <<16#20:8>> || X <- lists:seq(0,PaddingLength-1) >>,
-	<<T:16, L:16, V:L/binary, Padding:PaddingLength/binary>>.
+	<<T:16, L:16, V:L/binary, 0:PaddingLength>>.
 
 encode_attr('MAPPED-ADDRESS', Value, _) -> {16#0001, encode_attr_addr(Value)};
 encode_attr('RESPONSE-ADDRESS', Value, _) -> {16#0002, encode_attr_addr(Value)};
