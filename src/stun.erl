@@ -253,7 +253,7 @@ encode_attr_xaddr({{I0, I1, I2, I3}, Port}, _) ->
 	<<0:8, 1:8, XPort:16, XAddr:32>>;
 encode_attr_xaddr({{I0, I1, I2, I3, I4, I5, I6, I7}, Port}, TID) ->
 	XPort = Port bxor (?STUN_MAGIC_COOKIE bsr 16),
-	<<Addr:128>> = <<I0:8, I1:8, I2:8, I3:8, I4:8, I5:8, I6:8, I7:8>>,
+	<<Addr:128>> = <<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>,
 	XAddr = Addr bxor ((?STUN_MAGIC_COOKIE bsl 96) bor TID),
 	<<0:8, 2:8, XPort:16, XAddr:128>>.
 
