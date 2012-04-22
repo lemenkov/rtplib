@@ -293,7 +293,7 @@ check_fingerprint(StunBinary) ->
 			NewSize = OldSize - 8,
 			{true, <<H:16, NewSize:16, Payload/binary>>};
 		_ ->
-			error_logger:warning_msg("No CRC was found in a STUN message."),
+			error_logger:warning_msg("No CRC was found in a STUN message.~n"),
 			{false, StunBinary}
 	end.
 insert_fingerprint(StunBinary) ->
