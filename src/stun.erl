@@ -36,7 +36,7 @@
 
 -include("../include/stun.hrl").
 
-decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest/binary>>) ->
+decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest/binary>> = StunBinary) ->
 	Method = case <<M0:5, M1:3, M2:4>> of
 		<<1:12>> -> binding;
 		<<3:12>> -> allocate; % TURN
@@ -54,10 +54,15 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_C
 		<<1:1, 0:1>> -> success;
 		<<1:1, 1:1>> -> error
 	end,
-	Attrs = decode_attrs(Rest, Length, TransactionID, []),
-	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}}.
+	{Rest2, Length2, Fingerprint} = case check_fingerprint(StunBinary) of
+		{crc, {true, <<_:20/binary, Data/binary>>}} -> {Data, Length - 8, true};
+		{crc, {false, _}} -> throw({error, bad_fingerprint});
+		{nocrc, _} -> {Rest, Length, false}
+	end,
+	Attrs = decode_attrs(Rest2, Length2, TransactionID, []),
+	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}}.
 
-encode(#stun{class = Class, method = Method, transactionid = TransactionID, attrs = Attrs}) ->
+encode(#stun{class = Class, method = Method, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}) ->
 	M = case Method of
 		binding -> 1;
 		allocate -> 3;
@@ -77,7 +82,12 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, attr
 	end,
 	BinAttrs = << <<(encode_bin(encode_attr(T, V, TransactionID)))/binary>> || {T, V} <- Attrs >>,
 	Length = size(BinAttrs),
-	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>.
+
+	StunBinary = <<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>,
+	case Fingerprint of
+		false -> StunBinary;
+		_ ->  insert_fingerprint(StunBinary)
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -146,7 +156,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#8022 -> {'SOFTWARE', rtp_utils:fix_null_terminated(Value)}; % VOVIDA 'SERVER-NAME'
 		16#8023 -> {'ALTERNATE-SERVER', decode_attr_addr(Value)};
 		16#8027 -> {'CACHE_TIMEOUT', Value}; % draft-ietf-behave-nat-behavior-discovery-03
-		16#8028 -> {'FINGERPRINT', Value};
+%		16#8028 -> {'FINGERPRINT', Value};
 		16#8029 -> {'ICE-CONTROLLED', Value}; % draft-ietf-mmusic-ice-19
 		16#802a -> {'ICE-CONTROLLING', Value}; % draft-ietf-mmusic-ice-19
 		16#802b -> {'RESPONSE-ORIGIN', decode_attr_addr(Value)};
@@ -231,7 +241,7 @@ encode_attr('X-VOVIDA-XOR-ONLY', Value, _) -> {16#8021, Value};
 encode_attr('SOFTWARE', Value, _) -> {16#8022, Value};
 encode_attr('ALTERNATE-SERVER', Value, _) -> {16#8023, encode_attr_addr(Value)};
 encode_attr('CACHE_TIMEOUT', Value, _) -> {16#8027, Value};
-encode_attr('FINGERPRINT', Value, _) -> {16#8028, Value};
+%encode_attr('FINGERPRINT', Value, _) -> {16#8028, Value};
 encode_attr('ICE-CONTROLLED', Value, _) -> {16#8029, Value};
 encode_attr('ICE-CONTROLLING', Value, _) -> {16#802a, Value};
 encode_attr('RESPONSE-ORIGIN', Value, _) -> {16#802b, encode_attr_addr(Value)};
@@ -261,3 +271,24 @@ encode_attr_err({ErrorCode, Reason}) ->
 	Class = ErrorCode div 100,
 	Number = ErrorCode rem 100,
 	<<0:20, Class:4, Number:8, Reason/binary>>.
+
+%%
+%% Fingerprinting and auth
+%%
+
+check_fingerprint(StunBinary) ->
+	Size = size(StunBinary) - 8,
+	case StunBinary of
+		<<Message:Size/binary, 16#80:8, 16#28:8, 16#00:8, 16#04:8, CRC:32>> ->
+			<<H:16, OldSize:16, Payload/binary>> = Message,
+			NewSize = OldSize - 8,
+			{crc, {erlang:crc32(Message) bxor 16#5354554e == CRC, <<H:16, NewSize:16, Payload/binary>>}};
+		_ ->
+			error_logger:warning_msg("No CRC was found in a STUN message."),
+			{nocrc, StunBinary}
+	end.
+insert_fingerprint(StunBinary) ->
+	<<H:16, _:16, Message/binary>> = StunBinary,
+	Size = size(StunBinary) + 8 - 20,
+	CRC = erlang:crc32(Message) bxor 16#5354554e,
+	<<H:16, Size:16, Message/binary, 16#80:8, 16#28:8, 16#00:8, 16#04:8, CRC:32>>.
