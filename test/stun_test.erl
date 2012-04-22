@@ -258,7 +258,7 @@ test_recv(Addr, Port, Mod) ->
 	error_logger:info_msg("GOT STUN: ~p", [Ret]),
 	Ret.
 
-stun_public_serve_test_() ->
+stun_public_servers_test_() ->
 %	ssl:start(),
 	lists:flatten(
 	lists:map(fun({Addr, UdpP, TcpP, TlsP}) ->
