@@ -77,6 +77,8 @@ stun_test_() ->
 	].
 
 stun_rfc5769_test_() ->
+	Password = "VOkJxbRl1RmTxUk/WvJxBt",
+
 	ReqBin = <<16#00,16#01,16#00,16#58,16#21,16#12,16#a4,16#42,16#b7,16#e7,
 		16#a7,16#01,16#bc,16#34,16#d6,16#86,16#fa,16#87,16#df,16#ae,
 		16#80,16#22,16#00,16#10,16#53,16#54,16#55,16#4e,16#20,16#74,
@@ -97,21 +99,22 @@ stun_rfc5769_test_() ->
 		16#00,16#08,16#93,16#2f,16#f9,16#b1,16#51,16#26,16#3b,16#36,
 		16#00,16#06,16#00,16#09,16#65,16#76,16#74,16#6a,16#3a,16#68,
 		16#36,16#76,16#59,16#00,16#00,16#00,16#00,16#08,16#00,16#14,
-		16#9a,16#ea,16#a7,16#0c,16#bf,16#d8,16#cb,16#56,16#78,16#1e,
-		16#f2,16#b5,16#b2,16#d3,16#f2,16#49,16#c1,16#b5,16#71,16#a2,
-		16#80,16#28,16#00,16#04,16#47,16#d9,16#7d,16#e0>>,
+		16#79,16#07,16#c2,16#d2,16#ed,16#bf,16#ea,16#48,16#0e,16#4c,
+		16#76,16#d8,16#29,16#62,16#d5,16#c3,16#74,16#2a,16#f9,16#e3,
+		16#80,16#28,16#00,16#04,16#e3,16#52,16#92,16#8d>>,
 
 	Req = #stun{
 		class = request,
 		method = binding,
 		transactionid = 56915807328848210473588875182,
+		integrity = true,
+		key = Password,
 		fingerprint = true,
 		attrs = [
 			{'SOFTWARE',<<"STUN test client">>},
 			{'PRIORITY',<<110,0,1,255>>},
 			{'ICE-CONTROLLED',<<147,47,249,177,81,38,59,54>>},
-			{'USERNAME',<<"evtj:h6vY">>}, % 16#20,16#20,16#20 <- padding which is lost
-			{'MESSAGE-INTEGRITY',<<154,234,167,12,191,216,203,86,120,30,242,181,178,211,242,73,193,181,113,162>>}
+			{'USERNAME',<<"evtj:h6vY">>} % 16#20,16#20,16#20 <- padding which is lost
 		]
 	},
 
@@ -129,19 +132,20 @@ stun_rfc5769_test_() ->
 		16#80,16#22,16#00,16#0b,16#74,16#65,16#73,16#74,16#20,16#76,
 		16#65,16#63,16#74,16#6f,16#72,16#00,16#00,16#20,16#00,16#08,
 		16#00,16#01,16#a1,16#47,16#e1,16#12,16#a6,16#43,16#00,16#08,
-		16#00,16#14,16#2b,16#91,16#f5,16#99,16#fd,16#9e,16#90,16#c3,
-		16#8c,16#74,16#89,16#f9,16#2a,16#f9,16#ba,16#53,16#f0,16#6b,
-		16#e7,16#d7,16#80,16#28,16#00,16#04,16#d4,16#0d,16#a7,16#66>>,
+		16#00,16#14,16#5d,16#6b,16#58,16#be,16#ad,16#94,16#e0,16#7e,
+		16#ef,16#0d,16#fc,16#12,16#82,16#a2,16#bd,16#08,16#43,16#14,
+		16#10,16#28,16#80,16#28,16#00,16#04,16#25,16#16,16#7a,16#15>>,
 
 	RespIPv4 = #stun{
 		class = success,
 		method = binding,
 		transactionid = 56915807328848210473588875182,
+		integrity = true,
+		key = Password,
 		fingerprint = true,
 		attrs = [
 			{'SOFTWARE',<<"test vector">>}, % 16#20 <- padding which is lost
-			{'XOR-MAPPED-ADDRESS',{{192,0,2,1},32853}},
-			{'MESSAGE-INTEGRITY',<<43,145,245,153,253,158,144,195,140,116,137,249,42,249,186,83,240,107,231,215>>}
+			{'XOR-MAPPED-ADDRESS',{{192,0,2,1},32853}}
 		]
 	},
 
@@ -161,22 +165,27 @@ stun_rfc5769_test_() ->
 		16#76,16#65,16#63,16#74,16#6f,16#72,16#00,16#00,16#20,16#00,
 		16#14,16#00,16#02,16#a1,16#47,16#01,16#13,16#a9,16#fa,16#a5,
 		16#d3,16#f1,16#79,16#bc,16#25,16#f4,16#b5,16#be,16#d2,16#b9,
-		16#d9,16#00,16#08,16#00,16#14,16#a3,16#82,16#95,16#4e,16#4b,
-		16#e6,16#7b,16#f1,16#17,16#84,16#c9,16#7c,16#82,16#92,16#c2,
-		16#75,16#bf,16#e3,16#ed,16#41,16#80,16#28,16#00,16#04,16#2d,
-		16#5f,16#83,16#d9>>,
+		16#d9,16#00,16#08,16#00,16#14,16#bd,16#03,16#6d,16#6a,16#33,
+		16#17,16#50,16#df,16#e2,16#ed,16#c5,16#8e,16#64,16#34,16#55,
+		16#cf,16#f5,16#c8,16#e2,16#64,16#80,16#28,16#00,16#04,16#4f,
+		16#26,16#02,16#93>>,
 
 	RespIPv6 = #stun{
 		class = success,
 		method = binding,
 		transactionid = 56915807328848210473588875182,
+		integrity = true,
+		key = Password,
 		fingerprint = true,
 		attrs = [
 			{'SOFTWARE',<<"test vector">>}, % 16#20 <- padding which is lost
-			{'XOR-MAPPED-ADDRESS',{{8193,3512,4660,22136,17,8755,17493,26231},32853}},
-			{'MESSAGE-INTEGRITY',<<163,130,149,78,75,230,123,241,23,132,201,124,130,146,194,117,191,227,237,65>>}
+			{'XOR-MAPPED-ADDRESS',{{8193,3512,4660,22136,17,8755,17493,26231},32853}}
 		]
 	},
+
+
+	% Password = "The<U+00AD>M<U+00AA>tr<U+2168>",
+	% PasswordAfterSASLprep = "TheMatrIX",
 
 	ReqAuthBin = <<16#00,16#01,16#00,16#60,16#21,16#12,16#a4,16#42,16#78,
 		16#ad,16#34,16#33,16#c6,16#ad,16#72,16#c0,16#29,16#da,16#41,
@@ -195,9 +204,11 @@ stun_rfc5769_test_() ->
 		class = request,
 		method = binding,
 		transactionid = 37347591863512021035078271278,
+		integrity = false,
+		key = null,
 		fingerprint = false,
 		attrs = [
-			{'USERNAME',<<227,131,158,227,131,136,227,131,170,227,131,131,227,130,175,227,130,185>>},
+			{'USERNAME',<<227,131,158,227,131,136,227,131,170,227,131,131,227,130,175,227,130,185>>}, % "<U+30DE><U+30C8><U+30EA><U+30C3><U+30AF><U+30B9>"
 			{'NONCE',<<102,47,47,52,57,57,107,57,53,52,100,54,79,76,51,52,111,76,57,70,83,84,118,121,54,52,115,65>>},
 			{'REALM',<<"example.org">>},
 			{'MESSAGE-INTEGRITY',<<246,112,36,101,109,214,74,62,2,184,224,113,46,133,201,162,140,168,150,102>>}
@@ -205,19 +216,19 @@ stun_rfc5769_test_() ->
 	},
 	[
 		{"Simple decoding of STUN Request",
-			fun() -> ?assertEqual({ok, Req}, stun:decode(ReqBin)) end
+			fun() -> ?assertEqual({ok, Req}, stun:decode(ReqBin, Password)) end
 		},
 		{"Simple encoding of STUN Request",
 			fun() -> ?assertEqual(ReqBinFixed, stun:encode(Req)) end
 		},
 		{"Simple decoding of STUN IPv4 Response",
-			fun() -> ?assertEqual({ok, RespIPv4}, stun:decode(RespIPv4Bin)) end
+			fun() -> ?assertEqual({ok, RespIPv4}, stun:decode(RespIPv4Bin, Password)) end
 		},
 		{"Simple encoding of STUN IPv4 Response",
 			fun() -> ?assertEqual(RespIPv4BinFixed, stun:encode(RespIPv4)) end
 		},
 		{"Simple decoding of STUN IPv6 Response",
-			fun() -> ?assertEqual({ok, RespIPv6}, stun:decode(RespIPv6Bin)) end
+			fun() -> ?assertEqual({ok, RespIPv6}, stun:decode(RespIPv6Bin, Password)) end
 		},
 		{"Simple encoding of STUN IPv6 Response",
 			fun() -> ?assertEqual(RespIPv6BinFixed, stun:encode(RespIPv6)) end

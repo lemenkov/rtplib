@@ -36,7 +36,12 @@
 
 -include("../include/stun.hrl").
 
-decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest/binary>> = StunBinary) ->
+decode(StunBinary) ->
+	decode(StunBinary, null).
+decode(StunBinary, Key) ->
+	{Fingerprint, Rest} = check_fingerprint(StunBinary),
+	{Integrity, Rest2} = check_integrity(Rest, Key),
+	<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4, Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, Rest3/binary>> = Rest2,
 	Method = case <<M0:5, M1:3, M2:4>> of
 		<<1:12>> -> binding;
 		<<3:12>> -> allocate; % TURN
@@ -54,15 +59,11 @@ decode(<<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_C
 		<<1:1, 0:1>> -> success;
 		<<1:1, 1:1>> -> error
 	end,
-	{Rest2, Length2, Fingerprint} = case check_fingerprint(StunBinary) of
-		{crc, {true, <<_:20/binary, Data/binary>>}} -> {Data, Length - 8, true};
-		{crc, {false, _}} -> throw({error, bad_fingerprint});
-		{nocrc, _} -> {Rest, Length, false}
-	end,
-	Attrs = decode_attrs(Rest2, Length2, TransactionID, []),
-	{ok, #stun{class = Class, method = Method, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}}.
 
-encode(#stun{class = Class, method = Method, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}) ->
+	Attrs = decode_attrs(Rest3, Length, TransactionID, []),
+	{ok, #stun{class = Class, method = Method, integrity = Integrity, key = Key, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}}.
+
+encode(#stun{class = Class, method = Method, integrity = Integrity, key = Key, transactionid = TransactionID, fingerprint = Fingerprint, attrs = Attrs}) ->
 	M = case Method of
 		binding -> 1;
 		allocate -> 3;
@@ -83,10 +84,16 @@ encode(#stun{class = Class, method = Method, transactionid = TransactionID, fing
 	BinAttrs = << <<(encode_bin(encode_attr(T, V, TransactionID)))/binary>> || {T, V} <- Attrs >>,
 	Length = size(BinAttrs),
 
-	StunBinary = <<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>,
+	StunBinary0 = <<?STUN_MARKER:2, M0:5, C0:1, M1:3, C1:1, M2:4 , Length:16, ?STUN_MAGIC_COOKIE:32, TransactionID:96, BinAttrs/binary>>,
+
+	StunBinary1 = case Integrity of
+		false -> StunBinary0;
+		true -> insert_integrity(StunBinary0, Key)
+	end,
+
 	case Fingerprint of
-		false -> StunBinary;
-		_ ->  insert_fingerprint(StunBinary)
+		false -> StunBinary1;
+		true -> insert_fingerprint(StunBinary1)
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -292,5 +299,28 @@ check_fingerprint(StunBinary) ->
 insert_fingerprint(StunBinary) ->
 	<<H:16, _:16, Message/binary>> = StunBinary,
 	Size = size(StunBinary) + 8 - 20,
-	CRC = erlang:crc32(Message) bxor 16#5354554e,
+	CRC = erlang:crc32(<<H:16, Size:16, Message/binary>>) bxor 16#5354554e,
 	<<H:16, Size:16, Message/binary, 16#80:8, 16#28:8, 16#00:8, 16#04:8, CRC:32>>.
+
+% Must be called AFTER check_fingerprint
+check_integrity(StunBinary, null) ->
+	{false, StunBinary};
+check_integrity(StunBinary, Key) when size(StunBinary) > (20+24) ->
+	Size = size(StunBinary) - 24,
+	case StunBinary of
+		<<Message:Size/binary, 16#00:8, 16#08:8, 16#00:8, 16#14:8, Fingerprint:20/binary>> ->
+			Fingerprint = crypto:sha_mac(Key, Message),
+			<<H:16, OldSize:16, Payload/binary>> = Message,
+			NewSize = OldSize - 24,
+			{true, <<H:16, NewSize:16, Payload/binary>>};
+		_ ->
+			{false, StunBinary}
+	end.
+
+insert_integrity(StunBinary, null) ->
+	StunBinary;
+insert_integrity(StunBinary, Key) ->
+	<<H:16, _:16, Message/binary>> = StunBinary,
+	Size = size(StunBinary) + 24 - 20,
+	Fingerprint = crypto:sha_mac(Key, <<H:16, Size:16, Message/binary>>),
+	<<H:16, Size:16, Message/binary, 16#00:8, 16#08:8, 16#00:8, 16#14:8, Fingerprint/binary>>.
