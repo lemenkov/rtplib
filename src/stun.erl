@@ -314,6 +314,7 @@ check_integrity(StunBinary, Key) when size(StunBinary) > (20+24) ->
 			NewSize = OldSize - 24,
 			{true, <<H:16, NewSize:16, Payload/binary>>};
 		_ ->
+			error_logger:warning_msg("No MESSAGE-INTEGRITY was found in a STUN message.~n"),
 			{false, StunBinary}
 	end.
 
