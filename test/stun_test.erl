@@ -184,8 +184,14 @@ stun_rfc5769_test_() ->
 	},
 
 
+	% "<U+30DE><U+30C8><U+30EA><U+30C3><U+30AF><U+30B9>"
+	Username = <<227,131,158,227,131,136,227,131,170,227,131,131,227,130,175,227,130,185>>,
 	% Password = "The<U+00AD>M<U+00AA>tr<U+2168>",
-	% PasswordAfterSASLprep = "TheMatrIX",
+	PasswordAfterSASLprep = <<"TheMatrIX">>,
+	Realm = <<"example.org">>,
+	Nonce = <<"f//499k954d6OL34oL9FSTvy64sA">>,
+
+	Key = crypto:md5(<<Username/binary, ":", Realm/binary, ":", PasswordAfterSASLprep/binary>>),
 
 	ReqAuthBin = <<16#00,16#01,16#00,16#60,16#21,16#12,16#a4,16#42,16#78,
 		16#ad,16#34,16#33,16#c6,16#ad,16#72,16#c0,16#29,16#da,16#41,
@@ -204,14 +210,13 @@ stun_rfc5769_test_() ->
 		class = request,
 		method = binding,
 		transactionid = 37347591863512021035078271278,
-		integrity = false,
-		key = null,
+		integrity = true,
+		key = Key,
 		fingerprint = false,
 		attrs = [
-			{'USERNAME',<<227,131,158,227,131,136,227,131,170,227,131,131,227,130,175,227,130,185>>}, % "<U+30DE><U+30C8><U+30EA><U+30C3><U+30AF><U+30B9>"
-			{'NONCE',<<102,47,47,52,57,57,107,57,53,52,100,54,79,76,51,52,111,76,57,70,83,84,118,121,54,52,115,65>>},
-			{'REALM',<<"example.org">>},
-			{'MESSAGE-INTEGRITY',<<246,112,36,101,109,214,74,62,2,184,224,113,46,133,201,162,140,168,150,102>>}
+			{'USERNAME', Username},
+			{'NONCE', Nonce},
+			{'REALM', Realm}
 		]
 	},
 	[
@@ -234,7 +239,7 @@ stun_rfc5769_test_() ->
 			fun() -> ?assertEqual(RespIPv6BinFixed, stun:encode(RespIPv6)) end
 		},
 		{"Simple decoding of STUN Request with auth",
-			fun() -> ?assertEqual({ok, ReqAuth}, stun:decode(ReqAuthBin)) end
+			fun() -> ?assertEqual({ok, ReqAuth}, stun:decode(ReqAuthBin, Key)) end
 		},
 		{"Simple encoding of STUN Request with auth",
 			fun() -> ?assertEqual(ReqAuthBin, stun:encode(ReqAuth)) end
