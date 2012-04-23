@@ -153,7 +153,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#0024 -> {'PRIORITY', Value}; % draft-ietf-mmusic-ice-19
 		16#0025 -> {'USE-CANDIDATE', Value}; % draft-ietf-mmusic-ice-19
 		16#0026 -> {'PADDING', Value}; % draft-ietf-behave-nat-behavior-discovery-03
-		16#0027 -> {'XOR-RESPONSE-TARGET', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
+		16#0027 -> {'RESPONSE-PORT', Value};
 		16#0028 -> {'XOR-REFLECTED-FROM', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
 		16#0030 -> {'ICMP', Value}; % Moved from TURN to a future I-D
 
@@ -245,7 +245,7 @@ encode_attr('RESERVATION-TOKEN', Value, _) -> {16#0022, Value};
 encode_attr('PRIORITY', Value, _) -> {16#0024, Value};
 encode_attr('USE-CANDIDATE', Value, _) -> {16#0025, Value};
 encode_attr('PADDING', Value, _) -> {16#0026, Value};
-encode_attr('XOR-RESPONSE-TARGET', Value, TID) -> {16#0027, encode_attr_xaddr(Value, TID)};
+encode_attr('RESPONSE-PORT', Value, _) -> {16#0027, Value};
 encode_attr('XOR-REFLECTED-FROM', Value, TID) -> {16#0028, encode_attr_xaddr(Value, TID)};
 encode_attr('PING', Value, _) -> {16#0030, Value};
 encode_attr('X-VOVIDA-XOR-MAPPED-ADDRESS', Value, TID) -> {16#8020, encode_attr_xaddr(Value, TID)};
