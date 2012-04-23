@@ -124,7 +124,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 	{T,V} = case Type of
 		16#0001 -> {'MAPPED-ADDRESS', decode_attr_addr(Value)};
 		16#0002 -> {'RESPONSE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
-		16#0003 -> {'CHANGE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
+		16#0003 -> {'CHANGE-REQUEST', decode_change_req(Value)};
 		16#0004 -> {'SOURCE-ADDRESS', decode_attr_addr(Value)}; % Obsolete
 		16#0005 -> {'CHANGED-ADDRESS', decode_attr_addr(Value)}; % Obsolete
 		16#0006 -> {'USERNAME', Value};
@@ -153,7 +153,7 @@ decode_attrs(<<Type:16, ItemLength:16, Bin/binary>>, Length, TID, Attrs) ->
 		16#0024 -> {'PRIORITY', Value}; % draft-ietf-mmusic-ice-19
 		16#0025 -> {'USE-CANDIDATE', Value}; % draft-ietf-mmusic-ice-19
 		16#0026 -> {'PADDING', Value}; % draft-ietf-behave-nat-behavior-discovery-03
-		16#0027 -> {'XOR-RESPONSE-TARGET', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
+		16#0027 -> {'RESPONSE-PORT', Value};
 		16#0028 -> {'XOR-REFLECTED-FROM', decode_attr_xaddr(Value, TID)}; % draft-ietf-behave-nat-behavior-discovery-03
 		16#0030 -> {'ICMP', Value}; % Moved from TURN to a future I-D
 
@@ -196,6 +196,11 @@ decode_attr_xaddr(<<0:8, 2:8, XPort:16, XAddr:128>>, TID) ->
 decode_attr_err(<<_Mbz:20, Class:4, Number:8, Reason/binary>>) ->
 	{Class*100 + Number, Reason}.
 
+decode_change_req(<<_:29, ChangeIp:1, ChangePort:1, _:1>>) ->
+	Ip = case ChangeIp of 1 -> [ip]; 0 -> [] end,
+	Port = case ChangePort of 1 -> [port]; 0 -> [] end,
+	Ip ++ Port.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Encoding helpers
@@ -212,7 +217,7 @@ encode_bin({T, V}) ->
 
 encode_attr('MAPPED-ADDRESS', Value, _) -> {16#0001, encode_attr_addr(Value)};
 encode_attr('RESPONSE-ADDRESS', Value, _) -> {16#0002, encode_attr_addr(Value)};
-encode_attr('CHANGE-ADDRESS', Value, _) -> {16#0003, encode_attr_addr(Value)};
+encode_attr('CHANGE-REQUEST', Value, _) -> {16#0003, encode_change_req(Value)};
 encode_attr('SOURCE-ADDRESS', Value, _) -> {16#0004, encode_attr_addr(Value)};
 encode_attr('CHANGED-ADDRESS', Value, _) -> {16#0005, encode_attr_addr(Value)};
 encode_attr('USERNAME', Value, _) -> {16#0006, Value};
@@ -240,7 +245,7 @@ encode_attr('RESERVATION-TOKEN', Value, _) -> {16#0022, Value};
 encode_attr('PRIORITY', Value, _) -> {16#0024, Value};
 encode_attr('USE-CANDIDATE', Value, _) -> {16#0025, Value};
 encode_attr('PADDING', Value, _) -> {16#0026, Value};
-encode_attr('XOR-RESPONSE-TARGET', Value, TID) -> {16#0027, encode_attr_xaddr(Value, TID)};
+encode_attr('RESPONSE-PORT', Value, _) -> {16#0027, Value};
 encode_attr('XOR-REFLECTED-FROM', Value, TID) -> {16#0028, encode_attr_xaddr(Value, TID)};
 encode_attr('PING', Value, _) -> {16#0030, Value};
 encode_attr('X-VOVIDA-XOR-MAPPED-ADDRESS', Value, TID) -> {16#8020, encode_attr_xaddr(Value, TID)};
@@ -279,6 +284,10 @@ encode_attr_err({ErrorCode, Reason}) ->
 	Number = ErrorCode rem 100,
 	<<0:20, Class:4, Number:8, Reason/binary>>.
 
+encode_change_req(List) ->
+	Ip = case proplists:is_defined(ip, List) of true -> 1; false -> 0 end,
+	Port = case proplists:is_defined(port, List) of true -> 1; false -> 0 end,
+	<<0:29, Ip:1, Port:1, 0:1>>.
 %%
 %% Fingerprinting and auth
 %%
