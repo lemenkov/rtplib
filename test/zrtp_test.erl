@@ -35,7 +35,7 @@
 
 zrtp_test_() ->
 	ZrtpMarker = <<16,0>>, % 16#1000
-	MagicCookie = <<90,82,84,80>>,
+	MagicCookie = <<"ZRTP">>,
 
 	% HELLO data
 

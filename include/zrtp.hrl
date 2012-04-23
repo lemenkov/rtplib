@@ -31,7 +31,7 @@
 % http://tools.ietf.org/html/rfc6189
 
 -define(ZRTP_MARKER, 16#1000).
--define(ZRTP_MAGIC_COOKIE, 16#5a525450).
+-define(ZRTP_MAGIC_COOKIE, 16#5a525450). % <<"ZRTP">>, <<90,82,84,80>>
 
 -define(ZRTP_MSG_HELLO,		"Hello   ").
 -define(ZRTP_MSG_HELLOACK,	"HelloACK").
