@@ -28,19 +28,31 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(srtcp_test).
+-record(srtp_crypto_ctx,
+	{
+		ssrc = null,
+		roc = 0, % Discard for RTCP
+		s_l = null,
+		rtcp_idx = 0,
+		keyDerivRate = 0,
+		ealg = null, % srtpEncryptionNull, srtpEncryptionAESCM, srtpEncryptionAESF8, srtpEncryptionTWOF8
+		aalg = null, % srtpAuthenticationNull, srtpAuthenticationSha1Hmac, srtpAuthenticationSkeinHmac
+		masterKey = <<>>, % length may be 16 or 32 bytes
+		masterSalt = <<>>, % 14 bytes by default, according to RFC3711
+		k_a = <<>>, % 20 bytes by default
+		k_e = <<>>, % sizeof(masterKey) by default
+		k_s = <<>>, % sizeof(masterSalt) by default
+		f8Cipher = null,
+		tagLength = 0 % 4 bytes by default
+	}
+).
 
--include("rtcp.hrl").
--include_lib("eunit/include/eunit.hrl").
+-define(SRTP_BLOCK_SIZE, 16).
 
-zrtp_test_() ->
-	SrtcpSrBin = <<129,200,0,12,131,2,101,199,102,248,250,11,232,111,44,166,210,29,192,15,102,98,25,191,215,224,156,194,134,209,132,213,198,231,202,132,85,127,137,8,253,142,229,114,2,151,209,173,42,238,131,200,170,244,100,163,18,43,48,105,212,99,7,227,26,180,246,78,83,154,31,36,213,204,121,109,0,29,1,116,9,90,69,67,47,219,29,45,213,160,168,102,15,31,248,218,79,25,173,4,111,185,89,143,175,62,209,121,192,26,218,244,69,244,237,152,20,231,248,11,108,139,148,75,103,59,69,148,57,183,249,149,149,11,186,0,128,0,0,0,178,174,231,18>>,
-	SrtcpSr = #rtcp{encrypted = SrtcpSrBin},
-	[
-		{"Simple pass-thru decrypting of the SRTCP data",
-			fun() -> ?assertEqual({ok, SrtcpSr, passthru}, srtp:decrypt(SrtcpSrBin, passthru)) end
-		},
-		{"Simple pass-thru encrypting of the SRTP structure",
-			fun() -> ?assertEqual({ok, SrtcpSrBin, passthru}, srtp:encrypt(SrtcpSr, passthru)) end
-		}
-	].
+-define(SRTP_LABEL_RTP_ENCR, 16#0).
+-define(SRTP_LABEL_RTP_AUTH, 16#1).
+-define(SRTP_LABEL_RTP_SALT, 16#2).
+
+-define(SRTP_LABEL_RTCP_ENCR, 16#3).
+-define(SRTP_LABEL_RTCP_AUTH, 16#4).
+-define(SRTP_LABEL_RTCP_SALT, 16#5).
