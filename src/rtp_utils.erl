@@ -94,7 +94,7 @@ now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 	NTPFrac = frac(MicroSecs),
 	<<NTPSec:32, NTPFrac:32>>.
 
-pp(Rtcps) when is_list(Rtcps) ->
+pp(#rtcp{payloads = Rtcps}) ->
 	lists:flatten(lists:map(fun pp/1, Rtcps));
 
 % RTP
