@@ -314,8 +314,8 @@ get_payload_from_codec({'DVI4',16000,1}) -> 6;
 get_payload_from_codec({'LPC',8000,1}) -> 7;
 get_payload_from_codec({'PCMA',8000,1}) -> 8;
 get_payload_from_codec({'G722',8000,1}) -> 9;
-get_payload_from_codec({'L16',8000,2}) -> 10; % FIXME 44100 according to RFC3551
-get_payload_from_codec({'L16',8000,1}) -> 11; % FIXME 44100 according to RFC3551
+get_payload_from_codec({'L16',44100,2}) -> 10;
+get_payload_from_codec({'L16',44100,1}) -> 11;
 get_payload_from_codec({'QCELP',8000,1}) -> 12;
 get_payload_from_codec({'CN',8000,1}) -> 13;
 get_payload_from_codec({'MPA',90000,0}) -> 14; % FIXME 90000 Hz?
