@@ -318,7 +318,7 @@ get_payload_from_codec({'L16',44100,2}) -> 10;
 get_payload_from_codec({'L16',44100,1}) -> 11;
 get_payload_from_codec({'QCELP',8000,1}) -> 12;
 get_payload_from_codec({'CN',8000,1}) -> 13;
-get_payload_from_codec({'MPA',90000,0}) -> 14; % FIXME 90000 Hz?
+get_payload_from_codec({'MPA',90000,0}) -> 14;
 get_payload_from_codec({'G728',8000,1}) -> 15;
 get_payload_from_codec({'DVI4',11025,1}) -> 16;
 get_payload_from_codec({'DVI4',22050,1}) -> 17;
