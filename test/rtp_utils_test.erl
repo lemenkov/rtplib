@@ -35,7 +35,15 @@
 -include_lib("eunit/include/eunit.hrl").
 
 rtcp_utils_test_() ->
+	Rr = #rr{ssrc = 3300681489},
+	Sdes = #sdes{list=[[{ssrc,3300681489},{cname,"sa@localhost.localdomain"},{eof,true}]]},
+	Rtcp = #rtcp{
+		payloads = [Rr, Sdes]
+	},
+	RtcpPP = "{\"type\":\"rr\",\"ssrc\":3300681489,\"rblocks\":[{}]}{\"type\":\"sdes\",\"list\":[{\"ssrc\":3300681489,\"cname\":\"sa@localhost.localdomain\",\"eof\":true}]}",
 	[
-		% Empty for now
+		{"Simple pretty-printing of a simple RTCP packet",
+			fun() -> ?assertEqual(RtcpPP, rtp_utils:pp(Rtcp)) end
+		}
 	].
 
