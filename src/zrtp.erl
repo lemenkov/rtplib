@@ -31,10 +31,667 @@
 -module(zrtp).
 -author('lemenkov@gmail.com').
 
+-behaviour(gen_server).
+
+-export([start_link/1]).
+-export([init/1]).
+-export([handle_call/3]).
+-export([handle_cast/2]).
+-export([handle_info/2]).
+-export([code_change/3]).
+-export([terminate/2]).
+
 % FIXME - don't forget to remove from final version!
 -compile(export_all).
 
 -include("../include/zrtp.hrl").
+
+-record(state, {
+		zid,
+		ssrc,
+		h0,
+		h1,
+		h2,
+		h3,
+		iv,
+		hash = null,
+		cipher = null,
+		auth = null,
+		keyagr = null,
+		sas = null,
+
+		rs1IDi = null,
+		rs1IDr = null,
+		rs2IDi = null,
+		rs2IDr = null,
+		auxSecretIDi = null,
+		auxSecretIDr = null,
+		pbxSecretIDi = null,
+		pbxSecretIDr = null,
+		dhPriv = null,
+		dhPubl = null,
+		shared = <<>>,
+		s0 = null,
+
+		srtp_key_i = null,
+		srtp_salt_i = null,
+		srtp_key_r = null,
+		srtp_salt_r = null,
+		hmac_key_i = null,
+		hmac_key_r = null,
+		confirm_key_i = null,
+		confirm_key_r = null,
+
+		other_zid = null,
+		other_ssrc = null,
+		other_h0 = null,
+		other_h1 = null,
+		other_h2 = null,
+		other_h3 = null,
+		prev_sn = 0,
+		storage = null
+	}
+).
+
+start_link(Args) ->
+	gen_server:start_link(?MODULE, Args, []).
+
+%% Generate Alice's ZRTP server
+init([ZID, SSRC]) when is_binary(ZID) ->
+	init([ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
+init([ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]) when is_binary(ZID) ->
+
+	% First hash is a random set of bytes
+	% Th rest are a chain of hashes made with predefined hash function
+	H0 = crypto:rand_bytes(32),
+	H1 = erlsha2:sha256(H0),
+	H2 = erlsha2:sha256(H1),
+	H3 = erlsha2:sha256(H2),
+
+	IV = crypto:rand_bytes(16),
+
+	Tid = ets:new(zrtp, [private]),
+
+	ets:insert(Tid, {hash, Hashes}),
+	ets:insert(Tid, {cipher, Ciphers}),
+	ets:insert(Tid, {auth, Auths}),
+	ets:insert(Tid, {keyagr, KeyAgreements}),
+	ets:insert(Tid, {sas, SASTypes}),
+
+	% FIXME send HELLO here or defer it?
+
+	{ok, #state{
+			zid = ZID,
+			ssrc = SSRC,
+			h0 = H0,
+			h1 = H1,
+			h2 = H2,
+			h3 = H3,
+			iv = IV,
+			storage = Tid
+		}
+	}.
+
+handle_call(
+	init,
+	_From,
+	#state{
+		zid = ZID,
+		ssrc = MySSRC,
+		h3 = H3,
+		h2 = H2,
+		storage = Tid
+	} = State) ->
+
+	HelloMsg = #hello{
+		clientid = ?ZRTP_SOFTWARE,
+		h3 = H3,
+		zid = ZID,
+		s = 0, % FIXME allow checking digital signature (see http://zfone.com/docs/ietf/rfc6189bis.html#SignSAS )
+		m = 1, % FIXME allow to set to false
+		p = 0, % We can send COMMIT messages
+		hash = ets:lookup_element(Tid, hash, 2),
+		cipher = ets:lookup_element(Tid, cipher, 2),
+		auth = ets:lookup_element(Tid, auth, 2),
+		keyagr = ets:lookup_element(Tid, keyagr, 2),
+		sas = ets:lookup_element(Tid, sas, 2)
+	},
+
+	Hello = #zrtp{
+		sequence = 1,
+		ssrc = MySSRC,
+		message = HelloMsg#hello{mac = mkhmac(HelloMsg, H2)}
+	},
+
+	% Store full Alice's HELLO message
+	ets:insert(Tid, {{alice, hello}, Hello}),
+
+	{reply, Hello, State};
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #hello{
+			clientid = ClientIdentifier,
+			h3 = HashImageH3,
+			zid = ZID,
+			s = S,
+			m = M,
+			p = P,
+			hash = Hashes,
+			cipher = Ciphers,
+			auth = Auths,
+			keyagr = KeyAgreements,
+			sas = SASTypes,
+			mac = MAC
+		}
+	} = Hello,
+	_From,
+	#state{
+		ssrc = MySSRC,
+		storage = Tid
+	} = State) ->
+	Hash = negotiate(Tid, hash, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_HASH_S256, Hashes),
+	Cipher = negotiate(Tid, cipher, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_CIPHER_AES1, Ciphers),
+	Auth = negotiate(Tid, auth, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_AUTH_TAG_HS32, Auths),
+	KeyAgr = negotiate(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_DH3K, KeyAgreements),
+	SAS = negotiate(Tid, sas, ?ZRTP_SAS_TYPE_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_B32, SASTypes),
+
+	% Store full Bob's HELLO message
+	ets:insert(Tid, {{bob, hello}, Hello}),
+
+	{reply,
+		#zrtp{sequence = SN+1, ssrc = MySSRC, message = helloack},
+		State#state{
+			hash = Hash,
+			cipher = Cipher,
+			auth = Auth,
+			keyagr = KeyAgr,
+			sas = SAS,
+			other_zid = ZID,
+			other_ssrc = SSRC,
+			other_h3 = HashImageH3,
+			prev_sn = SN}
+	};
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = helloack
+	} = HelloAck,
+	_From,
+	#state{
+		zid = ZID,
+		ssrc = MySSRC,
+		h2 = H2,
+		h1 = H1,
+		h0 = H0,
+		hash = Hash,
+		cipher = Cipher,
+		auth = Auth,
+		keyagr = KeyAgr,
+		sas = SAS,
+		other_ssrc = SSRC,
+		storage = Tid
+	} = State) ->
+
+	#zrtp{message = Hello} = ets:lookup_element(Tid, {bob, hello}, 2),
+
+	HashFun = get_hashfun(Hash),
+	HMacFun = get_hmacfun(Hash),
+
+	% FIXME check for preshared keys instead of regenerating them - should we use Mnesia?
+
+	Rs1 = crypto:rand_bytes(32),
+	Rs2 = crypto:rand_bytes(32),
+	Rs3 = crypto:rand_bytes(32),
+	Rs4 = crypto:rand_bytes(32),
+
+	<<Rs1IDi:64, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
+	<<Rs1IDr:64, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
+	<<Rs2IDi:64, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
+	<<Rs2IDr:64, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
+	<<AuxSecretIDi:64, _/binary>> = HMacFun(Rs3, ?STR_INITIATOR),
+	<<AuxSecretIDr:64, _/binary>> = HMacFun(Rs3, ?STR_RESPONDER),
+	<<PbxSecretIDi:64, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
+	<<PbxSecretIDr:64, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
+
+	{PublicKey, PrivateKey} = zrtp_crypto:mkdh(KeyAgr),
+
+	% We must generate DHPart2 here
+	DHpart2 = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
+
+	Hvi = calculate_hvi(Hello, DHpart2, HashFun),
+
+	CommitMsg = #commit{
+		h2 = H2,
+		zid = ZID,
+		hash = Hash,
+		cipher = Cipher,
+		auth = Auth,
+		keyagr = KeyAgr,
+		sas = SAS,
+		hvi = Hvi
+	},
+
+	Commit = #zrtp{
+		sequence = SN + 1,
+		ssrc = MySSRC,
+		message = CommitMsg#commit{mac = mkhmac(CommitMsg, H1)}
+	},
+
+	% Store full Alice's COMMIT message
+	ets:insert(Tid, {{alice, commit}, Commit}),
+
+	{reply, Commit,
+		State#state{
+			rs1IDi = Rs1IDi,
+			rs1IDr = Rs1IDr,
+			rs2IDi = Rs2IDi,
+			rs2IDr = Rs2IDr,
+			auxSecretIDi = AuxSecretIDi,
+			auxSecretIDr = AuxSecretIDr,
+			pbxSecretIDi = PbxSecretIDi,
+			pbxSecretIDr = PbxSecretIDr,
+			dhPriv = PrivateKey,
+			dhPubl = PublicKey
+		}
+	};
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #commit{
+			h2 = HashImageH2,
+			zid = ZID,
+			hash = Hash,
+			cipher = Cipher,
+			auth = AuthType,
+			keyagr = KeyAgreement,
+			sas = SAS,
+			hvi = Hvi,
+			nonce = Nonce,
+			mac = MAC
+		}
+	} = Commit,
+	_From,
+	#state{
+		ssrc = MySSRC,
+		other_ssrc = SSRC,
+		other_zid = ZID,
+		h1 = H1,
+		h0 = H0,
+		rs1IDr = Rs1IDr,
+		rs2IDr = Rs2IDr,
+		auxSecretIDr = AuxSecretIDr,
+		pbxSecretIDr = PbxSecretIDr,
+		dhPubl = PublicKey,
+		prev_sn = SN0,
+		storage = Tid
+	} = State) when SN > SN0 ->
+
+	% Lookup Bob's HELLO packet
+	Hello = ets:lookup_element(Tid, {bob, hello}, 2),
+
+	case verify_hmac(Hello, HashImageH2) of
+		true ->
+
+			% Store full Bob's COMMIT message
+			ets:insert(Tid, {{bob, commit}, Commit}),
+
+			% Lookup Alice's COMMIT packet
+			#zrtp{message = #commit{hvi = MyHvi}} = ets:lookup_element(Tid, {alice, commit}, 2),
+
+			% Check for lowest Hvi
+			case Hvi < MyHvi of
+				true ->
+					{reply, ok, State#state{other_h2 = HashImageH2, prev_sn = SN}};
+				false ->
+					DHpart1Msg = mkdhpart1(H0, H1, Rs1IDr, Rs2IDr, AuxSecretIDr, PbxSecretIDr, PublicKey),
+					DHpart1 = #zrtp{sequence = SN+1, ssrc = MySSRC, message = DHpart1Msg},
+
+					% Store full Alice's DHpart1 message
+					ets:insert(Tid, {{alice, dhpart1}, DHpart1}),
+
+					{reply, DHpart1, State#state{other_h2 = HashImageH2, prev_sn = SN}}
+			end;
+		false ->
+			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
+	end;
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #dhpart1{
+			h1 = HashImageH1,
+			rs1IDr = Rs1IDr,
+			rs2IDr = Rs2IDr,
+			auxsecretIDr = AuxsecretIDr,
+			pbxsecretIDr = PbxsecretIDr,
+			pvr = Pvr,
+			mac = MAC
+		}
+	} = DHpart1,
+	_From,
+	#state{
+		zid = ZIDi,
+		ssrc = MySSRC,
+		other_ssrc = SSRC,
+		other_zid = ZIDr,
+		h1 = H1,
+		h0 = H0,
+		hash = Hash,
+		rs1IDi = Rs1IDi,
+		rs2IDi = Rs2IDi,
+		auxSecretIDi = AuxSecretIDi,
+		pbxSecretIDi = PbxSecretIDi,
+		dhPriv = PrivateKey,
+		dhPubl = PublicKey,
+		prev_sn = SN0,
+		storage = Tid
+	} = State) when SN > SN0 ->
+
+	% Lookup Bob's COMMIT packet
+	Commit = ets:lookup_element(Tid, {bob, commit}, 2),
+
+	case verify_hmac(Commit, HashImageH1) of
+		true ->
+			% Store full Bob's DHpart1 message
+			ets:insert(Tid, {{bob, dhpart1}, DHpart1}),
+
+			% Calculate ZRTP params
+			DHpart2Msg = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
+			DHpart2 = #zrtp{sequence = SN, ssrc = MySSRC, message = DHpart2Msg},
+
+			% Store full Alice's DHpart2 message
+			ets:insert(Tid, {{alice, dhpart2}, DHpart2}),
+
+			% Calculate DHfinal
+			DHfinal = zrtp_crypto:mkfinal(Pvr, PrivateKey),
+
+			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
+			HashFun = get_hashfun(Hash),
+			#zrtp{message = Hello} = ets:lookup_element(Tid, {bob, hello}, 2),
+			#zrtp{message = Commit} = ets:lookup_element(Tid, {alice, commit}, 2),
+
+			% http://zfone.com/docs/ietf/rfc6189bis.html#SharedSecretDetermination
+			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1#zrtp.message, DHpart2Msg] >>),
+			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
+			% We have to set s1, s2, s3 to null for now - FIXME
+			S0 = HashFun(<<1:32, DHfinal/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
+
+			% Derive keys
+			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
+			MasterSaltI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+
+			MasterKeyR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
+			MasterSaltR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+
+			HMacKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
+			HMacKeyR = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+
+			ConfirmKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
+			ConfirmKeyR = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+
+			{reply, DHpart2,
+				State#state{
+					other_h1 = HashImageH1,
+					prev_sn = SN,
+					s0 = S0,
+					srtp_key_i = MasterKeyI,
+					srtp_salt_i = MasterSaltI,
+					srtp_key_r = MasterKeyR,
+					srtp_salt_r = MasterSaltR,
+					hmac_key_i = HMacKeyI,
+					hmac_key_r = HMacKeyR,
+					confirm_key_i = ConfirmKeyI,
+					confirm_key_r = ConfirmKeyR
+				}
+			};
+		false ->
+			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
+	end;
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #dhpart2{
+			h1 = HashImageH1,
+			rs1IDi = Rs1IDo,
+			rs2IDi = Rs2IDi,
+			auxsecretIDi = AuxsecretIDi,
+			pbxsecretIDi = PbxsecretIDi,
+			pvi = Pvi,
+			mac = MAC
+		}
+	} = DHpart2,
+	_From,
+	#state{
+		zid = ZIDr,
+		ssrc = MySSRC,
+		dhPriv = PrivateKey,
+		other_ssrc = SSRC,
+		hash = Hash,
+		h0 = H0,
+		iv = IV,
+		other_zid = ZIDi,
+		prev_sn = SN0,
+		storage = Tid
+	} = State) when SN > SN0 ->
+
+	% Lookup Bob's COMMIT packet
+	Commit = ets:lookup_element(Tid, {bob, commit}, 2),
+
+	case verify_hmac(Commit, HashImageH1) of
+		true ->
+			% Store full Bob's DHpart2 message
+			ets:insert(Tid, {{bob, dhpart2}, DHpart2}),
+
+			% Calculate DHfinal
+			DHfinal = zrtp_crypto:mkfinal(Pvi, PrivateKey),
+
+			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
+			HashFun = get_hashfun(Hash),
+			#zrtp{message = Hello} = ets:lookup_element(Tid, {alice, hello}, 2),
+			#zrtp{message = Commit} = ets:lookup_element(Tid, {bob, commit}, 2),
+			#zrtp{message = DHpart1} = ets:lookup_element(Tid, {alice, dhpart1}, 2),
+
+			% http://zfone.com/docs/ietf/rfc6189bis.html#SharedSecretDetermination
+			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1, DHpart2#zrtp.message] >>),
+			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
+			% We have to set s1, s2, s3 to null for now - FIXME
+			S0 = HashFun(<<1:32, DHfinal/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
+
+			% Derive keys
+			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
+			MasterSaltI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+
+			MasterKeyR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
+			MasterSaltR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+
+			HMacKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
+			HMacKeyR = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+
+			ConfirmKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
+			ConfirmKeyR = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+
+			% FIXME add actual values as well as SAS
+			HMacFun = get_hmacfun(Hash),
+			EData = crypto:aes_ctr_encrypt(ConfirmKeyR, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:4/binary>>),
+			ConfMac = HMacFun(HMacKeyR, EData),
+
+			Confirm1Msg = #confirm1{
+				conf_mac = ConfMac,
+				cfb_init_vect = IV,
+				encrypted_data = EData
+			},
+
+			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = Confirm1Msg},
+				State#state{
+					other_h1 = HashImageH1,
+					prev_sn = SN,
+					s0 = S0,
+					srtp_key_i = MasterKeyI,
+					srtp_salt_i = MasterSaltI,
+					srtp_key_r = MasterKeyR,
+					srtp_salt_r = MasterSaltR,
+					hmac_key_i = HMacKeyI,
+					hmac_key_r = HMacKeyR,
+					confirm_key_i = ConfirmKeyI,
+					confirm_key_r = ConfirmKeyR
+				}
+			};
+		false ->
+			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
+	end;
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #confirm1{
+			conf_mac = ConfMac,
+			cfb_init_vect = IV,
+			encrypted_data = EData
+		}
+	} = Confirm1,
+	_From,
+	#state{
+		h0 = H0,
+		hash = Hash,
+		srtp_key_i = MasterKeyI,
+		srtp_salt_i = MasterSaltI,
+		srtp_key_r = MasterKeyR,
+		srtp_salt_r = MasterSaltR,
+		hmac_key_i = HMacKeyI,
+		hmac_key_r = HMacKeyR,
+		confirm_key_i = ConfirmKeyI,
+		confirm_key_r = ConfirmKeyR,
+		ssrc = MySSRC,
+		other_ssrc = SSRC,
+		other_h3 = HashImageH3,
+		other_h2 = HashImageH2,
+		other_h1 = HashImageH1,
+		prev_sn = SN0,
+		storage = Tid
+	} = State) when SN > SN0 ->
+
+	% Verify HMAC chain
+	HMacFun = get_hmacfun(Hash),
+	ConfMac = HMacFun(HMacKeyR, EData),
+	<<HashImageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>> = crypto:aes_ctr_decrypt(ConfirmKeyR, IV, EData),
+
+	% Verify HMAC chain
+	HashImageH1 = erlsha2:sha256(HashImageH0),
+	HashImageH2 = erlsha2:sha256(HashImageH1),
+	HashImageH3 = erlsha2:sha256(HashImageH2),
+
+	% Lookup Bob's DHpart2 packet
+	DHpart2 = ets:lookup_element(Tid, {bob, dhpart2}, 2),
+
+	case verify_hmac(DHpart2, HashImageH0) of
+		true ->
+			% Store full Bob's CONFIRM1 message
+			ets:insert(Tid, {{bob, confirm1}, Confirm1}),
+
+			% FIXME add actual values as well as SAS
+			HMacFun = get_hmacfun(Hash),
+			EData = crypto:aes_ctr_encrypt(ConfirmKeyI, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:4/binary>>),
+			ConfMac = HMacFun(HMacKeyI, EData),
+
+			Confirm2Msg = #confirm2{
+				conf_mac = ConfMac,
+				cfb_init_vect = IV,
+				encrypted_data = EData
+			},
+
+			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = Confirm2Msg}, State#state{other_h0 = HashImageH0, prev_sn = SN}};
+		false ->
+			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
+	end;
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = #confirm2{
+			conf_mac = ConfMac,
+			cfb_init_vect = IV,
+			encrypted_data = EData
+		}
+	} = Confirm2,
+	_From,
+	#state{
+		h0 = H0,
+		hash = Hash,
+		srtp_key_i = MasterKeyI,
+		srtp_salt_i = MasterSaltI,
+		srtp_key_r = MasterKeyR,
+		srtp_salt_r = MasterSaltR,
+		hmac_key_i = HMacKeyI,
+		hmac_key_r = HMacKeyR,
+		confirm_key_i = ConfirmKeyI,
+		confirm_key_r = ConfirmKeyR,
+		ssrc = MySSRC,
+		other_ssrc = SSRC,
+		prev_sn = SN0,
+		storage = Tid
+	} = State) when SN > SN0 ->
+
+	% Verify HMAC chain
+	HMacFun = get_hmacfun(Hash),
+	ConfMac = HMacFun(HMacKeyI, EData),
+	<<HashImageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>> = crypto:aes_ctr_decrypt(ConfirmKeyI, IV, EData),
+
+	% Verify HMAC chain
+	HashImageH1 = erlsha2:sha256(HashImageH0),
+	HashImageH2 = erlsha2:sha256(HashImageH1),
+	HashImageH3 = erlsha2:sha256(HashImageH0),
+
+	% Lookup Bob's DHpart2 packet
+	DHpart2 = ets:lookup_element(Tid, {bob, dhpart2}, 2),
+
+	case verify_hmac(DHpart2, HashImageH0) of
+		true ->
+			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = conf2ack}, State};
+		false ->
+			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
+	end;
+
+handle_call(
+	#zrtp{
+		sequence = SN,
+		ssrc = SSRC,
+		message = conf2ack
+	} = Conf2AckAck,
+	_From,
+	#state{} = State) ->
+	% FIXME set SRTP keys
+	{reply, ok, State};
+
+handle_call(Other, _From, State) ->
+	{reply, error, State}.
+
+handle_cast(Other, State) ->
+	{noreply, State}.
+
+code_change(_OldVsn, State, _Extra) ->
+	{ok, State}.
+
+terminate(Reason, State) ->
+	ok.
+
+handle_info(Other, State) ->
+	{noreply, State}.
+
+%%
+%% Encoding/Decoding helpers
+%%
 
 decode(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, Rest/binary>>) ->
 	L = size(Rest) - 4,
@@ -115,7 +772,7 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:
 			nonce = Nonce,
 			keyid = KeyID,
 			mac = MAC
-	}};
+		}};
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART1, HashImageH1:32/binary, Rs1IDr:8/binary, Rs2IDr:8/binary, AuxsecretIDr:8/binary, PbxsecretIDr:8/binary, Rest/binary>>) ->
 	PVRLength = (Length - (1 + 2 + 8 + 2 + 2 + 2 + 2 + 2)) * 4,
 	<<PVR:PVRLength/binary, MAC:8/binary>> = Rest,
@@ -249,6 +906,7 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
+%encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, s = S, m = M, p = P, hash = Hashes, cipher = Ciphers, auth = Auths, keyagr = KeyAgreements, sas = SASTypes, mac}, ) ->
 encode_message(helloack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_HELLOACK>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = <<"Mult">>,sas = SAS,nonce = Nonce,mac = MAC}) ->
@@ -349,3 +1007,85 @@ get_priv() -> "../priv". % Probably eunit session
 -else.
 get_priv() -> code:lib_dir(rtplib, priv).
 -endif.
+
+calculate_hvi(#hello{} = Hello, #dhpart2{} = DHPart2, HashFun) ->
+	HelloBin = encode_message(Hello),
+	DHPart2Bin = encode_message(DHPart2),
+	HashFun(<<DHPart2Bin/binary, HelloBin/binary>>).
+
+verify_hmac(#zrtp{message = #hello{zid = ZID, mac = Mac} = Msg} = Packet, H2) ->
+	verify_hmac(Msg, Mac, H2);
+verify_hmac(#zrtp{message = #commit{mac = Mac} = Msg} = Packet, H1) ->
+	verify_hmac(Msg, Mac, H1);
+verify_hmac(#zrtp{message = #dhpart1{mac = Mac} = Msg} = Packet, H0) ->
+	verify_hmac(Msg, Mac, H0);
+verify_hmac(#zrtp{message = #dhpart2{mac = Mac} = Msg} = Packet, H0) ->
+	verify_hmac(Msg, Mac, H0);
+verify_hmac(_, _) ->
+	false.
+
+mkhmac(Msg, Hash) ->
+	Payload = encode_message(Msg),
+	Size = size(Payload) - 8,
+	<<Data:Size/binary, _/binary>> = Payload,
+	<<Mac:8/binary, _/binary>> = hmac:hmac256(Hash, Data),
+	Mac.
+
+verify_hmac(_, _, null) ->
+	false;
+verify_hmac(Msg, Mac, Hash) ->
+	Mac == mkhmac(Msg, Hash).
+
+mkdhpart1(H0, H1, Rs1IDr, Rs2IDr, AuxSecretIDr, PbxSecretIDr, PublicKey) ->
+	<<_:32, Pvr/binary>> = PublicKey,
+	DHpart1 = #dhpart1{
+		h1 = H1,
+		rs1IDr = Rs1IDr,
+		rs2IDr = Rs2IDr,
+		auxsecretIDr = AuxSecretIDr,
+		pbxsecretIDr = PbxSecretIDr,
+		pvr = Pvr
+	},
+	Mac = mkhmac(DHpart1, H0),
+	DHpart1#dhpart1{mac = Mac}.
+mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey) ->
+	<<_:32, Pvi/binary>> = PublicKey,
+	DHpart2 = #dhpart2{
+		h1 = H1,
+		rs1IDi = Rs1IDi,
+		rs2IDi = Rs2IDi,
+		auxsecretIDi = AuxSecretIDi,
+		pbxsecretIDi = PbxSecretIDi,
+		pvi = Pvi
+	},
+	Mac = mkhmac(DHpart2, H0),
+	DHpart2#dhpart2{mac = Mac}.
+
+negotiate(Tid, RecId, Supported, Default, BobList) ->
+	AliceList = ets:lookup_element(Tid, RecId, 2),
+	negotiate(Supported, Default, AliceList, BobList).
+
+negotiate(_, Default, [], _) ->
+	Default;
+negotiate(_, Default, _, []) ->
+	Default;
+negotiate(Supported, _, AliceList, BobList) ->
+	IntersectList = lists:filter(fun(X) -> lists:member(X, AliceList) end, BobList),
+	choose(Supported, IntersectList).
+
+choose([], IntersectList) ->
+	throw({error,cant_negotiate});
+choose([Item | Rest], IntersectList) ->
+	case lists:member(list_to_binary(Item), IntersectList) of
+		true -> Item;
+		_ -> choose(Rest, IntersectList)
+	end.
+
+get_hashfun(?ZRTP_HASH_S256) ->
+	fun erlsha2:sha256/1;
+get_hashfun(?ZRTP_HASH_S384) ->
+	fun erlsha2:sha384/1.
+get_hmacfun(?ZRTP_HASH_S256) ->
+	fun hmac:hmac256/2;
+get_hmacfun(?ZRTP_HASH_S384) ->
+	fun hmac:hmac384/2.
