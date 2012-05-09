@@ -111,12 +111,15 @@ fi
 
 if test "$audiocodec_ilbc" = "yes"
 then
-#AC_CHECK_HEADER([ilbc.h],,[AC_MSG_ERROR([<ilbc.h> header not found])])
-AC_CHECK_LIB([webrtc_codecs_ilbc],
+AC_CHECK_HEADER([ilbc.h],,[AC_MSG_ERROR([<ilbc.h> header not found])])
+#AC_CHECK_LIB([webrtc_codecs_ilbc]
+AC_CHECK_LIB([ilbc],
 	     [WebRtcIlbcfix_EncoderCreate],
 	     [
-	      ILBC_CFLAGS=`pkg-config --cflags webrtc`
-	      ILBC_LIBS="-lwebrtc_codecs_ilbc"
+#	      ILBC_CFLAGS=`pkg-config --cflags webrtc`
+#	      ILBC_LIBS="-lwebrtc_codecs_ilbc"
+	      ILBC_CFLAGS=`pkg-config --cflags ilbc`
+	      ILBC_LIBS=`pkg-config --libs ilbc`
 	      AC_SUBST([ILBC_CFLAGS])
 	      AC_SUBST([ILBC_LIBS])
 	     ],
