@@ -2,14 +2,14 @@ SUBDIRS = c_src
 
 all:
 	@cp -av c_src/.libs/*.so ./priv/
-	@VSN="@PACKAGE_VERSION@" ./rebar compile
+	@VSN="@PACKAGE_VERSION@" $(REBAR) compile
 check:
 	@cp -av c_src/.libs/*.so ./priv/
-	@./rebar eunit
+	@$(REBAR) eunit
 
 clean-local:
 	@rm -f priv/*.so priv/erlang-rtplib.spec
-	@./rebar clean
+	@$(REBAR) clean
 
 install-exec-local:
 	$(mkdir_p) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/ebin/

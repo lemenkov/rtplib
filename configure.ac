@@ -139,6 +139,8 @@ AC_CHECK_LIB([samplerate],
 BUILD_DATE=`LANG=C date +"%a %b %d %Y"`
 AC_SUBST([BUILD_DATE])
 
+AC_PATH_PROG(REBAR, [rebar], [./rebar])
+
 AM_CONDITIONAL(WITH_ILBC, test "$audiocodec_ilbc" = "yes")
 AM_CONDITIONAL(WITH_OPUS, test "$audiocodec_opus" = "yes")
 AM_CONDITIONAL(WITH_SPEEX, test "$audiocodec_speex" = "yes")
