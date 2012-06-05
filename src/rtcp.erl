@@ -195,7 +195,7 @@ decode(<<0:32, Rest/binary>>, DecodedRtcps) ->
 
 decode(Padding, DecodedRtcps) ->
 	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
-	{ok, DecodedRtcps}.
+	{ok, #rtcp{payloads = DecodedRtcps}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
