@@ -101,7 +101,7 @@ init([Parent, Params]) when is_pid(Parent) ->
 	{ok, Timeout} = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
 	{ok, TRef} = timer:send_interval(Timeout, interim_update),
 
-	{Fd0, Fd1} = get_fd_pair({IpAddr, IpPort, SockParams}),
+	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
 
 	% Initially all traffic will be sent to the Parent
 	{ok, #state{
@@ -299,7 +299,7 @@ handle_info(_Info, State) ->
 %%
 
 %% Open a pair of UDP ports - N and N+1 (for RTP and RTCP consequently)
-get_fd_pair({{I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
+get_fd_pair({Transport, {I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
 	is_integer(I0), 0 =< I0, I0 < 65536,
 	is_integer(I1), 0 =< I1, I1 < 65536,
 	is_integer(I2), 0 =< I2, I2 < 65536,
@@ -308,18 +308,18 @@ get_fd_pair({{I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
 	is_integer(I5), 0 =< I5, I5 < 65536,
 	is_integer(I6), 0 =< I6, I6 < 65536,
 	is_integer(I7), 0 =< I7, I7 < 65536 ->
-	get_fd_pair(IPv6, Port, proplists:delete(ipv6, SockParams) ++ [inet6], 10);
-get_fd_pair({{I0,I1,I2,I3} = IPv4, Port, SockParams}) when
+	get_fd_pair(Transport, IPv6, Port, proplists:delete(ipv6, SockParams) ++ [inet6], 10);
+get_fd_pair({Transport, {I0,I1,I2,I3} = IPv4, Port, SockParams}) when
 	is_integer(I0), 0 =< I0, I0 < 256,
 	is_integer(I1), 0 =< I1, I1 < 256,
 	is_integer(I2), 0 =< I2, I2 < 256,
 	is_integer(I3), 0 =< I3, I3 < 256 ->
-	get_fd_pair(IPv4, Port, proplists:delete(ipv6, SockParams), 10).
+	get_fd_pair(Transport, IPv4, Port, proplists:delete(ipv6, SockParams), 10).
 
-get_fd_pair(Ip, Port, SockParams, 0) ->
+get_fd_pair(Transport, Ip, Port, SockParams, 0) ->
 	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(Ip), Port,  SockParams]),
 	error;
-get_fd_pair(Ip, Port, SockParams, NTry) ->
+get_fd_pair(Transport, Ip, Port, SockParams, NTry) ->
 	case gen_udp:open(Port, [binary, {ip, Ip}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
 		{ok, Fd} ->
 			{ok, {Ip,Port}} = inet:sockname(Fd),
@@ -335,8 +335,8 @@ get_fd_pair(Ip, Port, SockParams, NTry) ->
 					end;
 				{error, _} ->
 					gen_udp:close(Fd),
-					get_fd_pair(Ip, Port, SockParams, NTry - 1)
+					get_fd_pair(Transport, Ip, Port, SockParams, NTry - 1)
 			end;
 		{error, _} ->
-			get_fd_pair(Ip, Port, SockParams, NTry - 1)
+			get_fd_pair(Transport, Ip, Port, SockParams, NTry - 1)
 	end.
