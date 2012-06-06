@@ -64,7 +64,7 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		payload = Payload
 	}};
 
-decode(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =< PayloadType, PayloadType =< 82 ->
+decode(<<?RTCP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =< PayloadType, PayloadType =< 82 ->
 	rtcp:decode(Binary);
 
 decode(<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, _/binary>> = Binary) ->
