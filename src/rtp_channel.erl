@@ -239,7 +239,8 @@ send_recv_simple(Msg, Ip, Port, #state{subscriber = Subscriber} = State) ->
 			State#state{lastseen = now(), ip = Ip, rtpport = Port, alive = true};
 		{ok, #rtcp{} = Pkt} ->
 			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
-			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
 			State
@@ -263,11 +264,13 @@ send_recv_selective(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, s
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
 			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
-			State#state{lastseen = now(), alive = true};
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{lastseen = now(), alive = true, mux = Mux};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
 			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
-			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
 			State
@@ -287,11 +290,13 @@ send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, s
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
 			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
-			State#state{lastseen = now(), alive = true};
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{lastseen = now(), alive = true, mux = Mux};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
 			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
-			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
 			State
