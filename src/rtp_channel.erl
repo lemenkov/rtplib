@@ -50,6 +50,7 @@
 -define(INTERIM_UPDATE, 30000).
 
 -record(state, {
+		% Parent and Subscriber can be different ones
 		parent,
 		subscriber = null,
 		rtp,
