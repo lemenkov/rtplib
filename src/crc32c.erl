@@ -102,11 +102,11 @@ load_tables() ->
 		16#79B737BA, 16#8BDCB4B9, 16#988C474D, 16#6AE7C44E,
 		16#BE2DA0A5, 16#4C4623A6, 16#5F16D052, 16#AD7D5351
 	],
-	case catch ets:new(crc32c,[public, named_table]) of
-		{'EXIT', _} -> ok;
-		crc32c ->
-			lists:foldl(fun(Coeff, Number) -> ets:insert_new(crc32c, {Number, Coeff}), Number+1 end,  0, CrcCoefficients)
-	end.
+	case ets:info(crc32c) of
+		undefined -> ets:new(crc32c,[public, named_table]);
+		_ -> crc32c
+	end,
+	lists:foldl(fun(Coeff, Number) -> ets:insert_new(crc32c, {Number, Coeff}), Number+1 end,  0, CrcCoefficients).
 
 check(Message, CRC) when is_binary(Message), is_integer(CRC) ->
 	<<CRC:32>> == make(Message);
