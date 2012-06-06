@@ -121,7 +121,7 @@ decode_red_payload([{PayloadType, TimeStampOffset, BlockLength} | Headers], Data
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}) ->
+encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, timestamp = TS, ssrc = SSRC, csrcs = CSRCs, extension = X, payload = Payload}) when is_binary(Payload) ->
 	CC = length(CSRCs),
 	CSRC_Data = << <<CSRC:32>> || CSRC <- CSRCs >>,
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
