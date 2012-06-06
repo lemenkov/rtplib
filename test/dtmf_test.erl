@@ -116,6 +116,12 @@ dtmf_test_() ->
 
 	DtmfZero0Bin = <<0,0,0,16#a0>>,
 	RtpDtmfZero0Bin = <<16#80,16#e5,16#d6,16#a8,16#00,16#00,16#4e,16#20,16#0b,16#65,16#12,16#fa, DtmfZero0Bin/binary>>,
+	DtmfZero0 = #dtmf{
+		event = 0,
+		eof = false,
+		volume = 0,
+		duration = 160
+	},
 	RtpDtmfZero0 = #rtp{
 		padding = 0,
 		marker = 1,
@@ -127,15 +133,26 @@ dtmf_test_() ->
 		extension = null,
 		payload = DtmfZero0Bin
 	},
-	DtmfZero0 = #dtmf{
-		event = 0,
-		eof = false,
-		volume = 0,
-		duration = 160
+	RtpDtmfZero0Parsed = #rtp{
+		padding = 0,
+		marker = 1,
+		payload_type = 101,
+		sequence_number = 54952,
+		timestamp = 20000,
+		ssrc = 191173370,
+		csrcs = [],
+		extension = null,
+		payload = DtmfZero0
 	},
 
 	DtmfZero1Bin = <<0,128,3,192>>,
 	RtpDtmfZero1Bin = <<16#80,16#65,16#d6,16#ad,16#00,16#00,16#4e,16#20,16#0b,16#65,16#12,16#fa,DtmfZero1Bin/binary>>,
+	DtmfZero1 = #dtmf{
+		event = 0,
+		eof = true,
+		volume = 0,
+		duration = 960
+	},
 	RtpDtmfZero1 = #rtp{
 		padding = 0,
 		marker = 0,
@@ -147,11 +164,16 @@ dtmf_test_() ->
 		extension = null,
 		payload = DtmfZero1Bin
 	},
-	DtmfZero1 = #dtmf{
-		event = 0,
-		eof = true,
-		volume = 0,
-		duration = 960
+	RtpDtmfZero1Parsed = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 101,
+		sequence_number = 54957,
+		timestamp = 20000,
+		ssrc = 191173370,
+		csrcs = [],
+		extension = null,
+		payload = DtmfZero1
 	},
 	[
 		{"Decoding of RTP with DTMF Event 0 (first packet)",
@@ -162,6 +184,9 @@ dtmf_test_() ->
 		},
 		{"Encoding of RTP with DTMF Event 0 (first packet)",
 			fun() -> ?assertMatch(RtpDtmfZero0Bin, rtp:encode(RtpDtmfZero0)) end
+		},
+		{"Encoding of RTP with DTMF Event 0 (first packet) as a record",
+			fun() -> ?assertMatch(RtpDtmfZero0Bin, rtp:encode(RtpDtmfZero0Parsed)) end
 		},
 		{"Encoding of DTMF Event 0",
 			fun() -> ?assertMatch(DtmfZero0Bin, rtp:encode_dtmf(DtmfZero0)) end
@@ -174,6 +199,9 @@ dtmf_test_() ->
 		},
 		{"Encoding of RTP with DTMF Event 0 (last packet)",
 			fun() -> ?assertMatch(RtpDtmfZero1Bin, rtp:encode(RtpDtmfZero1)) end
+		},
+		{"Encoding of RTP with DTMF Event 0 (last packet) as a record",
+			fun() -> ?assertMatch(RtpDtmfZero1Bin, rtp:encode(RtpDtmfZero1Parsed)) end
 		},
 		{"Encoding of DTMF Event 0",
 			fun() -> ?assertMatch(DtmfZero1Bin, rtp:encode_dtmf(DtmfZero1)) end

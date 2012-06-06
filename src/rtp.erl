@@ -126,6 +126,10 @@ encode(#rtp{padding = P, marker = M, payload_type = PT, sequence_number = SN, ti
 	CSRC_Data = << <<CSRC:32>> || CSRC <- CSRCs >>,
 	{ExtensionFlag, ExtensionData} = encode_extension(X),
 	<<?RTP_VERSION:2, P:1, ExtensionFlag:1, CC:4, M:1, PT:7, SN:16, TS:32, SSRC:32, CSRC_Data/binary, ExtensionData/binary, Payload/binary>>;
+encode(#rtp{payload = #dtmf{} = Payload} = Rtp) ->
+	encode(Rtp#rtp{payload = encode_dtmf(Payload)});
+encode(#rtp{payload = #tone{} = Payload} = Rtp) ->
+	encode(Rtp#rtp{payload = encode_tone(Payload)});
 
 encode(#zrtp{} = Zrtp) ->
 	zrtp:encode(Zrtp);
