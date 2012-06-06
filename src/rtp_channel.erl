@@ -88,7 +88,7 @@ init([Parent, Params]) when is_pid(Parent) ->
 	% 'selective' - receives data from only one Ip and Port *or* with the same SSRC as before
 	% 'enforcing' - Ip, Port and SSRC *must* match previously recorded data
 	% 'srtp' - depends on SRTP/ZRTP
-	SendRecvStrategy = proplists:get_value(sendrecv, Params, weak),
+	SendRecvStrategy = get_send_recv_strategy(Params),
 	% 'true' - act as a proxy (send RTP and RTCP packets further as is)
 	% 'false' - strip-off everything except RTP payload. Regenerate RTCP. 
 	% FIXME only proxy (bypass) mode for now
@@ -119,21 +119,19 @@ init([Parent, Params]) when is_pid(Parent) ->
 handle_call(_Call, _From, State) ->
 	{stop, bad_call, State}.
 
-handle_cast({rtp, Ip, Port, #rtp{} = Pkts}, #state{rtp = Fd} = State) ->
+handle_cast({#rtp{} = Pkt, Ip, Port}, #state{rtp = Fd} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkts)),
+	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
-handle_cast({rtp, Ip, Port, Pkts}, #state{rtcp = Fd, mux = false} = State) when is_list(Pkts) ->
+handle_cast({#rtcp{} = Pkt, Ip, Port}, #state{rtp = Fd, mux = true} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkts)),
+	% If muxing is enabled (either explicitly or with a 'auto' parameter
+	% then send RTCP acked within RTP stream
+	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
-handle_cast({rtp, Ip, Port, Pkts}, #state{rtp = Fd, mux = true} = State) when is_list(Pkts) ->
+handle_cast({#rtcp{} = Pkt, Ip, Port}, #state{rtcp = Fd} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkts)),
-	{noreply, State};
-handle_cast({rtp, Ip, Port, Pkts}, #state{rtp = Fd, mux = auto} = State) when is_list(Pkts) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	% FIXME
+	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
 
 handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
@@ -142,7 +140,7 @@ handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
 
 handle_cast({update, Params}, State) ->
 	% FIXME consider changing another params as well
-	SendRecvStrategy = proplists:get_value(sendrecv, Params, weak),
+	SendRecvStrategy = get_send_recv_strategy(Params),
 	{ok, State#state{sendrecv = SendRecvStrategy}};
 
 handle_cast(_Cast, State) ->
@@ -159,131 +157,10 @@ terminate(Reason, #state{parent = Parent, rtp = Fd0, rtcp = Fd1, tref = TRef}) -
 	gen_udp:close(Fd1),
 	ok.
 
-% 'weak' mode - just get data, decode and notify subscriber
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = weak, subscriber = Subscriber} = State) ->
+handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv} = State) ->
 	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), ip = Ip, rtpport = Port, alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = weak, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-
-% 'selective' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = selective, ip = Ip, rtpport = Port, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = selective, rtpport = null, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		% FIXME Are we sure that first packet will always be a RTP one?
-		{ok, #rtp{ssrc = SSRC} = Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = selective, ssrc = SSRC, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		% FIXME what if this will be a muxed RTCP?
-		{ok, #rtp{ssrc = SSRC} = Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		% FIXME we shouldn't set rtcpport to null here - use SSRC instead
-		{noreply, State#state{ip = Ip, rtpport = Port, rtcpport = null, lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = selective, ip = Ip, rtcpport = Port,  subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = selective, rtcpport = null, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-
-% 'enforcing' - Ip, Port and SSRC must match previously recorded data
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = enforcing, ip = Ip, rtpport = Port, ssrc = SSRC, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		% FIXME what if this will be a muxed RTCP?
-		{ok, #rtp{ssrc = SSRC} = Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtp = Fd, sendrecv = enforcing, rtpport = null, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		% FIXME Are we sure that first packet will always be a RTP one?
-		{ok, #rtp{ssrc = SSRC} = Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = enforcing, ip = Ip, rtcpport = Port,  subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = enforcing, rtcpport = null, subscriber = Subscriber} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	try
-		{ok, Pkts} = rtp:decode(Msg),
-		gen_server:cast(Subscriber, {rtp, Ip, Port, Pkts}),
-		{noreply, State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true}}
-	catch
-		_:_ -> rtp_utils:dump_packet(node(), self(), Msg),
-		{noreply, State}
-	end;
-
-% 'srtp' - depends on SRTP/ZRTP
-handle_info({udp, Fd, Ip, Port, Msg}, #state{rtcp = Fd, sendrecv = srtp, rtcpport = null, subscriber = Subscriber} = State) ->
-	% TODO
-	{noreply, State};
+	NewState = SendRecv(Msg, Ip, Port, State),
+	{noreply, NewState};
 
 handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
 	gen_server:cast(Parent, {interim_update, self()}),
@@ -340,3 +217,86 @@ get_fd_pair(Transport, Ip, Port, SockParams, NTry) ->
 		{error, _} ->
 			get_fd_pair(Transport, Ip, Port, SockParams, NTry - 1)
 	end.
+
+get_send_recv_strategy(Params) ->
+	case proplists:get_value(sendrecv, Params, weak) of
+		weak -> fun send_recv_simple/4;
+		simple -> fun send_recv_simple/4;
+		selective -> fun send_recv_selective/4;
+		enforcing -> fun send_recv_enforcing/4;
+		srtp -> fun send_recv_srtp/4
+	end.
+%%
+%% Various callbacks
+%%
+
+% 'weak' mode - just get data, decode and notify subscriber
+send_recv_simple(Msg, Ip, Port, #state{subscriber = Subscriber} = State) ->
+	case catch rtp:decode(Msg) of
+		{ok, #rtp{} = Pkt} ->
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), ip = Ip, rtpport = Port, alive = true};
+		{ok, #rtcp{} = Pkt} ->
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+		_ ->
+			rtp_utils:dump_packet(node(), self(), Msg),
+			State
+	end.
+
+% 'selective' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
+send_recv_selective(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, subscriber = Subscriber} = State) ->
+	case {catch rtp:decode(Msg), I, P1, P2, S} of
+		{{ok, #rtp{} = Pkt}, Ip, Port, _, _} ->
+			% Legitimate RTP packet - discard SSRC matching
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), alive = true};
+		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
+			% First RTP packet - save parameters
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
+		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, _, SSRC, _} ->
+			% Changed address - roaming (drop RTCP port - we don't know anything about it)
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{ip = Ip, rtpport = Port, rtcpport = null, lastseen = now(), alive = true};
+		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
+			% Legitimate RTCP packet
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), alive = true};
+		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
+			% First RTCP packet - save parameters
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+		_ ->
+			rtp_utils:dump_packet(node(), self(), Msg),
+			State
+	end.
+
+% 'enforcing' - Ip, Port and SSRC must match previously recorded data
+send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, subscriber = Subscriber} = State) ->
+	case {catch rtp:decode(Msg), I, P1, P2, S} of
+		{{ok, #rtp{ssrc = SSRC} = Pkt}, Ip, Port, _, SSRC} ->
+			% Legitimate RTP packet
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), alive = true};
+		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
+			% First RTP packet - save parameters
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
+		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
+			% Legitimate RTCP packet
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), alive = true};
+		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
+			% First RTCP packet - save parameters
+			gen_server:cast(Subscriber, {Pkt, Ip, Port}),
+			State#state{lastseen = now(), ip = Ip, rtcpport = Port, alive = true};
+		_ ->
+			rtp_utils:dump_packet(node(), self(), Msg),
+			State
+	end.
+
+% 'srtp' - depends on SRTP/ZRTP
+send_recv_srtp(Msg, Ip, Port, #state{subscriber = Subscriber} = State) ->
+	% TODO
+	State.
