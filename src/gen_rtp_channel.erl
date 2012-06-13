@@ -79,6 +79,8 @@ behaviour_info(_) ->
 		proxy,
 		sendrecv,
 		mux,
+		encoder = false,
+		decoders = [],
 		lastseen = null,
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
@@ -91,7 +93,6 @@ start(Module, Params, Addon) ->
 	gen_server:start(?MODULE, [Module, Params, Addon], []).
 start_link(Module, Params, Addon) ->
 	gen_server:start_link(?MODULE, [Module, Params, Addon], []).
-
 
 init([Module, Params, Addon]) when is_atom(Module) ->
 	% Deferred init
@@ -111,9 +112,10 @@ handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
 			{stop, Reason, Reply, State#state{modstate=NewModState}}
 	 end.
 
-handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port} = State) ->
+handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, encoder = Encoder, decoders = Decoders} = State) ->
+	Pkt2 = transcode(Pkt, Encoder, Decoders),
 	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt2)),
 	{noreply, State};
 handle_cast({#rtcp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, mux = true} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
@@ -146,13 +148,19 @@ handle_cast(Request, State = #state{mod=Module, modstate=ModState}) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, tref = TRef}) ->
+terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, tref = TRef, encoder = Encoder, decoders = Decoders}) ->
 	timer:cancel(TRef),
 	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:close(Fd0),
 	% FIXME We must send RTCP bye here
 	gen_udp:close(Fd1),
-	Mod:terminate(Reason, ModState).
+	Mod:terminate(Reason, ModState),
+	% Close encoder and decoders (if any)
+	case Encoder of
+		false -> ok;
+		_ -> codec:close(Encoder)
+	end,
+	lists:foreach(fun(Codec) -> codec:close(Codec) end, Decoders).
 
 handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv} = State) ->
 	inet:setopts(Fd, [{active, once}]),
@@ -192,6 +200,21 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	% 'true' - both RTP and RTCP will be sent in the RTP channel
 	% 'auto' - the same as 'false' until we'll find muxed packet.
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
+	{Encoder, Decoders} = case proplists:get_value(transcode, Params, false) of
+		false ->
+			{
+				false,
+				[]
+			};
+		CodecDesc ->
+			{
+				codec:start_link(CodecDesc),
+				lists:map(
+					fun(CodecDesc) -> codec:start_link(CodecDesc) end,
+					proplists:get_value(codecs, Params, [])
+				)
+			}
+	end,
 
 	Timeout = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
 	{ok, TRef} = timer:send_interval(Timeout, interim_update),
@@ -211,6 +234,8 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			proxy = Proxy,
+			encoder = Encoder,
+			decoders = Decoders,
 			tref = TRef
 		}
 	};
@@ -357,3 +382,11 @@ send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, s
 send_recv_srtp(Msg, Ip, Port, #state{mod = Module, modstate = ModState} = State) ->
 	% TODO
 	State.
+
+transcode(Pkt, false, _) ->
+	Pkt;
+transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, {PayloadType, Encoder}, Decoders) ->
+	Decoder = proplists:get_value(OldPayloadType, Decoders),
+	{ok, RawData} = codec:decode(Decoder, Payload),
+	{ok, NewPayload} = codec:encode(Encoder, RawData),
+	Rtp#rtp{payload_type = PayloadType, payload = NewPayload}.
