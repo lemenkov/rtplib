@@ -109,7 +109,7 @@ load_tables() ->
 	lists:foldl(fun(Coeff, Number) -> ets:insert_new(crc32c, {Number, Coeff}), Number+1 end,  0, CrcCoefficients).
 
 check(Message, CRC) when is_binary(Message), is_integer(CRC) ->
-	<<CRC:32>> == make(Message);
+	<<CRC:32/little-integer>> == make(Message);
 check(Message, CRC) when is_binary(Message), is_binary(CRC) ->
 	CRC == make(Message).
 make(Message) when is_binary(Message) ->
