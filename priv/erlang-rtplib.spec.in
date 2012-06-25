@@ -21,14 +21,14 @@ BuildRequires:	opus-devel >= 0.9.9
 %if 0%{?el6}%{?fedora}
 # speex on EL-5 is too old and unreliable
 BuildRequires:	speex-devel
-%endif
-BuildRequires:	webrtc-devel
 # In fact that's not required for operation and it will be ignored by rpmbuild.
 # Unfortunately a speex-devel package in RHEL 5 has an issue - it explicitly requires
 # libogg-devel to work:
 # https://bugzilla.redhat.com/804674
 # FIXME remove it as soon as RH folks will fix the bug above.
 BuildRequires:	libogg-devel
+%endif
+BuildRequires:	webrtc-devel
 BuildRequires:	erlang
 BuildRequires:	erlang-eunit
 BuildRequires:	erlang-erlando
