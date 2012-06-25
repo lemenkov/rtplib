@@ -183,7 +183,7 @@ encode(Codec, {Payload, SampleRate, Channels, Resolution}) when is_pid(Codec), i
 %%
 
 load_library(Name) ->
-	case erl_ddll:load_driver(code:lib_dir(rtplib, priv), Name) of
+	case erl_ddll:load_driver(get_priv(), Name) of
 		ok -> ok;
 		{error, already_loaded} -> ok;
 		{error, permanent} -> ok;
@@ -191,6 +191,12 @@ load_library(Name) ->
 			error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
 			{error, Error}
 	end.
+
+-ifdef(TEST).
+get_priv() -> "../priv". % Probably eunit session
+-else.
+get_priv() -> code:lib_dir(rtplib, priv).
+-endif.
 
 encode_binary(Port, Cmd, BinIn) ->
 	case port_control(Port, Cmd, BinIn) of
