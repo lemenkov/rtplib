@@ -1,4 +1,5 @@
 %global realname rtplib
+%global upstream lemenkov
 %global git_tag 1234567
 %global patchnumber 0
 
@@ -11,7 +12,7 @@ Group:		Development/Languages
 License:	BSD
 URL:		http://github.com/lemenkov/rtplib
 # wget --no-check-certificate --content-disposition http://github.com/lemenkov/rtplib/tarball/%VSN%
-Source0:	lemenkov-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
+Source0:	%{upstream}-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	libsamplerate-devel
 BuildRequires:	spandsp-devel
@@ -39,7 +40,7 @@ Erlang RTP/RTCP codec library.
 
 
 %prep
-%setup -q -n lemenkov-%{realname}-%{git_tag}
+%setup -q -n %{upstream}-%{realname}-%{git_tag}
 %if 0%{?el5}
 # Remove Opus- and SPEEX-related stuff if building for RHEL5
 rm -rf test/codec_opus_test.erl test/codec_speex_test.erl
