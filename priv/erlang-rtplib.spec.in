@@ -48,7 +48,7 @@ sh ./autogen.sh
 
 
 %build
-%configure %{?el5:--with-audiocodec-opus=no --with-audiocodec-speex=no}
+%configure %{?el5:--with-audiocodec-speex=no}
 make %{?_smp_mflags}
 
 
