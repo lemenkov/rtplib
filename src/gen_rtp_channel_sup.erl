@@ -32,12 +32,12 @@
 
 -behaviour(supervisor).
 
--export([start_link/2]).
+-export([start_link/3]).
 -export([init/1]).
 
-start_link(Module, Params) ->
-	supervisor:start_link(?MODULE, [Module, Params]).
+start_link(Module, Params, Addon) ->
+	supervisor:start_link(?MODULE, [Module, Params, Addon]).
 
-init([Module, Params]) ->
-	MainProcess = {gen_rtp_channel, {gen_rtp_channel, start_link, [Module, Params]}, permanent, 10000, worker, []},
+init([Module, Params, Addon]) ->
+	MainProcess = {gen_rtp_channel, {gen_rtp_channel, start_link, [Module, Params, Addon]}, permanent, 10000, worker, []},
 	{ok, {{one_for_one, 10, 1}, [MainProcess]}}.

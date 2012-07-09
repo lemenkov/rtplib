@@ -33,7 +33,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 -export([behaviour_info/1]).
 
@@ -84,12 +84,12 @@ behaviour_info(_) ->
 	}
 ).
 
-start_link(Module, Args) ->
-	gen_rtp_channel_sup:start_link(Module, Args, []).
+start_link(Module, Params, Addon) ->
+	gen_rtp_channel_sup:start_link(Module, Params, Addon).
 
-init([Module, Params]) when is_atom(Module) ->
+init([Module, Params, Addon]) when is_atom(Module) ->
 	% Deferred init
-	self() ! {init, {Module, Params}},
+	self() ! {init, {Module, Params, Addon}},
 
 	{ok, #state{}}.
 
@@ -163,7 +163,7 @@ handle_info(interim_update, #state{mod=Module, modstate=ModState, alive = true} 
 handle_info(interim_update, #state{alive = false} = State) ->
 	{stop, timeout, State};
 
-handle_info({init, {Module, Params}}, State} ->
+handle_info({init, {Module, Params, Addon}}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
 	Transport = proplists:get_value(transport, Params),
 	SockParams = proplists:get_value(sockparams, Params, []),
@@ -192,7 +192,7 @@ handle_info({init, {Module, Params}}, State} ->
 
 	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
 
-	{ok, ModState} = Module:init(hello),
+	{ok, ModState} = Module:init(Addon),
 
 	{ok, #state{
 			mod = Module,
