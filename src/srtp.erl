@@ -31,6 +31,7 @@
 -module(srtp).
 -author('lemenkov@gmail.com').
 
+-export([new_ctx/6]).
 -export([encrypt/2]).
 -export([decrypt/2]).
 -compile(export_all).
@@ -38,6 +39,20 @@
 -include("../include/rtcp.hrl").
 -include("../include/rtp.hrl").
 -include("../include/srtp.hrl").
+
+new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength) ->
+	<<K_S:128>> = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, 0),
+	#srtp_crypto_ctx{
+		ssrc = SSRC,
+		ealg = Ealg,
+		aalg = Aalg,
+		masterKey = MasterKey,
+		masterSalt = MasterSalt,
+		k_a = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, 0),
+		k_e = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, 0),
+		k_s = K_S,
+		tagLength = TagLength
+	}.
 
 encrypt(#rtp{} = Rtp, passthru) ->
 	{ok, rtp:encode(Rtp), passthru};
@@ -59,7 +74,8 @@ encrypt(
 	{ok, append_auth(<<Header:8/binary, EncryptedPayload/binary, 1:1, Idx:31>>, <<>>, Aalg, KeyA, TagLength), Ctx}.
 
 decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when PayloadType =< 34; 96 =< PayloadType ->
-	{ok, rtp:decode(Data), passthru};
+	{ok, Rtp} = rtp:decode(Data),
+	{ok, Rtp, passthru};
 decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when 64 =< PayloadType, PayloadType =< 82 ->
 	{ok, #rtcp{encrypted = Data}, passthru};
 
@@ -69,7 +85,8 @@ decrypt(
 ) when PayloadType =< 34; 96 =< PayloadType ->
 	<<Header:12/binary, EncryptedPayload/binary>> = check_auth(Data, <<Roc:32>>, Aalg, KeyA, TagLength),
 	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt),
-	{ok, rtp:decode(<<Header:12/binary, DecryptedPayload/binary>>), update_ctx(Ctx, SequenceNumber, OldSequenceNumber, Roc)};
+	{ok, Rtp} = rtp:decode(<<Header:12/binary, DecryptedPayload/binary>>),
+	{ok, Rtp, update_ctx(Ctx, SequenceNumber, OldSequenceNumber, Roc)};
 decrypt(
 	<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data,
 	#srtp_crypto_ctx{ssrc = SSRC, aalg = Aalg, ealg = Ealg, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
@@ -77,7 +94,8 @@ decrypt(
 	Size = size(Data) - (TagLength + 8 + 4),
 	<<Header:8/binary, EncryptedPayload:Size/binary, E:1, Index:31>> = check_auth(Data, <<>>, Aalg, KeyA, TagLength),
 	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, 0, Ealg, KeyE, Salt),
-	{ok, rtp:decode(<<Header:8/binary, DecryptedPayload/binary>>), Ctx}.
+	{ok, Rtcp} = rtp:decode(<<Header:8/binary, DecryptedPayload/binary>>),
+	{ok, Rtcp, Ctx}.
 
 %%
 %% Auth

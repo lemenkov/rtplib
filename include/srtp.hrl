@@ -32,7 +32,7 @@
 	{
 		ssrc = null,
 		roc = 0, % Discard for RTCP
-		s_l = null,
+		s_l = 0,
 		rtcp_idx = 0,
 		keyDerivRate = 0,
 		ealg = null, % srtpEncryptionNull, srtpEncryptionAESCM, srtpEncryptionAESF8, srtpEncryptionTWOF8

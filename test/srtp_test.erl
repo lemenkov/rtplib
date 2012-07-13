@@ -35,7 +35,7 @@
 -include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-srtp_test_() ->
+srtp_aesf8_test_() ->
 	Header = <<128,110,92,186,80,104,29,229,92,98,21,153>>, % 16#806e5cba50681de55c621599
 	Payload = <<"pseudorandomness is the next best thing">>, % 70736575646f72616e646f6d6e657373 20697320746865206e65787420626573 74207468696e67
 	EncryptedPayload = <<16#019ce7a26e7854014a6366aa95d4eefd:128, 16#1ad4172a14f9faf455b7f1d4b62bd08f:128, 16#562c0eef7c4802:56>>,
@@ -61,6 +61,47 @@ srtp_test_() ->
 %		[]
 %	}.
 	[].
+
+srtp_aescm_test_() ->
+	MasterKey = <<16#E1F97A0D3E018BE0D64FA32C06DE4139:128>>,
+	MasterSalt = <<16#0EC675AD498AFEEBB6960B3AABE6:112>>,
+	Header = <<128,110,92,186,80,104,29,229,92,98,21,153>>, % 16#806e5cba50681de55c621599
+	Payload = <<"pseudorandomness is the next best thing">>, % 70736575646f72616e646f6d6e657373 20697320746865206e65787420626573 74207468696e67
+	EncryptedPayload = <<133,132,65,155,36,234,91,187,167,237,238,62,215,150,204,185,59,238,89,13,145,189,131,114,115,141,96,39,148,167,19,236,62,132,87,97,73,10,76>>,
+	SSRC = 1549931929,
+	Rtp = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 110,
+		sequence_number = 23738,
+		timestamp = 1349000677,
+		ssrc = SSRC,
+		csrcs = [],
+		extension = null,
+		payload = Payload
+	},
+	EncRtp = #rtp{
+		padding = 0,
+		marker = 0,
+		payload_type = 110,
+		sequence_number = 23738,
+		timestamp = 1349000677,
+		ssrc = SSRC,
+		csrcs = [],
+		extension = null,
+		payload = EncryptedPayload
+	},
+	EncRtpBin = rtp:encode(EncRtp),
+	Ctx = srtp:new_ctx(SSRC, srtpEncryptionAESCM, srtpAuthenticationNull, MasterKey, MasterSalt, 0),
+	[
+		{"Test correct AES-CM encryption",
+			fun() -> ?assertMatch({ok, EncRtpBin, _}, srtp:encrypt(Rtp, Ctx)) end
+		},
+		{"Test correct AES-CM decryption",
+			fun() -> ?assertMatch({ok, Rtp, _}, srtp:decrypt(EncRtpBin, Ctx)) end
+		}
+	].
+
 srtp_computeIV_test_() ->
 	MasterSalt = <<16#0EC675AD498AFEEBB6960B3AABE6:112>>,
 	[
