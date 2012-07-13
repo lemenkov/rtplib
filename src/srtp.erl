@@ -109,7 +109,13 @@ check_auth(Data, Roc, srtpAuthenticationSha1Hmac, Key, TagLength) ->
 	<<Tag:TagLength/binary, _/binary>> = crypto:sha_mac(Key, <<NewData/binary, Roc/binary>>),
 	NewData;
 check_auth(Data, Roc, srtpAuthenticationSkeinHmac, Key, TagLength) ->
-	throw({error, skein_unsupported}).
+	Size = size(Data) - TagLength,
+	<<NewData:Size/binary, Tag:TagLength/binary>> = Data,
+	{ok, S} = skerl:init(512),
+	{ok, _} = skerl:update(S, Key),
+	{ok, _} = skerl:update(S, <<NewData/binary, Roc/binary>>),
+	{ok, <<Tag:TagLength/binary, _/binary>>} = skerl:final(S),
+	NewData.
 
 append_auth(Data, _, srtpAuthenticationNull, _, _) ->
 	Data;
@@ -117,7 +123,11 @@ append_auth(Data, Roc, srtpAuthenticationSha1Hmac, Key, TagLength) ->
 	<<Tag:TagLength/binary, _/binary>> = crypto:sha_mac(Key, <<Data/binary, Roc/binary>>),
 	<<Data/binary, Tag/binary>>;
 append_auth(Data, Roc, srtpAuthenticationSkeinHmac, Key, TagLength) ->
-	throw({error, skein_unsupported}).
+	{ok, S} = skerl:init(512),
+	{ok, _} = skerl:update(S, Key),
+	{ok, _} = skerl:update(S, <<Data/binary, Roc/binary>>),
+	{ok, <<Tag:TagLength/binary, _/binary>>} = skerl:final(S),
+	<<Data/binary, Tag/binary>>.
 
 encrypt_payload(Data, _, _, srtpEncryptionNull, _, _) ->
 	Data;
