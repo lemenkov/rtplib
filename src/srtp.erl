@@ -31,10 +31,12 @@
 -module(srtp).
 -author('lemenkov@gmail.com').
 
+% FIXME remove later
+-compile(export_all).
+
 -export([new_ctx/6]).
 -export([encrypt/2]).
 -export([decrypt/2]).
--compile(export_all).
 
 -include("../include/rtcp.hrl").
 -include("../include/rtp.hrl").
