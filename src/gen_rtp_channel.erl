@@ -87,7 +87,7 @@ behaviour_info(_) ->
 ).
 
 start_link(Module, Params, Addon) ->
-	gen_rtp_channel_sup:start_link(Module, Params, Addon).
+	gen_server:start_link(?MODULE, [Module, Params, Addon]).
 
 init([Module, Params, Addon]) when is_atom(Module) ->
 	% Deferred init
