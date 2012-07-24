@@ -196,7 +196,7 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 
 	{ok, ModState} = Module:init(Addon),
 
-	{ok, #state{
+	{noreply, #state{
 			mod = Module,
 			modstate = ModState,
 			rtp = Fd0,
