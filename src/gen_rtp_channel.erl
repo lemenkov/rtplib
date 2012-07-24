@@ -141,8 +141,8 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, tref = TRef}) ->
-	% FIXME - see transport parameter in the init(...) function arguments
 	timer:cancel(TRef),
+	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:close(Fd0),
 	% FIXME We must send RTCP bye here
 	gen_udp:close(Fd1),
