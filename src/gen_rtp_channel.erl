@@ -44,9 +44,11 @@
 -export([code_change/3]).
 -export([terminate/2]).
 
--include("../include/rtp.hrl").
 -include("../include/rtcp.hrl").
+-include("../include/rtp.hrl").
+-include("../include/srtp.hrl").
 -include("../include/stun.hrl").
+-include("../include/zrtp.hrl").
 
 %% @private
 behaviour_info(callbacks) ->
