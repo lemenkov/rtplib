@@ -39,5 +39,5 @@ start_link(Module, Params, Addon) ->
 	supervisor:start_link(?MODULE, [Module, Params, Addon]).
 
 init([Module, Params, Addon]) ->
-	MainProcess = {gen_rtp_channel, {gen_rtp_channel, start_link, [Module, Params, Addon]}, permanent, 10000, worker, []},
+	MainProcess = {gen_rtp_channel, {gen_rtp_channel, start_link, [Module, Params, Addon]}, transient, 10000, worker, []},
 	{ok, {{one_for_one, 10, 1}, [MainProcess]}}.
