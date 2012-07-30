@@ -167,7 +167,7 @@ handle_info(interim_update, #state{alive = false} = State) ->
 
 handle_info({init, {Module, Params, Addon}}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
-	Transport = proplists:get_value(transport, Params),
+	Transport = proplists:get_value(transport, Params, udp),
 	SockParams = proplists:get_value(sockparams, Params, []),
 	% Either specify IPv4 or IPv6 explicitly or provide two special
 	% values - "::" for any available IPv6 or "0.0.0.0" or "0" for
