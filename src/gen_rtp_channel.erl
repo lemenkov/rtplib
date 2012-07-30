@@ -189,7 +189,7 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	% 'auto' - the same as 'false' until we'll find muxed packet.
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 
-	{ok, Timeout} = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
+	Timeout = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
 	{ok, TRef} = timer:send_interval(Timeout, interim_update),
 
 	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
