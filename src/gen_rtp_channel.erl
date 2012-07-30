@@ -107,17 +107,17 @@ handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
 			{stop, Reason, Reply, State#state{modstate=NewModState}}
 	 end.
 
-handle_cast({#rtp{} = Pkt, Ip, Port}, #state{rtp = Fd} = State) ->
+handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
-handle_cast({#rtcp{} = Pkt, Ip, Port}, #state{rtp = Fd, mux = true} = State) ->
+handle_cast({#rtcp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, mux = true} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
 	% then send RTCP acked within RTP stream
 	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
-handle_cast({#rtcp{} = Pkt, Ip, Port}, #state{rtcp = Fd} = State) ->
+handle_cast({#rtcp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtcpport = Port} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
