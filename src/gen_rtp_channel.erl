@@ -241,11 +241,11 @@ get_fd_pair({Transport, {I0,I1,I2,I3} = IPv4, Port, SockParams}) when
 	is_integer(I3), 0 =< I3, I3 < 256 ->
 	get_fd_pair(Transport, IPv4, Port, proplists:delete(ipv6, SockParams), 10).
 
-get_fd_pair(Transport, Ip, Port, SockParams, 0) ->
-	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(Ip), Port,  SockParams]),
+get_fd_pair(Transport, I, P, SockParams, 0) ->
+	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
 	error;
-get_fd_pair(Transport, Ip, Port, SockParams, NTry) ->
-	case gen_udp:open(Port, [binary, {ip, Ip}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
+get_fd_pair(Transport, I, P, SockParams, NTry) ->
+	case gen_udp:open(P, [binary, {ip, I}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
 		{ok, Fd} ->
 			{ok, {Ip,Port}} = inet:sockname(Fd),
 			Port2 = case Port rem 2 of
@@ -260,10 +260,10 @@ get_fd_pair(Transport, Ip, Port, SockParams, NTry) ->
 					end;
 				{error, _} ->
 					gen_udp:close(Fd),
-					get_fd_pair(Transport, Ip, Port, SockParams, NTry - 1)
+					get_fd_pair(Transport, I, P, SockParams, NTry - 1)
 			end;
 		{error, _} ->
-			get_fd_pair(Transport, Ip, Port, SockParams, NTry - 1)
+			get_fd_pair(Transport, I, P, SockParams, NTry - 1)
 	end.
 
 get_send_recv_strategy(Params) ->
