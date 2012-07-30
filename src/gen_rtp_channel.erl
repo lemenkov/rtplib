@@ -33,6 +33,7 @@
 
 -behaviour(gen_server).
 
+-export([start/3]).
 -export([start_link/3]).
 
 -export([behaviour_info/1]).
@@ -86,8 +87,11 @@ behaviour_info(_) ->
 	}
 ).
 
+start(Module, Params, Addon) ->
+	gen_server:start(?MODULE, [Module, Params, Addon], []).
 start_link(Module, Params, Addon) ->
 	gen_server:start_link(?MODULE, [Module, Params, Addon], []).
+
 
 init([Module, Params, Addon]) when is_atom(Module) ->
 	% Deferred init
