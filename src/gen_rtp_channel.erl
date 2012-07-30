@@ -194,7 +194,10 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 
 	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
 
-	{ok, ModState} = Module:init(Addon),
+	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
+	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
+
+	{ok, ModState} = Module:init([Ip, PortRtp, PortRtcp, Addon]),
 
 	{noreply, #state{
 			mod = Module,
