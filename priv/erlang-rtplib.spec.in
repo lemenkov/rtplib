@@ -14,10 +14,16 @@ URL:		http://github.com/lemenkov/rtplib
 # wget --no-check-certificate --content-disposition http://github.com/lemenkov/rtplib/tarball/%VSN%
 Source0:	%{upstream}-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRequires:	autoconf
+BuildRequires:	automake
+BuildRequires:	erlang-erlando
+BuildRequires:	erlang-eunit
+BuildRequires:	erlang-rebar
 BuildRequires:	libsamplerate-devel
-BuildRequires:	spandsp-devel
+BuildRequires:	libtool
 # FIXME Opus available only in Fedora for now
 BuildRequires:	opus-devel >= 0.9.9
+BuildRequires:	spandsp-devel
 %if 0%{?el6}%{?fedora}
 # speex on EL-5 is too old and unreliable
 BuildRequires:	speex-devel
@@ -29,9 +35,6 @@ BuildRequires:	speex-devel
 BuildRequires:	libogg-devel
 %endif
 BuildRequires:	webrtc-devel
-BuildRequires:	erlang
-BuildRequires:	erlang-eunit
-BuildRequires:	erlang-erlando
 Requires:	erlang
 
 
