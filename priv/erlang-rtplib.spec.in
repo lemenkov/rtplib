@@ -16,7 +16,7 @@ Source0:	%{upstream}-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	libsamplerate-devel
 BuildRequires:	spandsp-devel
-# FIXME Opus available only in RHEL-6 and Fedora for now
+# FIXME Opus available only in Fedora for now
 BuildRequires:	opus-devel >= 0.9.9
 %if 0%{?el6}%{?fedora}
 # speex on EL-5 is too old and unreliable
