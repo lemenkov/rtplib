@@ -18,6 +18,7 @@ BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	erlang-erlando
 BuildRequires:	erlang-eunit
+BuildRequires:	erlang-skerl
 BuildRequires:	erlang-rebar
 BuildRequires:	libsamplerate-devel
 BuildRequires:	libtool
@@ -36,6 +37,7 @@ BuildRequires:	libogg-devel
 %endif
 BuildRequires:	webrtc-devel
 Requires:	erlang
+Requires:	erlang-skerl
 
 
 %description
