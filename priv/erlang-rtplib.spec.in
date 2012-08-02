@@ -20,6 +20,7 @@ BuildRequires:	erlang-erlando
 BuildRequires:	erlang-eunit
 BuildRequires:	erlang-skerl
 BuildRequires:	erlang-rebar
+BuildRequires:	ilbc-devel
 BuildRequires:	libsamplerate-devel
 BuildRequires:	libtool
 # FIXME Opus available only in Fedora for now
@@ -35,7 +36,7 @@ BuildRequires:	speex-devel
 # FIXME remove it as soon as RH folks will fix the bug above.
 BuildRequires:	libogg-devel
 %endif
-BuildRequires:	webrtc-devel
+#BuildRequires:	webrtc-devel
 Requires:	erlang
 Requires:	erlang-skerl
 
