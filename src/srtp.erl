@@ -49,8 +49,8 @@ new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength, KeyDerivationRate) -
 	<<K_S:112, _/binary>> = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, KeyDerivationRate),
 	#srtp_crypto_ctx{
 		ssrc = SSRC,
-		ealg = Ealg,
 		aalg = Aalg,
+		ealg = Ealg,
 		keyDerivRate = KeyDerivationRate,
 		k_a = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, KeyDerivationRate),
 		k_e = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, KeyDerivationRate),
@@ -65,16 +65,16 @@ encrypt(#rtcp{encrypted = Data} = Rctp, passthru) ->
 
 encrypt(
 	#rtp{sequence_number = SequenceNumber, ssrc = SSRC, payload = Payload} = Rtp,
-	#srtp_crypto_ctx{ssrc = SSRC, s_l = OldSequenceNumber, roc = Roc, aalg = Aalg, ealg = Ealg, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
+	#srtp_crypto_ctx{ssrc = SSRC, s_l = OldSequenceNumber, roc = Roc, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
 ) ->
-	EncryptedPayload = encrypt_payload(Payload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt),
+	EncryptedPayload = encrypt_payload(Payload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTP_ENCR),
 	{ok, append_auth(rtp:encode(Rtp#rtp{payload = EncryptedPayload}), <<Roc:32>>, Aalg, KeyA, TagLength), update_ctx(Ctx, SequenceNumber, OldSequenceNumber, Roc)};
 encrypt(
 	#rtcp{} = Rtcp,
-	#srtp_crypto_ctx{ssrc = SSRC, rtcp_idx = Idx, aalg = Aalg, ealg = Ealg, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
+	#srtp_crypto_ctx{ssrc = SSRC, rtcp_idx = Idx, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
 ) ->
 	<<Header:8/binary, Payload/binary>> = rtcp:encode(Rtcp),
-	EncryptedPayload = encrypt_payload(Payload, SSRC, 0, Ealg, KeyE, Salt),
+	EncryptedPayload = encrypt_payload(Payload, SSRC, 0, Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTCP_ENCR),
 	{ok, append_auth(<<Header:8/binary, EncryptedPayload/binary, 1:1, Idx:31>>, <<>>, Aalg, KeyA, TagLength), Ctx}.
 
 decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when PayloadType =< 34; 96 =< PayloadType ->
@@ -85,19 +85,19 @@ decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) wh
 
 decrypt(
 	<<?RTP_VERSION:2, _:7, PayloadType:7, SequenceNumber:16, _:32, SSRC:32, Rest/binary>> = Data,
-	#srtp_crypto_ctx{ssrc = SSRC, s_l = OldSequenceNumber, roc = Roc, aalg = Aalg, ealg = Ealg, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
+	#srtp_crypto_ctx{ssrc = SSRC, s_l = OldSequenceNumber, roc = Roc, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
 ) when PayloadType =< 34; 96 =< PayloadType ->
 	<<Header:12/binary, EncryptedPayload/binary>> = check_auth(Data, <<Roc:32>>, Aalg, KeyA, TagLength),
-	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt),
+	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTP_ENCR),
 	{ok, Rtp} = rtp:decode(<<Header:12/binary, DecryptedPayload/binary>>),
 	{ok, Rtp, update_ctx(Ctx, SequenceNumber, OldSequenceNumber, Roc)};
 decrypt(
 	<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data,
-	#srtp_crypto_ctx{ssrc = SSRC, aalg = Aalg, ealg = Ealg, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
+	#srtp_crypto_ctx{ssrc = SSRC, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
 ) when 64 =< PayloadType, PayloadType =< 82 ->
 	Size = size(Data) - (TagLength + 8 + 4),
 	<<Header:8/binary, EncryptedPayload:Size/binary, E:1, Index:31>> = check_auth(Data, <<>>, Aalg, KeyA, TagLength),
-	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, 0, Ealg, KeyE, Salt),
+	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, 0, Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTP_ENCR),
 	{ok, Rtcp} = rtp:decode(<<Header:8/binary, DecryptedPayload/binary>>),
 	{ok, Rtcp, Ctx}.
 
@@ -133,24 +133,46 @@ append_auth(Data, Roc, srtpAuthenticationSkeinHmac, Key, TagLength) ->
 	{ok, <<Tag:TagLength/binary, _/binary>>} = skerl:final(S),
 	<<Data/binary, Tag/binary>>.
 
-encrypt_payload(Data, _, _, srtpEncryptionNull, _, _) ->
+encrypt_payload(Data, _, _, srtpEncryptionNull, _, _, _, _) ->
 	Data;
-encrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, Key, Salt) ->
-	crypto:aes_ctr_encrypt(Key, <<((Salt bxor (SSRC bsl 48)) bxor Index):112, 0:16>>, Data);
-encrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, Key, Salt) ->
+encrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
+	encrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, 0, <<>>);
+encrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, aesf8_encryption_unsupported});
-encrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, Key, Salt) ->
+encrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, twof8_encryption_unsupported}).
 
-decrypt_payload(Data, _, _, srtpEncryptionNull, _, _) ->
+encrypt_payload(<<>>, _, _, _, _, _, _, _, _, Encrypted) ->
+	Encrypted;
+encrypt_payload(<<Part:16/binary, Rest/binary>>, SSRC, Index, srtpEncryptionAESCM, SessionKey, <<S_S:112>> = SessionSalt, KeyDerivationRate, Label, Step, Encrypted) ->
+	Key = get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step),
+	EncPart = crypto:aes_ctr_encrypt(Key, <<((S_S bxor (SSRC bsl 48)) bxor Index):112, Step:16>>, Part),
+	encrypt_payload(Rest, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, Step + 1, <<Encrypted/binary, EncPart/binary>>);
+encrypt_payload(LastPart, SSRC, Index, srtpEncryptionAESCM, SessionKey, <<S_S:112>> = SessionSalt, KeyDerivationRate, Label, Step, Encrypted) ->
+	Key = get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step),
+	EncPart = crypto:aes_ctr_encrypt(Key, <<((S_S bxor (SSRC bsl 48)) bxor Index):112, Step:16>>, LastPart),
+	<<Encrypted/binary, EncPart/binary>>.
+
+
+decrypt_payload(Data, _, _, srtpEncryptionNull, _, _, _, _) ->
 	Data;
-decrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, Key, Salt) ->
-	crypto:aes_ctr_decrypt(Key, <<((Salt bxor (SSRC bsl 48)) bxor Index):112, 0:16>>, Data);
-decrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, Key, Salt) ->
+decrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
+	decrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, 0, <<>>);
+decrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, aesf8_decryption_unsupported});
-decrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, Key, Salt) ->
+decrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, twof8_decryption_unsupported}).
 
+decrypt_payload(<<>>, _, _, _, _, _, _, _, _, Decrypted) ->
+	Decrypted;
+decrypt_payload(<<Part:16/binary, Rest/binary>>, SSRC, Index, srtpEncryptionAESCM, SessionKey, <<S_S:112>> = SessionSalt, KeyDerivationRate, Label, Step, Decrypted) ->
+	Key = get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step),
+	DecPart = crypto:aes_ctr_decrypt(Key, <<((S_S bxor (SSRC bsl 48)) bxor Index):112, Step:16>>, Part),
+	decrypt_payload(Rest, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, Step + 1, <<Decrypted/binary, DecPart/binary>>);
+decrypt_payload(LastPart, SSRC, Index, srtpEncryptionAESCM, SessionKey, <<S_S:112>> = SessionSalt, KeyDerivationRate, Label, Step, Decrypted) ->
+	Key = get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step),
+	DecPart = crypto:aes_ctr_decrypt(Key, <<((S_S bxor (SSRC bsl 48)) bxor Index):112, Step:16>>, LastPart),
+	<<Decrypted/binary, DecPart/binary>>.
 %%
 %% Crypto-specific functions
 %%
