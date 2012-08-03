@@ -107,15 +107,15 @@ srtp_computeIV_test_() ->
 	[
 
 		{"Test IV generation (label #0 - RTP session encryption key)",
-			fun() -> ?assertEqual(<<16#0EC675AD498AFEEBB6960B3AABE60000:128>>,
+			fun() -> ?assertEqual(<<16#0EC675AD498AFEEBB6960B3AABE6:112>>,
 						srtp:computeIV(MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, 0)) end
 		},
 		{"Test IV generation (label #1 - RTP session authentication key)",
-			fun() -> ?assertEqual(<<16#0EC675AD498AFEEAB6960B3AABE60000:128>>,
+			fun() -> ?assertEqual(<<16#0EC675AD498AFEEAB6960B3AABE6:112>>,
 						srtp:computeIV(MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, 0)) end
 		},
 		{"Test IV generation (label #2 - RTP session salt)",
-			fun() -> ?assertEqual(<<16#0EC675AD498AFEE9B6960B3AABE60000:128>>,
+			fun() -> ?assertEqual(<<16#0EC675AD498AFEE9B6960B3AABE6:112>>,
 						srtp:computeIV(MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, 0)) end
 		}
 
@@ -124,7 +124,7 @@ srtp_computeIV_test_() ->
 %% See RFC 3711 B.2
 srtp_aes_cm_get_ctr_cipher_stream_test_() ->
 	SessionKey = <<16#2B7E151628AED2A6ABF7158809CF4F3C:128>>,
-	SessionSalt = <<16#F0F1F2F3F4F5F6F7F8F9FAFBFCFD0000:128>>,
+	SessionSalt = <<16#F0F1F2F3F4F5F6F7F8F9FAFBFCFD:112>>,
 	Index = 0, % Sequence Number
 	SSRC = 0,
 	Label = ?SRTP_LABEL_RTP_ENCR,

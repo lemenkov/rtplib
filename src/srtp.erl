@@ -46,15 +46,15 @@
 new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength) ->
 	new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength, 0).
 new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength, KeyDerivationRate) ->
-	<<K_S:128>> = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, KeyDerivationRate),
+	<<K_S:112, _/binary>> = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, KeyDerivationRate),
 	#srtp_crypto_ctx{
 		ssrc = SSRC,
 		ealg = Ealg,
 		aalg = Aalg,
 		keyDerivRate = KeyDerivationRate,
-		k_a = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, KeyDerivationRate),
-		k_e = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, KeyDerivationRate),
-		k_s = K_S,
+		k_a = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, KeyDerivationRate),
+		k_e = derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, KeyDerivationRate),
+		k_s = <<K_S:112>>,
 		tagLength = TagLength
 	}.
 
@@ -155,16 +155,17 @@ decrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, Key, Salt) ->
 %% Crypto-specific functions
 %%
 
-computeIV(<<MSH:112, _/binary>> = MasterSalt, Label, Index, 0) ->
-	<<(MSH bxor (Label bsl 48)):112, 0:16>>;
-computeIV(<<MSH:112, _/binary>> = MasterSalt, Label, Index, KeyDerivationRate) ->
-	<<(MSH bxor ((Label bsl 48) bor (Index div KeyDerivationRate))):112, 0:16>>.
+computeIV(<<Salt:112>>, Label, Index, 0) ->
+	<<(Salt bxor (Label bsl 48)):112>>;
+computeIV(<<Salt:112>>, Label, Index, KeyDerivationRate) ->
+	<<(Salt bxor ((Label bsl 48) bor (Index div KeyDerivationRate))):112>>.
 
 derive_key(MasterKey, MasterSalt, Label, Index, KeyDerivationRate) ->
-	crypto:aes_ctr_encrypt(MasterKey, computeIV(MasterSalt, Label, Index, KeyDerivationRate), <<0:128>>).
+	IV = computeIV(MasterSalt, Label, Index, KeyDerivationRate),
+	crypto:aes_ctr_encrypt(MasterKey, <<IV/binary, 0:16>>, <<0:128>>).
 
 get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step) ->
-	<<IV:14/binary, _/binary>> = computeIV(SessionSalt, Label, Index, KeyDerivationRate),
+	IV = computeIV(SessionSalt, Label, Index, KeyDerivationRate),
 	crypto:aes_ctr_encrypt(SessionKey, <<IV/binary, Step:16>>, <<0:128>>).
 
 guess_index(SequenceNumber, null, Roc) ->
