@@ -139,6 +139,8 @@ encrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt,
 	encrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, 0, <<>>);
 encrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, aesf8_encryption_unsupported});
+encrypt_payload(Data, SSRC, Index, srtpEncryptionTWOCM, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
+	throw({error, twocm_encryption_unsupported});
 encrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, twof8_encryption_unsupported}).
 
@@ -160,6 +162,8 @@ decrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt,
 	decrypt_payload(Data, SSRC, Index, srtpEncryptionAESCM, SessionKey, SessionSalt, KeyDerivationRate, Label, 0, <<>>);
 decrypt_payload(Data, SSRC, Index, srtpEncryptionAESF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, aesf8_decryption_unsupported});
+decrypt_payload(Data, SSRC, Index, srtpEncryptionTWOCM, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
+	throw({error, twocm_decryption_unsupported});
 decrypt_payload(Data, SSRC, Index, srtpEncryptionTWOF8, SessionKey, SessionSalt, KeyDerivationRate, Label) ->
 	throw({error, twof8_decryption_unsupported}).
 
