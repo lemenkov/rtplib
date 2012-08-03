@@ -121,6 +121,38 @@ srtp_computeIV_test_() ->
 
 	].
 
+%% See RFC 3711 B.2
+srtp_aes_cm_get_ctr_cipher_stream_test_() ->
+	SessionKey = <<16#2B7E151628AED2A6ABF7158809CF4F3C:128>>,
+	SessionSalt = <<16#F0F1F2F3F4F5F6F7F8F9FAFBFCFD0000:128>>,
+	Index = 0, % Sequence Number
+	SSRC = 0,
+	Label = ?SRTP_LABEL_RTP_ENCR,
+	KeyDerivationRate = 0,
+
+	[
+		{"Test AES-CM keystream generation",
+			fun() -> ?assertEqual(
+						[
+							<<16#E03EAD0935C95E80E166B16DD92B4EB4:128>>,
+							<<16#D23513162B02D0F72A43A2FE4A5F97AB:128>>,
+							<<16#41E95B3BB0A2E8DD477901E4FCA894C0:128>>,
+							<<16#EC8CDF7398607CB0F2D21675EA9EA1E4:128>>,
+							<<16#362B7C3C6773516318A077D7FC5073AE:128>>,
+							<<16#6A2CC3787889374FBEB4C81B17BA6C44:128>>
+						],
+						lists:map(
+							fun(Step) -> srtp:get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step) end,
+							[0, 1, 2, 16#FEFF, 16#FF00, 16#FF01]
+						)
+					) end
+		}
+	].
+
+
+
+
+%% See RFC 3711 B.3
 srtp_derive_key_test_() ->
 	MasterKey = <<16#E1F97A0D3E018BE0D64FA32C06DE4139:128>>,
 	MasterSalt = <<16#0EC675AD498AFEEBB6960B3AABE6:112>>,

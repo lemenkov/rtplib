@@ -163,12 +163,9 @@ computeIV(<<MSH:112, _/binary>> = MasterSalt, Label, Index, KeyDerivationRate) -
 derive_key(MasterKey, MasterSalt, Label, Index, KeyDerivationRate) ->
 	crypto:aes_ctr_encrypt(MasterKey, computeIV(MasterSalt, Label, Index, KeyDerivationRate), <<0:128>>).
 
-get_ctr_cipher_stream(MasterKey, IV, Step) ->
-	get_ctr_cipher_stream(MasterKey, IV, Step, 0).
-get_ctr_cipher_stream(MasterKey, <<IV:14/binary, _/binary>>, Step, Step) ->
-	crypto:aes_ctr_encrypt(MasterKey, <<IV/binary, Step:16>>, <<0:128>>);
-get_ctr_cipher_stream(MasterKey, <<IV:14/binary, _/binary>>, Step, CurrentStep) ->
-	get_ctr_cipher_stream(MasterKey, crypto:aes_ctr_encrypt(MasterKey, <<IV/binary, CurrentStep:16>>, <<0:128>>), Step, CurrentStep + 1).
+get_ctr_cipher_stream(SessionKey, SessionSalt, Label, Index, KeyDerivationRate, Step) ->
+	<<IV:14/binary, _/binary>> = computeIV(SessionSalt, Label, Index, KeyDerivationRate),
+	crypto:aes_ctr_encrypt(SessionKey, <<IV/binary, Step:16>>, <<0:128>>).
 
 guess_index(SequenceNumber, null, Roc) ->
 	guess_index(SequenceNumber, SequenceNumber, Roc);
