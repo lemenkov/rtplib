@@ -35,6 +35,7 @@
 -compile(export_all).
 
 -export([new_ctx/6]).
+-export([new_ctx/7]).
 -export([encrypt/2]).
 -export([decrypt/2]).
 
@@ -43,13 +44,16 @@
 -include("../include/srtp.hrl").
 
 new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength) ->
-	<<K_S:128>> = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, 0),
+	new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength, 0).
+new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength, KeyDerivationRate) ->
+	<<K_S:128>> = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_SALT, 0, KeyDerivationRate),
 	#srtp_crypto_ctx{
 		ssrc = SSRC,
 		ealg = Ealg,
 		aalg = Aalg,
-		k_a = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, 0),
-		k_e = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, 0),
+		keyDerivRate = KeyDerivationRate,
+		k_a = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, KeyDerivationRate),
+		k_e = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, KeyDerivationRate),
 		k_s = K_S,
 		tagLength = TagLength
 	}.
