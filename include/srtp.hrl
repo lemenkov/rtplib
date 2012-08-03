@@ -37,8 +37,6 @@
 		keyDerivRate = 0,
 		ealg = null, % srtpEncryptionNull, srtpEncryptionAESCM, srtpEncryptionAESF8, srtpEncryptionTWOF8
 		aalg = null, % srtpAuthenticationNull, srtpAuthenticationSha1Hmac, srtpAuthenticationSkeinHmac
-		masterKey = <<>>, % length may be 16 or 32 bytes
-		masterSalt = <<>>, % 14 bytes by default, according to RFC3711
 		k_a = <<>>, % 20 bytes by default
 		k_e = <<>>, % sizeof(masterKey) by default
 		k_s = <<>>, % sizeof(masterSalt) by default

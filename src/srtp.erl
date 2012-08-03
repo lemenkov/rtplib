@@ -48,8 +48,6 @@ new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength) ->
 		ssrc = SSRC,
 		ealg = Ealg,
 		aalg = Aalg,
-		masterKey = MasterKey,
-		masterSalt = MasterSalt,
 		k_a = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_AUTH, 0, 0),
 		k_e = srtp:derive_key(MasterKey, MasterSalt, ?SRTP_LABEL_RTP_ENCR, 0, 0),
 		k_s = K_S,
