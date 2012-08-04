@@ -102,6 +102,7 @@ srtp_aescm_test_() ->
 		}
 	].
 
+%% See RFC 3711 B.3
 srtp_computeIV_test_() ->
 	MasterSalt = <<16#0EC675AD498AFEEBB6960B3AABE6:112>>,
 	[
