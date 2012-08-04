@@ -97,7 +97,7 @@ decrypt(
 ) when 64 =< PayloadType, PayloadType =< 82 ->
 	Size = size(Data) - (TagLength + 8 + 4),
 	<<Header:8/binary, EncryptedPayload:Size/binary, E:1, Index:31>> = check_auth(Data, <<>>, Aalg, KeyA, TagLength),
-	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, 0, Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTP_ENCR),
+	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, 0, Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTCP_ENCR),
 	{ok, Rtcp} = rtp:decode(<<Header:8/binary, DecryptedPayload/binary>>),
 	{ok, Rtcp, Ctx}.
 
