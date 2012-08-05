@@ -81,6 +81,8 @@ behaviour_info(_) ->
 		mux,
 		encoder = false,
 		decoders = [],
+		cipher = passthru,
+		cipher_params = null,
 		lastseen = null,
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
@@ -192,6 +194,17 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	% 'enforcing' - Ip, Port and SSRC *must* match previously recorded data
 	% 'srtp' - depends on SRTP/ZRTP
 	SendRecvStrategy = get_send_recv_strategy(Params),
+	CipherParams = case SendRecvStrategy of
+		srtp ->
+			MasterKey = proplists:get_value(mkey, Params),
+			MasterSalt = proplists:get_value(msalt, Params),
+			Aalg = proplists:get_value(ealg, Params, srtpAuthenticationSha1Hmac),
+			Ealg = proplists:get_value(ealg, Params, srtpEncryptionAESCM),
+			TagLength = proplists:get_value(tag_length, Params, 80),
+			{MasterKey, MasterSalt, Aalg, Ealg, TagLength};
+		_ ->
+			null
+	end,
 	% 'true' - act as a proxy (send RTP and RTCP packets further as is)
 	% 'false' - strip-off everything except RTP payload. Regenerate RTCP. 
 	% FIXME only proxy (bypass) mode for now
@@ -236,6 +249,8 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 			proxy = Proxy,
 			encoder = Encoder,
 			decoders = Decoders,
+			cipher = passthru,
+			cipher_params = CipherParams,
 			tref = TRef
 		}
 	};
@@ -379,9 +394,34 @@ send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, s
 	end.
 
 % 'srtp' - depends on SRTP/ZRTP
-send_recv_srtp(Msg, Ip, Port, #state{mod = Module, modstate = ModState} = State) ->
-	% TODO
-	State.
+send_recv_srtp(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, cipher = Cipher, cipher_params = CipherParams, mod = Module, modstate = ModState} = State) ->
+	case {catch srtp:decrypt(Msg, Cipher), I, P1, P2, S} of
+		{{ok, #rtp{ssrc = SSRC} = Pkt, NewCipher}, Ip, Port, _, SSRC} ->
+			% Legitimate RTP packet
+			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
+			State#state{modstate = NewModState, lastseen = now(), alive = true, cipher = NewCipher};
+		{{ok, #rtp{ssrc = SSRC} = Pkt, _}, _, null, _, _} ->
+			{MasterKey, MasterSalt, Aalg, Ealg, TagLength} = CipherParams,
+			% Create real security context
+			Ctx = srtp:new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength),
+			{ok, Pkt, NewCtx} = srtp:decrypt(Msg, Ctx),
+			% First RTP packet - save parameters
+			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
+			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtpport = Port, ssrc = SSRC, alive = true, cipher = NewCtx, cipher_params = null};
+		{{ok, #rtcp{} = Pkt, NewCipher}, Ip, _, Port, _} ->
+			% Legitimate RTCP packet
+			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{modstate = NewModState, lastseen = now(), alive = true, cipher = NewCipher, mux = Mux};
+		{{ok, #rtcp{} = Pkt, NewCipher}, _, _, null, _} ->
+			% First RTCP packet - save parameters
+			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, cipher = NewCipher, mux = Mux};
+		_ ->
+			rtp_utils:dump_packet(node(), self(), Msg),
+			State
+	end.
 
 transcode(Pkt, false, _) ->
 	Pkt;
