@@ -1,10 +1,12 @@
 SUBDIRS = c_src
 
 all:
-	@cp -av c_src/.libs/*.so ./priv/
+	$(mkdir_p) ./priv/
+	$(install_sh_PROGRAM) c_src/.libs/*.so ./priv/
 	@VSN="@PACKAGE_VERSION@" $(REBAR) compile
 check:
-	@cp -av c_src/.libs/*.so ./priv/
+	$(mkdir_p) ./priv/
+	$(install_sh_PROGRAM) c_src/.libs/*.so ./priv/
 	@$(REBAR) eunit
 
 clean-local:
