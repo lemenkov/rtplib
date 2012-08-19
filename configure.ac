@@ -28,15 +28,15 @@ AC_TYPE_SIZE_T
 AC_CHECK_FUNCS([floor])
 
 AC_ARG_WITH([audiocodec-opus],
-	    AC_HELP_STRING([--with-audiocodec-opus],[enable OPUS audiocodec.]),
+	    AC_HELP_STRING([--with-audiocodec-opus],[enable OPUS audiocodec [default=yes].]),
 	    [audiocodec_opus="$withval"],[audiocodec_opus="yes"])
 
 AC_ARG_WITH([audiocodec-speex],
-	    AC_HELP_STRING([--with-audiocodec-speex],[enable SPEEX audiocodec.]),
+	    AC_HELP_STRING([--with-audiocodec-speex],[enable SPEEX audiocodec [default=yes].]),
 	    [audiocodec_speex="$withval"],[audiocodec_speex="yes"])
 
 AC_ARG_WITH([audiocodec-ilbc],
-	    AC_HELP_STRING([--with-audiocodec-ilbc],[enable iLBC audiocodec.]),
+	    AC_HELP_STRING([--with-audiocodec-ilbc],[enable iLBC audiocodec [default=yes].]),
 	    [audiocodec_ilbc="$withval"],[audiocodec_ilbc="yes"])
 
 AC_CHECK_HEADER([spandsp/telephony.h],,[AC_MSG_ERROR([<spandsp/telephony.h> header not found])])
