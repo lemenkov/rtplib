@@ -274,8 +274,8 @@ zrtp_complex_test_() ->
 		},
 		{"Compute hvi which will be used within COMMIT message",
 			fun() -> ?assertEqual(
-						<<242,55,250,2,221,114,157,202,156,228,230,90,51,114,23,186,61,89,18,56,103,208,18,71,151,190,133,160,97,87,178,186>>,
-						zrtp:calculate_hvi(HelloMessage, Dhpart2Message, fun hmac:hmac256/2)
+						<<191,42,166,117,108,247,80,187,84,5,165,235,67,92,41,134,220,5,136,28,64,33,206,232,225,82,115,165,37,76,197,111>>,
+						zrtp:calculate_hvi(HelloMessage, Dhpart2Message, fun erlsha2:sha256/1)
 					) end
 		}
 	].
