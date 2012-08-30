@@ -33,7 +33,7 @@
 -define(ZRTP_MARKER, 16#1000).
 -define(ZRTP_MAGIC_COOKIE, 16#5a525450). % <<"ZRTP">>, <<90,82,84,80>>
 
--define(ZRTP_MSG_HELLO,		"Hello   ").
+-define(ZRTP_MSG_HELLO,		"Hello   "). % <<72,101,108,108,111,32,32,32>>
 -define(ZRTP_MSG_HELLOACK,	"HelloACK").
 -define(ZRTP_MSG_COMMIT,	"Commit  ").
 -define(ZRTP_MSG_DHPART1,	"DHPart1 ").
@@ -54,6 +54,7 @@
 -define(ZRTP_HASH_S384, "S384").
 -define(ZRTP_HASH_N256, "N256").
 -define(ZRTP_HASH_N384, "N384").
+-define(ZRTP_HASH_ALL_SUPPORTED, [?ZRTP_HASH_S256, ?ZRTP_HASH_S384]).
 
 -define(ZRTP_CIPHER_AES1, "AES1").
 -define(ZRTP_CIPHER_AES2, "AES2").
@@ -61,22 +62,26 @@
 -define(ZRTP_CIPHER_2FS1, "2FS1").
 -define(ZRTP_CIPHER_2FS2, "2FS2").
 -define(ZRTP_CIPHER_2FS3, "2FS3").
+-define(ZRTP_CIPHER_ALL_SUPPORTED, [?ZRTP_CIPHER_AES1, ?ZRTP_CIPHER_AES2, ?ZRTP_CIPHER_AES3]).
 
 -define(ZRTP_AUTH_TAG_HS32, "HS32").
 -define(ZRTP_AUTH_TAG_HS80, "HS80").
 -define(ZRTP_AUTH_TAG_SK32, "SK32").
 -define(ZRTP_AUTH_TAG_SK64, "SK64").
+-define(ZRTP_AUTH_ALL_SUPPORTED, [?ZRTP_AUTH_TAG_HS32, ?ZRTP_AUTH_TAG_HS80]).
 
--define(ZRTP_KEY_AGREEMENT_DH3K, "DH3k").
--define(ZRTP_KEY_AGREEMENT_DH2K, "DH2k").
--define(ZRTP_KEY_AGREEMENT_EC25, "EC25").
--define(ZRTP_KEY_AGREEMENT_EC38, "EC38").
--define(ZRTP_KEY_AGREEMENT_EC52, "EC52").
--define(ZRTP_KEY_AGREEMENT_PRSH, "Prsh").
--define(ZRTP_KEY_AGREEMENT_MULT, "Mult").
+-define(ZRTP_KEY_AGREEMENT_DH2K, "DH2k"). % DH mode with p=2048 bit prime per RFC 3526, Section 3.
+-define(ZRTP_KEY_AGREEMENT_DH3K, "DH3k"). % DH mode with p=3072 bit prime per RFC 3526, Section 4.
+-define(ZRTP_KEY_AGREEMENT_EC25, "EC25"). % Elliptic Curve DH, P-256 per RFC 5114, Section 2.6
+-define(ZRTP_KEY_AGREEMENT_EC38, "EC38"). % Elliptic Curve DH, P-384 per RFC 5114, Section 2.7
+-define(ZRTP_KEY_AGREEMENT_EC52, "EC52"). % Elliptic Curve DH, P-521 per RFC 5114, Section 2.8 (deprecated - do not use)
+-define(ZRTP_KEY_AGREEMENT_PRSH, "Prsh"). % Preshared Non-DH mode
+-define(ZRTP_KEY_AGREEMENT_MULT, "Mult"). % Multistream Non-DH mode
+-define(ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, [?ZRTP_KEY_AGREEMENT_DH2K, ?ZRTP_KEY_AGREEMENT_DH3K]).
 
 -define(ZRTP_SAS_TYPE_B32, "B32 ").
 -define(ZRTP_SAS_TYPE_B256, "B256").
+-define(ZRTP_SAS_TYPE_ALL_SUPPORTED, [?ZRTP_SAS_TYPE_B32, ?ZRTP_SAS_TYPE_B256]).
 
 -define(ZRTP_SIGNATURE_TYPE_PGP, "PGP ").
 -define(ZRTP_SIGNATURE_TYPE_X509, "X509").
@@ -85,6 +90,32 @@
 
 -define(ZRTP_VERSION, "1.10").
 -define(ZRTP_SOFTWARE, "Erlang (Z)RTPLIB").
+
+-define(HASH_IMAGE_SIZE, 32).
+
+-define(STR_INITIATOR, "Initiator").
+-define(STR_RESPONDER, "Responder").
+
+-define(ZRTP_ERROR_MALFORMED_PACKET, 16#10). % Malformed packet (CRC OK, but wrong structure)
+-define(ZRTP_ERROR_SOFTWARE, 16#20). % Critical software error
+-define(ZRTP_ERROR_UNSUPPORTED_VERSION, 16#30). % Unsupported ZRTP version
+-define(ZRTP_ERROR_HELLO_MISMATCH, 16#40). % Hello components mismatch
+-define(ZRTP_ERROR_UNSUPPORTED_HASH, 16#51). % Hash Type not supported
+-define(ZRTP_ERROR_UNSUPPORTED_CYPHER, 16#52). % Cipher Type not supported
+-define(ZRTP_ERROR_UNSUPPORTED_KEY_EXCHANGE, 16#53). % Public key exchange not supported
+-define(ZRTP_ERROR_UNSUPPORTED_AUTH_TAG, 16#54). % SRTP auth tag not supported
+-define(ZRTP_ERROR_UNSUPPORTED_SAS, 16#55). % SAS rendering scheme not supported
+-define(ZRTP_ERROR_NO_SHARED_SECRETS, 16#56). % No shared secret available, DH mode required
+-define(ZRTP_ERROR_DH_BAD_PV, 16#61). % DH Error: bad pvi or pvr ( == 1, 0, or p-1)
+-define(ZRTP_ERROR_DH_BAD_HV, 16#62). % DH Error: hvi != hashed data
+-define(ZRTP_ERROR_MITM, 16#63). % Received relayed SAS from untrusted MiTM
+-define(ZRTP_ERROR_MAC, 16#70). % Auth Error: Bad Confirm pkt MAC
+-define(ZRTP_ERROR_NONCE, 16#80). % Nonce reuse
+-define(ZRTP_ERROR_ZID, 16#90). % Equal ZIDs in Hello
+-define(ZRTP_ERROR_SSRC, 16#91). % SSRC collision
+-define(ZRTP_ERROR_UNAVAILABLE, 16#A0). % Service unavailable
+-define(ZRTP_ERROR_TIMEOUT, 16#B0). % Protocol timeout error
+-define(ZRTP_ERROR_GOCLEAR_NA, 16#100). % GoClear message received, but not allowed
 
 -record(zrtp, {
 		sequence = 0,
@@ -104,7 +135,7 @@
 		auth = [],
 		keyagr = [],
 		sas = [],
-		mac
+		mac = <<0,0,0,0,0,0,0,0>>
 	}).
 
 -record(commit, {
@@ -118,7 +149,7 @@
 		hvi = null,
 		nonce = null,
 		keyid = null,
-		mac
+		mac = <<0,0,0,0,0,0,0,0>>
 	}).
 
 -record(dhpart1, {
@@ -128,7 +159,7 @@
 		auxsecretIDr,
 		pbxsecretIDr,
 		pvr,
-		mac
+		mac = <<0,0,0,0,0,0,0,0>>
 	}).
 -record(dhpart2, {
 		h1,
@@ -137,7 +168,7 @@
 		auxsecretIDi,
 		pbxsecretIDi,
 		pvi,
-		mac
+		mac = <<0,0,0,0,0,0,0,0>>
 	}).
 
 -record(confirm1, {
