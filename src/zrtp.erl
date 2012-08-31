@@ -116,7 +116,6 @@ handle_call(
 	} = State) ->
 
 	HelloMsg = #hello{
-		clientid = ?ZRTP_SOFTWARE,
 		h3 = H3,
 		zid = ZID,
 		s = 0, % FIXME allow checking digital signature (see http://zfone.com/docs/ietf/rfc6189bis.html#SignSAS )
