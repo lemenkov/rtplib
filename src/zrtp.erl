@@ -510,7 +510,7 @@ handle_call(
 
 			% FIXME add actual values as well as SAS
 			HMacFun = get_hmacfun(Hash),
-			EData = crypto:aes_ctr_encrypt(ConfirmKeyR, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:4/binary>>),
+			EData = crypto:aes_ctr_encrypt(ConfirmKeyR, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:32>>),
 			ConfMac = HMacFun(HMacKeyR, EData),
 
 			Confirm1Msg = #confirm1{
@@ -589,7 +589,7 @@ handle_call(
 
 			% FIXME add actual values as well as SAS
 			HMacFun = get_hmacfun(Hash),
-			EData = crypto:aes_ctr_encrypt(ConfirmKeyI, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:4/binary>>),
+			EData = crypto:aes_ctr_encrypt(ConfirmKeyI, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:32>>),
 			ConfMac = HMacFun(HMacKeyI, EData),
 
 			Confirm2Msg = #confirm2{
