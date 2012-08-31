@@ -279,8 +279,8 @@ handle_call(
 			zid = ZID,
 			hash = Hash,
 			cipher = Cipher,
-			auth = AuthType,
-			keyagr = KeyAgreement,
+			auth = Auth,
+			keyagr = KeyAgr,
 			sas = SAS,
 			hvi = Hvi,
 			nonce = Nonce,
@@ -294,6 +294,11 @@ handle_call(
 		other_zid = ZID,
 		h1 = H1,
 		h0 = H0,
+		hash = Hash,
+		cipher = Cipher,
+		auth = Auth,
+		keyagr = KeyAgr,
+		sas = SAS,
 		rs1IDr = Rs1IDr,
 		rs2IDr = Rs2IDr,
 		auxSecretIDr = AuxSecretIDr,
@@ -318,6 +323,7 @@ handle_call(
 			% Check for lowest Hvi
 			case Hvi < MyHvi of
 				true ->
+					% We're Initiator so do nothing and wait for the DHpart1
 					{reply, ok, State#state{other_h2 = HashImageH2, prev_sn = SN}};
 				false ->
 					DHpart1Msg = mkdhpart1(H0, H1, Rs1IDr, Rs2IDr, AuxSecretIDr, PbxSecretIDr, PublicKey),
