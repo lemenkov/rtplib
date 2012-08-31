@@ -383,8 +383,8 @@ handle_call(
 			% Store full Alice's DHpart2 message
 			ets:insert(Tid, {{alice, dhpart2}, DHpart2}),
 
-			% Calculate DHfinal
-			DHfinal = zrtp_crypto:mkfinal(Pvr, PrivateKey),
+			% Calculate DHresult
+			DHresult = zrtp_crypto:mkfinal(Pvr, PrivateKey),
 
 			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
 			HashFun = get_hashfun(Hash),
@@ -395,7 +395,7 @@ handle_call(
 			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1#zrtp.message, DHpart2Msg] >>),
 			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
 			% We have to set s1, s2, s3 to null for now - FIXME
-			S0 = HashFun(<<1:32, DHfinal/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
+			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
 
 			% Derive keys
 			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
@@ -464,8 +464,8 @@ handle_call(
 			% Store full Bob's DHpart2 message
 			ets:insert(Tid, {{bob, dhpart2}, DHpart2}),
 
-			% Calculate DHfinal
-			DHfinal = zrtp_crypto:mkfinal(Pvi, PrivateKey),
+			% Calculate DHresult
+			DHresult = zrtp_crypto:mkfinal(Pvi, PrivateKey),
 
 			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
 			HashFun = get_hashfun(Hash),
@@ -477,7 +477,7 @@ handle_call(
 			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1, DHpart2#zrtp.message] >>),
 			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
 			% We have to set s1, s2, s3 to null for now - FIXME
-			S0 = HashFun(<<1:32, DHfinal/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
+			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
 
 			% Derive keys
 			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
