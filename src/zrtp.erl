@@ -1109,7 +1109,7 @@ negotiate(Supported, _, AliceList, BobList) ->
 choose([], IntersectList) ->
 	throw({error,cant_negotiate});
 choose([Item | Rest], IntersectList) ->
-	case lists:member(list_to_binary(Item), IntersectList) of
+	case lists:member(Item, IntersectList) of
 		true -> Item;
 		_ -> choose(Rest, IntersectList)
 	end.
