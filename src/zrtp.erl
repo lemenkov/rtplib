@@ -662,6 +662,16 @@ handle_call(
 	% FIXME set SRTP keys
 	{reply, ok, State};
 
+handle_call(get_keys, _From, State) ->
+	{reply,
+		{
+			State#state.srtp_key_i,
+			State#state.srtp_salt_i,
+			State#state.srtp_key_r,
+			State#state.srtp_salt_i
+		},
+		State};
+
 handle_call(Other, _From, State) ->
 	{reply, error, State}.
 
