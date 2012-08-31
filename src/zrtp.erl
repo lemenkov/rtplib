@@ -579,10 +579,10 @@ handle_call(
 	HashImageH2 = erlsha2:sha256(HashImageH1),
 	HashImageH3 = erlsha2:sha256(HashImageH2),
 
-	% Lookup Bob's DHpart2 packet
-	DHpart2 = ets:lookup_element(Tid, {bob, dhpart2}, 2),
+	% Lookup Bob's DHpart1 packet
+	DHpart1 = ets:lookup_element(Tid, {bob, dhpart1}, 2),
 
-	case verify_hmac(DHpart2, HashImageH0) of
+	case verify_hmac(DHpart1, HashImageH0) of
 		true ->
 			% Store full Bob's CONFIRM1 message
 			ets:insert(Tid, {{bob, confirm1}, Confirm1}),
