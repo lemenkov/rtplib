@@ -676,10 +676,10 @@ handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}
 	ets:insert(Tid, {keyagr, KeyAgreements}),
 	ets:insert(Tid, {sas, SASTypes}),
 
-	% To speedup things later we precompute all keys now
+	% To speedup things later we precompute all keys - we have a plenty of time for that right now
 	lists:map(fun(KA) -> {PublicKey, PrivateKey} = zrtp_crypto:mkdh(KA), ets:insert(Tid, {{pki,KA}, {PublicKey, PrivateKey}}) end, KeyAgreements),
 
-	% Prepare Rs1,Rs2,Rs3,Rs4 values now
+	% Likewise - prepare Rs1,Rs2,Rs3,Rs4 values now for further speedups
 	lists:map(fun(Atom) -> ets:insert(Tid, {Atom, crypto:rand_bytes(32)}) end, [rs1, rs2, rs3, rs4]),
 
 	{noreply, #state{
