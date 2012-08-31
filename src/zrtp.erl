@@ -378,7 +378,7 @@ handle_call(
 			% Calculate ZRTP params
 			DHpart2Msg = ets:lookup_element(Tid, dhpart2msg, 2),
 
-			DHpart2 = #zrtp{sequence = SN, ssrc = MySSRC, message = DHpart2Msg},
+			DHpart2 = #zrtp{sequence = SN+1, ssrc = MySSRC, message = DHpart2Msg},
 
 			% Store full Alice's DHpart2 message
 			ets:insert(Tid, {{alice, dhpart2}, DHpart2}),
