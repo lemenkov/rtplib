@@ -195,6 +195,7 @@ handle_call(
 	#state{
 		zid = ZID,
 		ssrc = MySSRC,
+		h3 = H3,
 		h2 = H2,
 		h1 = H1,
 		h0 = H0,
@@ -222,8 +223,8 @@ handle_call(
 	<<Rs1IDr:64, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
 	<<Rs2IDi:64, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
 	<<Rs2IDr:64, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
-	<<AuxSecretIDi:64, _/binary>> = HMacFun(Rs3, ?STR_INITIATOR),
-	<<AuxSecretIDr:64, _/binary>> = HMacFun(Rs3, ?STR_RESPONDER),
+	<<AuxSecretIDi:64, _/binary>> = HMacFun(Rs3, H3),
+	<<AuxSecretIDr:64, _/binary>> = HMacFun(Rs3, H3),
 	<<PbxSecretIDi:64, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
 	<<PbxSecretIDr:64, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
 
