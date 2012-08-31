@@ -231,6 +231,7 @@ handle_call(
 
 	% We must generate DHPart2 here
 	DHpart2Msg = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
+	ets:insert(Tid, {dhpart2msg, DHpart2Msg}),
 
 	Hvi = calculate_hvi(HelloMsg, DHpart2Msg, HashFun),
 
@@ -362,7 +363,6 @@ handle_call(
 		auxSecretIDi = AuxSecretIDi,
 		pbxSecretIDi = PbxSecretIDi,
 		dhPriv = PrivateKey,
-		dhPubl = PublicKey,
 		prev_sn = SN0,
 		storage = Tid
 	} = State) when SN > SN0 ->
@@ -376,7 +376,8 @@ handle_call(
 			ets:insert(Tid, {{bob, dhpart1}, DHpart1}),
 
 			% Calculate ZRTP params
-			DHpart2Msg = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
+			DHpart2Msg = ets:lookup_element(Tid, dhpart2msg, 2),
+
 			DHpart2 = #zrtp{sequence = SN, ssrc = MySSRC, message = DHpart2Msg},
 
 			% Store full Alice's DHpart2 message
