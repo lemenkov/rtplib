@@ -213,11 +213,10 @@ handle_call(
 	HMacFun = get_hmacfun(Hash),
 
 	% FIXME check for preshared keys instead of regenerating them - should we use Mnesia?
-
-	Rs1 = crypto:rand_bytes(32),
-	Rs2 = crypto:rand_bytes(32),
-	Rs3 = crypto:rand_bytes(32),
-	Rs4 = crypto:rand_bytes(32),
+	Rs1 = ets:lookup_element(Tid, rs1, 2),
+	Rs2 = ets:lookup_element(Tid, rs2, 2),
+	Rs3 = ets:lookup_element(Tid, rs3, 2),
+	Rs4 = ets:lookup_element(Tid, rs4, 2),
 
 	<<Rs1IDi:64, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
 	<<Rs1IDr:64, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
@@ -228,7 +227,7 @@ handle_call(
 	<<PbxSecretIDi:64, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
 	<<PbxSecretIDr:64, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
 
-	{PublicKey, PrivateKey} = zrtp_crypto:mkdh(KeyAgr),
+	{PublicKey, PrivateKey} = ets:lookup_element(Tid, {pki,KeyAgr}, 2),
 
 	% We must generate DHPart2 here
 	DHpart2 = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
@@ -673,6 +672,12 @@ handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}
 	ets:insert(Tid, {auth, Auths}),
 	ets:insert(Tid, {keyagr, KeyAgreements}),
 	ets:insert(Tid, {sas, SASTypes}),
+
+	% To speedup things later we precompute all keys now
+	lists:map(fun(KA) -> {PublicKey, PrivateKey} = zrtp_crypto:mkdh(KA), ets:insert(Tid, {{pki,KA}, {PublicKey, PrivateKey}}) end, KeyAgreements),
+
+	% Prepare Rs1,Rs2,Rs3,Rs4 values now
+	lists:map(fun(Atom) -> ets:insert(Tid, {Atom, crypto:rand_bytes(32)}) end, [rs1, rs2, rs3, rs4]),
 
 	{noreply, #state{
 			zid = ZID,
