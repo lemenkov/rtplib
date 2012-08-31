@@ -153,8 +153,7 @@ handle_call(
 			cipher = Ciphers,
 			auth = Auths,
 			keyagr = KeyAgreements,
-			sas = SASTypes,
-			mac = MAC
+			sas = SASTypes
 		}
 	} = Hello,
 	_From,
@@ -283,8 +282,7 @@ handle_call(
 			keyagr = KeyAgr,
 			sas = SAS,
 			hvi = Hvi,
-			nonce = Nonce,
-			mac = MAC
+			nonce = Nonce
 		}
 	} = Commit,
 	_From,
@@ -348,8 +346,7 @@ handle_call(
 			rs2IDr = Rs2IDr,
 			auxsecretIDr = AuxsecretIDr,
 			pbxsecretIDr = PbxsecretIDr,
-			pvr = Pvr,
-			mac = MAC
+			pvr = Pvr
 		}
 	} = DHpart1,
 	_From,
@@ -442,8 +439,7 @@ handle_call(
 			rs2IDi = Rs2IDi,
 			auxsecretIDi = AuxsecretIDi,
 			pbxsecretIDi = PbxsecretIDi,
-			pvi = Pvi,
-			mac = MAC
+			pvi = Pvi
 		}
 	} = DHpart2,
 	_From,
