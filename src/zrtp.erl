@@ -99,38 +99,10 @@ start_link(Args) ->
 %% Generate Alice's ZRTP server
 init([ZID, SSRC]) when is_binary(ZID) ->
 	init([ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
-init([ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]) when is_binary(ZID) ->
-
-	% First hash is a random set of bytes
-	% Th rest are a chain of hashes made with predefined hash function
-	H0 = crypto:rand_bytes(32),
-	H1 = erlsha2:sha256(H0),
-	H2 = erlsha2:sha256(H1),
-	H3 = erlsha2:sha256(H2),
-
-	IV = crypto:rand_bytes(16),
-
-	Tid = ets:new(zrtp, [private]),
-
-	ets:insert(Tid, {hash, Hashes}),
-	ets:insert(Tid, {cipher, Ciphers}),
-	ets:insert(Tid, {auth, Auths}),
-	ets:insert(Tid, {keyagr, KeyAgreements}),
-	ets:insert(Tid, {sas, SASTypes}),
-
-	% FIXME send HELLO here or defer it?
-
-	{ok, #state{
-			zid = ZID,
-			ssrc = SSRC,
-			h0 = H0,
-			h1 = H1,
-			h2 = H2,
-			h3 = H3,
-			iv = IV,
-			storage = Tid
-		}
-	}.
+init([ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) when is_binary(ZID) ->
+	% Deferred init
+	self() ! {init, Params},
+	{ok, #state{}}.
 
 handle_call(
 	init,
@@ -686,6 +658,35 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, State) ->
 	ok.
 
+handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
+	% First hash is a random set of bytes
+	% Th rest are a chain of hashes made with predefined hash function
+	H0 = crypto:rand_bytes(32),
+	H1 = erlsha2:sha256(H0),
+	H2 = erlsha2:sha256(H1),
+	H3 = erlsha2:sha256(H2),
+
+	IV = crypto:rand_bytes(16),
+
+	Tid = ets:new(zrtp, [private]),
+
+	ets:insert(Tid, {hash, Hashes}),
+	ets:insert(Tid, {cipher, Ciphers}),
+	ets:insert(Tid, {auth, Auths}),
+	ets:insert(Tid, {keyagr, KeyAgreements}),
+	ets:insert(Tid, {sas, SASTypes}),
+
+	{noreply, #state{
+			zid = ZID,
+			ssrc = SSRC,
+			h0 = H0,
+			h1 = H1,
+			h2 = H2,
+			h3 = H3,
+			iv = IV,
+			storage = Tid
+		}
+	};
 handle_info(Other, State) ->
 	{noreply, State}.
 
