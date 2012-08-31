@@ -403,19 +403,19 @@ handle_call(
 			KLength = get_keylength(Cipher),
 
 			% SRTP keys
-			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
-			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
-			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
-			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator SRTP master key">>, KDF_Context),
+			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator SRTP master salt">>, KDF_Context),
+			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder SRTP master key">>, KDF_Context),
+			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder SRTP master salt">>, KDF_Context),
 
-			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
-			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator HMAC key">>, KDF_Context),
+			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder HMAC key">>, KDF_Context),
 
-			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
-			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator ZRTP key">>, KDF_Context),
+			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder ZRTP key">>, KDF_Context),
 
-			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "ZRTP Session Key", KDF_Context),
-			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Exported key", KDF_Context),
+			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"ZRTP Session Key">>, KDF_Context),
+			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Exported key">>, KDF_Context),
 			%% FIXME SAS key
 
 			{reply, DHpart2,
@@ -493,19 +493,19 @@ handle_call(
 			KLength = get_keylength(Cipher),
 
 			% SRTP keys
-			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
-			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
-			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
-			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator SRTP master key">>, KDF_Context),
+			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator SRTP master salt">>, KDF_Context),
+			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder SRTP master key">>, KDF_Context),
+			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder SRTP master salt">>, KDF_Context),
 
-			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
-			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator HMAC key">>, KDF_Context),
+			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder HMAC key">>, KDF_Context),
 
-			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
-			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Initiator ZRTP key">>, KDF_Context),
+			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Responder ZRTP key">>, KDF_Context),
 
-			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "ZRTP Session Key", KDF_Context),
-			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Exported key", KDF_Context),
+			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"ZRTP Session Key">>, KDF_Context),
+			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Exported key">>, KDF_Context),
 			%% FIXME SAS key
 
 			% FIXME add actual values as well as SAS
@@ -921,11 +921,11 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	AC = length(Auths),
 	KC = length(KeyAgreements),
 	SC = length(SASTypes),
-	BinHashes = << <<X/binary>> || <<X/binary>> <- Hashes >>,
-	BinCiphers = << <<X/binary>> || <<X/binary>> <- Ciphers >>,
-	BinAuths = << <<X/binary>> || <<X/binary>> <- Auths >>,
-	BinKeyAgreements = << <<X/binary>> || <<X/binary>> <- KeyAgreements >>,
-	BinSASTypes = << <<X/binary>> || <<X/binary>> <- SASTypes >>,
+	BinHashes = << <<(to_binary(X))/binary>> || X <- Hashes >>,
+	BinCiphers = << <<(to_binary(X))/binary>> || X <- Ciphers >>,
+	BinAuths = << <<(to_binary(X))/binary>> || X <- Auths >>,
+	BinKeyAgreements = << <<(to_binary(X))/binary>> || X <- KeyAgreements >>,
+	BinSASTypes = << <<(to_binary(X))/binary>> || X <- SASTypes >>,
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
@@ -933,11 +933,11 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 encode_message(helloack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_HELLOACK>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = <<"Mult">>,sas = SAS,nonce = Nonce,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_MULT, SAS:4/binary, Nonce:16/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_MULT, (to_binary(SAS)):4/binary, Nonce:16/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2, zid = ZID, hash = Hash, cipher = Cipher, auth = AuthType, keyagr = <<"Prsh">>, sas = SAS, nonce = Nonce, keyid = KeyID, mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, (to_binary(SAS)):4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = KeyAgreement,sas = SAS,hvi = HVI,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, KeyAgreement:4/binary, SAS:4/binary, HVI:32/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, (to_binary(KeyAgreement)):4/binary, (to_binary(SAS)):4/binary, HVI:32/binary, MAC:8/binary>>;
 encode_message(#dhpart1{h1 = HashImageH1,rs1IDr = Rs1IDr,rs2IDr = Rs2IDr,auxsecretIDr = AuxsecretIDr,pbxsecretIDr = PbxsecretIDr,pvr = PVR,mac = MAC}) ->
 	Length = 1 + 2 + 8 + 2 + 2 + 2 + 2 + size(PVR) div 4 + 2,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART1, HashImageH1:32/binary, Rs1IDr:8/binary, Rs2IDr:8/binary, AuxsecretIDr:8/binary, PbxsecretIDr:8/binary, PVR/binary, MAC/binary>>;
@@ -1113,3 +1113,6 @@ get_hashlength(?ZRTP_HASH_S384) -> 48.
 get_keylength(?ZRTP_CIPHER_AES1) -> 16;
 get_keylength(?ZRTP_CIPHER_AES2) -> 24;
 get_keylength(?ZRTP_CIPHER_AES3) -> 32.
+
+to_binary(B) when is_binary(B) -> B;
+to_binary(B) when is_list(B) -> list_to_binary(B).

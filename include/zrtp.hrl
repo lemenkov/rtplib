@@ -89,7 +89,7 @@
 -define(ZRTP_SIGNATURE_HELLO, 16#505a).
 
 -define(ZRTP_VERSION, "1.10").
--define(ZRTP_SOFTWARE, "Erlang (Z)RTPLIB").
+-define(ZRTP_SOFTWARE, <<"Erlang (Z)RTPLIB">>).
 
 -define(HASH_IMAGE_SIZE, 32).
 
