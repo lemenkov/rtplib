@@ -218,14 +218,14 @@ handle_call(
 	Rs3 = ets:lookup_element(Tid, rs3, 2),
 	Rs4 = ets:lookup_element(Tid, rs4, 2),
 
-	<<Rs1IDi:64, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
-	<<Rs1IDr:64, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
-	<<Rs2IDi:64, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
-	<<Rs2IDr:64, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
-	<<AuxSecretIDi:64, _/binary>> = HMacFun(Rs3, H3),
-	<<AuxSecretIDr:64, _/binary>> = HMacFun(Rs3, H3),
-	<<PbxSecretIDi:64, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
-	<<PbxSecretIDr:64, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
+	<<Rs1IDi:8/binary, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
+	<<Rs1IDr:8/binary, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
+	<<Rs2IDi:8/binary, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
+	<<Rs2IDr:8/binary, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
+	<<AuxSecretIDi:8/binary, _/binary>> = HMacFun(Rs3, H3),
+	<<AuxSecretIDr:8/binary, _/binary>> = HMacFun(Rs3, H3),
+	<<PbxSecretIDi:8/binary, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
+	<<PbxSecretIDr:8/binary, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
 
 	{PublicKey, PrivateKey} = ets:lookup_element(Tid, {pki,KeyAgr}, 2),
 
