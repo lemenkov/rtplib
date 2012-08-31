@@ -124,7 +124,7 @@
 	}).
 
 -record(hello, {
-		clientid,
+		clientid = ?ZRTP_SOFTWARE,
 		h3,
 		zid,
 		s,

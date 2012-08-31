@@ -145,7 +145,6 @@ handle_call(
 		sequence = SN,
 		ssrc = SSRC,
 		message = #hello{
-			clientid = ClientIdentifier,
 			h3 = HashImageH3,
 			zid = ZID,
 			s = S,
