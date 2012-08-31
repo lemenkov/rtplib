@@ -281,8 +281,7 @@ handle_call(
 			auth = Auth,
 			keyagr = KeyAgr,
 			sas = SAS,
-			hvi = Hvi,
-			nonce = Nonce
+			hvi = Hvi
 		}
 	} = Commit,
 	_From,
