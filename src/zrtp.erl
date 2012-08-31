@@ -389,11 +389,11 @@ handle_call(
 
 			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
 			HashFun = get_hashfun(Hash),
-			#zrtp{message = Hello} = ets:lookup_element(Tid, {bob, hello}, 2),
-			#zrtp{message = Commit} = ets:lookup_element(Tid, {alice, commit}, 2),
+			#zrtp{message = HelloMsg} = ets:lookup_element(Tid, {bob, hello}, 2),
+			#zrtp{message = CommitMsg} = ets:lookup_element(Tid, {alice, commit}, 2),
 
 			% http://zfone.com/docs/ietf/rfc6189bis.html#SharedSecretDetermination
-			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1#zrtp.message, DHpart2Msg] >>),
+			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [HelloMsg, CommitMsg, DHpart1#zrtp.message, DHpart2Msg] >>),
 			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
 			% We have to set s1, s2, s3 to null for now - FIXME
 			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
@@ -478,12 +478,12 @@ handle_call(
 
 			% Calculate total hash - http://zfone.com/docs/ietf/rfc6189bis.html#DHSecretCalc
 			HashFun = get_hashfun(Hash),
-			#zrtp{message = Hello} = ets:lookup_element(Tid, {alice, hello}, 2),
-			#zrtp{message = Commit} = ets:lookup_element(Tid, {bob, commit}, 2),
-			#zrtp{message = DHpart1} = ets:lookup_element(Tid, {alice, dhpart1}, 2),
+			#zrtp{message = HelloMsg} = ets:lookup_element(Tid, {alice, hello}, 2),
+			#zrtp{message = CommitMsg} = ets:lookup_element(Tid, {bob, commit}, 2),
+			#zrtp{message = DHpart1Msg} = ets:lookup_element(Tid, {alice, dhpart1}, 2),
 
 			% http://zfone.com/docs/ietf/rfc6189bis.html#SharedSecretDetermination
-			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [Hello, Commit, DHpart1, DHpart2#zrtp.message] >>),
+			TotalHash = HashFun(<< <<(encode_message(X))/binary>> || X <- [HelloMsg, CommitMsg, DHpart1Msg, DHpart2#zrtp.message] >>),
 			KDF_Context = <<ZIDi/binary, ZIDr/binary, TotalHash/binary>>,
 			% We have to set s1, s2, s3 to null for now - FIXME
 			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
