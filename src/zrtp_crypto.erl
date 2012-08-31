@@ -166,6 +166,6 @@ mkfinal(Pvr, PrivateKey) ->
 	end.
 
 kdf(?ZRTP_HASH_S256, Key, Label, KDF_Context) ->
-	hmac:hmac256(Key, <<1:32, Label/binary, 00:32, KDF_Context/binary, 256:8>>);
+	hmac:hmac256(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 256:8>>);
 kdf(?ZRTP_HASH_S384, Key, Label, KDF_Context) ->
-	hmac:hmac384(Key, <<1:32, Label/binary, 00:32, KDF_Context/binary, 384:8>>).
+	hmac:hmac384(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 384:8>>).
