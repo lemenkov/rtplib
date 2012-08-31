@@ -358,6 +358,7 @@ handle_call(
 		h1 = H1,
 		h0 = H0,
 		hash = Hash,
+		cipher = Cipher,
 		rs1IDi = Rs1IDi,
 		rs2IDi = Rs2IDi,
 		auxSecretIDi = AuxSecretIDi,
@@ -398,17 +399,24 @@ handle_call(
 			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
 
 			% Derive keys
-			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
-			MasterSaltI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+			HLength = get_hashlength(Hash),
+			KLength = get_keylength(Cipher),
 
-			MasterKeyR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
-			MasterSaltR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+			% SRTP keys
+			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
+			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
+			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
 
-			HMacKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
-			HMacKeyR = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
+			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
 
-			ConfirmKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
-			ConfirmKeyR = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
+			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+
+			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "ZRTP Session Key", KDF_Context),
+			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Exported key", KDF_Context),
+			%% FIXME SAS key
 
 			{reply, DHpart2,
 				State#state{
@@ -449,6 +457,7 @@ handle_call(
 		dhPriv = PrivateKey,
 		other_ssrc = SSRC,
 		hash = Hash,
+		cipher = Cipher,
 		h0 = H0,
 		iv = IV,
 		other_zid = ZIDi,
@@ -480,17 +489,24 @@ handle_call(
 			S0 = HashFun(<<1:32, DHresult/binary, "ZRTP-HMAC-KDF", ZIDi/binary, ZIDr/binary, TotalHash/binary, 0:32, 0:32, 0:32 >>),
 
 			% Derive keys
-			MasterKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
-			MasterSaltI = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+			HLength = get_hashlength(Hash),
+			KLength = get_keylength(Cipher),
 
-			MasterKeyR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
-			MasterSaltR = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
+			% SRTP keys
+			<<MasterKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master key", KDF_Context),
+			<<MasterSaltI:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator SRTP master salt", KDF_Context),
+			<<MasterKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master key", KDF_Context),
+			<<MasterSaltR:14/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder SRTP master salt", KDF_Context),
 
-			HMacKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
-			HMacKeyR = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
+			<<HMacKeyI:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator HMAC key", KDF_Context),
+			<<HMacKeyR:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder HMAC key", KDF_Context),
 
-			ConfirmKeyI = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
-			ConfirmKeyR = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+			<<ConfirmKeyI:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Initiator ZRTP key", KDF_Context),
+			<<ConfirmKeyR:KLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Responder ZRTP key", KDF_Context),
+
+			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "ZRTP Session Key", KDF_Context),
+			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, "Exported key", KDF_Context),
+			%% FIXME SAS key
 
 			% FIXME add actual values as well as SAS
 			HMacFun = get_hmacfun(Hash),
@@ -1088,11 +1104,12 @@ choose([Item | Rest], IntersectList) ->
 		_ -> choose(Rest, IntersectList)
 	end.
 
-get_hashfun(?ZRTP_HASH_S256) ->
-	fun erlsha2:sha256/1;
-get_hashfun(?ZRTP_HASH_S384) ->
-	fun erlsha2:sha384/1.
-get_hmacfun(?ZRTP_HASH_S256) ->
-	fun hmac:hmac256/2;
-get_hmacfun(?ZRTP_HASH_S384) ->
-	fun hmac:hmac384/2.
+get_hashfun(?ZRTP_HASH_S256) -> fun erlsha2:sha256/1;
+get_hashfun(?ZRTP_HASH_S384) -> fun erlsha2:sha384/1.
+get_hmacfun(?ZRTP_HASH_S256) -> fun hmac:hmac256/2;
+get_hmacfun(?ZRTP_HASH_S384) -> fun hmac:hmac384/2.
+get_hashlength(?ZRTP_HASH_S256) -> 32;
+get_hashlength(?ZRTP_HASH_S384) -> 48.
+get_keylength(?ZRTP_CIPHER_AES1) -> 16;
+get_keylength(?ZRTP_CIPHER_AES2) -> 24;
+get_keylength(?ZRTP_CIPHER_AES3) -> 32.
