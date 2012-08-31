@@ -589,13 +589,13 @@ handle_call(
 
 			% FIXME add actual values as well as SAS
 			HMacFun = get_hmacfun(Hash),
-			EData = crypto:aes_ctr_encrypt(ConfirmKeyI, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:32>>),
-			ConfMac = HMacFun(HMacKeyI, EData),
+			EData2 = crypto:aes_ctr_encrypt(ConfirmKeyI, IV, <<H0/binary, 0:15, 0:9, 0:4, 0:1, 0:1, 1:1, 0:1, 16#FFFFFFFF:32>>),
+			ConfMac2 = HMacFun(HMacKeyI, EData2),
 
 			Confirm2Msg = #confirm2{
-				conf_mac = ConfMac,
+				conf_mac = ConfMac2,
 				cfb_init_vect = IV,
-				encrypted_data = EData
+				encrypted_data = EData2
 			},
 
 			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = Confirm2Msg}, State#state{other_h0 = HashImageH0, prev_sn = SN}};
