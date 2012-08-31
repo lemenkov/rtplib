@@ -208,7 +208,7 @@ handle_call(
 		storage = Tid
 	} = State) ->
 
-	#zrtp{message = Hello} = ets:lookup_element(Tid, {bob, hello}, 2),
+	#zrtp{message = HelloMsg} = ets:lookup_element(Tid, {bob, hello}, 2),
 
 	HashFun = get_hashfun(Hash),
 	HMacFun = get_hmacfun(Hash),
@@ -231,9 +231,9 @@ handle_call(
 	{PublicKey, PrivateKey} = ets:lookup_element(Tid, {pki,KeyAgr}, 2),
 
 	% We must generate DHPart2 here
-	DHpart2 = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
+	DHpart2Msg = mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey),
 
-	Hvi = calculate_hvi(Hello, DHpart2, HashFun),
+	Hvi = calculate_hvi(HelloMsg, DHpart2Msg, HashFun),
 
 	CommitMsg = #commit{
 		h2 = H2,
