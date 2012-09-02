@@ -81,6 +81,7 @@
 		hmac_key_r = null,
 		confirm_key_i = null,
 		confirm_key_r = null,
+		sas_val = null,
 
 		other_zid = null,
 		other_ssrc = null,
@@ -359,6 +360,7 @@ handle_call(
 		h0 = H0,
 		hash = Hash,
 		cipher = Cipher,
+		sas = SAS,
 		rs1IDi = Rs1IDi,
 		rs2IDi = Rs2IDi,
 		auxSecretIDi = AuxSecretIDi,
@@ -416,7 +418,10 @@ handle_call(
 
 			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"ZRTP Session Key">>, KDF_Context),
 			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Exported key">>, KDF_Context),
-			%% FIXME SAS key
+
+			% http://zfone.com/docs/ietf/rfc6189bis.html#SASType
+			<<SASValue:4/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"SAS">>, KDF_Context),
+			SASString = zrtp_crypto:sas(SASValue, SAS),
 
 			{reply, DHpart2,
 				State#state{
@@ -430,7 +435,8 @@ handle_call(
 					hmac_key_i = HMacKeyI,
 					hmac_key_r = HMacKeyR,
 					confirm_key_i = ConfirmKeyI,
-					confirm_key_r = ConfirmKeyR
+					confirm_key_r = ConfirmKeyR,
+					sas_val = SASString
 				}
 			};
 		false ->
@@ -458,6 +464,7 @@ handle_call(
 		other_ssrc = SSRC,
 		hash = Hash,
 		cipher = Cipher,
+		sas = SAS,
 		h0 = H0,
 		iv = IV,
 		other_zid = ZIDi,
@@ -506,7 +513,10 @@ handle_call(
 
 			<<ZRTPSessKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"ZRTP Session Key">>, KDF_Context),
 			<<ExportedKey:HLength/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"Exported key">>, KDF_Context),
-			%% FIXME SAS key
+
+			% http://zfone.com/docs/ietf/rfc6189bis.html#SASType
+			<<SASValue:4/binary, _/binary>> = zrtp_crypto:kdf(Hash, S0, <<"SAS">>, KDF_Context),
+			SASString = zrtp_crypto:sas(SASValue, SAS),
 
 			% FIXME add actual values as well as SAS
 			HMacFun = get_hmacfun(Hash),
@@ -531,7 +541,8 @@ handle_call(
 					hmac_key_i = HMacKeyI,
 					hmac_key_r = HMacKeyR,
 					confirm_key_i = ConfirmKeyI,
-					confirm_key_r = ConfirmKeyR
+					confirm_key_r = ConfirmKeyR,
+					sas_val = SASString
 				}
 			};
 		false ->

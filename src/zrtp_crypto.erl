@@ -33,6 +33,7 @@
 -export([mkdh/1]).
 -export([mkfinal/2]).
 -export([kdf/4]).
+-export([sas/2]).
 
 -include("../include/zrtp.hrl").
 
@@ -169,3 +170,9 @@ kdf(?ZRTP_HASH_S256, Key, Label, KDF_Context) ->
 	hmac:hmac256(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 256:8>>);
 kdf(?ZRTP_HASH_S384, Key, Label, KDF_Context) ->
 	hmac:hmac384(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 384:8>>).
+
+sas(SASValue, ?ZRTP_SAS_TYPE_B32) ->
+	"test";
+sas(SASValue, ?ZRTP_SAS_TYPE_B256) ->
+	<<Byte0:8, Byte1:8, _/binary>> = SASValue,
+	"hello:test".
