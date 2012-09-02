@@ -585,6 +585,14 @@ handle_call(
 	ConfMac = HMacFun(HMacKeyR, EData),
 	<<HashImageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>> = crypto:aes_ctr_decrypt(ConfirmKeyR, IV, EData),
 
+%	Signature = case SigLen of
+%		0 -> null;
+%		_ ->
+%			SigLenBytes = (SigLen - 1) * 4,
+%			<<SigType:4/binary, SigData:SigLenBytes/binary>> = Rest,
+%			#signature{type = SigType, data = SigData}
+%	end,
+
 	% Verify HMAC chain
 	HashImageH1 = erlsha2:sha256(HashImageH0),
 	HashImageH2 = erlsha2:sha256(HashImageH1),
@@ -646,6 +654,14 @@ handle_call(
 	HMacFun = get_hmacfun(Hash),
 	ConfMac = HMacFun(HMacKeyI, EData),
 	<<HashImageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>> = crypto:aes_ctr_decrypt(ConfirmKeyI, IV, EData),
+
+%	Signature = case SigLen of
+%		0 -> null;
+%		_ ->
+%			SigLenBytes = (SigLen - 1) * 4,
+%			<<SigType:4/binary, SigData:SigLenBytes/binary>> = Rest,
+%			#signature{type = SigType, data = SigData}
+%	end,
 
 	% Verify HMAC chain
 	HashImageH1 = erlsha2:sha256(HashImageH0),
@@ -841,52 +857,12 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART2, HashIma
 		pvi = PVI,
 		mac = MAC
 	}};
-%decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, HashPreimageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>>) ->
-%	Signature = case SigLen of
-%		0 -> null;
-%		_ ->
-%			SigLenBytes = (SigLen - 1) * 4,
-%			<<SigType:4/binary, SigData:SigLenBytes/binary>> = Rest,
-%			#signature{type = SigType, data = SigData}
-%	end,
-%	{ok, #confirm1{
-%			conf_mac = ConfMac,
-%			cfb_init_vect = CFBInitVect,
-%			h0 = HashPreimageH0,
-%			pbx_enrollement = E,
-%			sas_verified = V,
-%			allow_clear = A,
-%			disclosure = D,
-%			cache_exp_interval = CacheExpInterval,
-%			signature = Signature
-%	}};
-% We need this for the case when we can't decrypt the payload (full proxy mode)
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM1, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
 	{ok, #confirm1{
 			conf_mac = ConfMac,
 			cfb_init_vect = CFBInitVect,
 			encrypted_data = EncryptedData
 	}};
-%decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, HashPreimageH0:32/binary, _Mbz:15, SigLen:9, 0:4, E:1, V:1, A:1, D:1, CacheExpInterval:4/binary, Rest/binary>>) ->
-%	Signature = case SigLen of
-%		0 -> null;
-%		_ ->
-%			SigLenBytes = (SigLen - 1) * 4,
-%			<<SigType:4/binary, SigData:SigLenBytes/binary>> = Rest,
-%			#signature{type = SigType, data = SigData}
-%	end,
-%	{ok, #confirm2{
-%			conf_mac = ConfMac,
-%			cfb_init_vect = CFBInitVect,
-%			h0 = HashPreimageH0,
-%			pbx_enrollement = E,
-%			sas_verified = V,
-%			allow_clear = A,
-%			disclosure = D,
-%			cache_exp_interval = CacheExpInterval,
-%			signature = Signature
-%	}};
-% We need this for the case when we can't decrypt the payload (full proxy mode)
 decode_message(<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_CONFIRM2, ConfMac:8/binary, CFBInitVect:16/binary, EncryptedData/binary>>) ->
 	{ok, #confirm2{
 			conf_mac = ConfMac,
