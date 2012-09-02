@@ -31,6 +31,8 @@
 -module(crc32c).
 -author('lemenkov@gmail.com').
 
+-export([init/0, crc32c/1]).
+
 -export([make/1]).
 -export([check/2]).
 -export([load_tables/0]).
@@ -124,3 +126,12 @@ compute_crc32c(Val, <<Byte:8/unsigned-integer, Rest/binary>>) ->
 	NewVal = (Val bsr 8) bxor CrcVal,
 	compute_crc32c(NewVal, Rest).
 
+init() ->
+	SoName = case code:priv_dir(rtplib) of
+		{error, bad_name} -> filename:join("../priv", "crc32c_nif");
+		Dir -> filename:join(Dir, "crc32c_nif")
+	end,
+	erlang:load_nif(SoName, 0).
+
+crc32c(_Param) ->
+	"NIF library not loaded".

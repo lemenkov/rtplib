@@ -21,7 +21,7 @@ lib_LTLIBRARIES = \
 		  $(OPUS_CODEC_DRV) \
 		  $(SPEEX_CODEC_DRV) \
 		  $(ILBC_CODEC_DRV) \
-		  crc32c_drv.la \
+		  crc32c_nif.la \
 		  resampler_drv.la
 
 dvi4_codec_drv_la_SOURCES = dvi4_codec.c
@@ -80,10 +80,10 @@ ilbc_codec_drv_la_LIBADD = @ILBC_LIBS@ @ERLANG_LIBS@
 ilbc_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 endif
 
-crc32c_drv_la_SOURCES = crc32c.c
-crc32c_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@
-crc32c_drv_la_LIBADD = @ERLANG_LIBS@
-crc32c_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
+crc32c_nif_la_SOURCES = crc32c_nif.c
+crc32c_nif_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@
+crc32c_nif_la_LIBADD = @ERLANG_LIBS@
+crc32c_nif_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
 resampler_drv_la_SOURCES = resampler.c
 resampler_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SAMPLERATE_CFLAGS@
