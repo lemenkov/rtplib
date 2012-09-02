@@ -926,7 +926,6 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
-%encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, s = S, m = M, p = P, hash = Hashes, cipher = Ciphers, auth = Auths, keyagr = KeyAgreements, sas = SASTypes, mac}, ) ->
 encode_message(helloack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_HELLOACK>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = <<"Mult">>,sas = SAS,nonce = Nonce,mac = MAC}) ->
