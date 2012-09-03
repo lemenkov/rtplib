@@ -712,6 +712,10 @@ terminate(Reason, State) ->
 	ok.
 
 handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
+	% Intialize NIF libraries if not initialized yet
+	crc32c:init(),
+	sas:init(),
+
 	% First hash is a random set of bytes
 	% Th rest are a chain of hashes made with predefined hash function
 	H0 = crypto:rand_bytes(32),
