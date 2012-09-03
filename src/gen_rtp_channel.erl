@@ -70,149 +70,18 @@ behaviour_info(_) ->
 -record(state, {
 		mod = null,
 		modstate = null,
-		rtp,
-		rtcp,
-		ip = null,
-		rtpport = null,
-		rtcpport = null,
 		ssrc = null,
-		proxy,
-		sendrecv,
-		mux,
 		encoder = false,
-		decoders = [],
-		cipher = passthru,
-		cipher_params = null,
-		lastseen = null,
-		% If set to true then we'll have another one INTERIM_UPDATE
-		% interval to wait for initial data
-		alive = false,
-		tref
+		decoders = []
 	}
 ).
 
 start(Module, Params, Addon) ->
-	gen_server:start(?MODULE, [Module, Params, Addon], []).
+	gen_rtp_phy:start(?MODULE, [Module, Params, Addon], []).
 start_link(Module, Params, Addon) ->
-	gen_server:start_link(?MODULE, [Module, Params, Addon], []).
+	gen_rtp_phy:start_link(?MODULE, [Module, Params, Addon], []).
 
 init([Module, Params, Addon]) when is_atom(Module) ->
-	% Deferred init
-	self() ! {init, {Module, Params, Addon}},
-
-	{ok, #state{}}.
-
-handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
-	case Module:handle_call(Request, From, ModState) of
-		{reply, Reply, NewModState} ->
-			{reply, Reply, State#state{modstate=NewModState}};
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState}};
-		{stop, Reason, Reply, NewModState} ->
-			{stop, Reason, Reply, State#state{modstate=NewModState}}
-	 end.
-
-handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, encoder = Encoder, decoders = Decoders} = State) ->
-	Pkt2 = transcode(Pkt, Encoder, Decoders),
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt2)),
-	{noreply, State};
-handle_cast({#rtcp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, mux = true} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	% If muxing is enabled (either explicitly or with a 'auto' parameter
-	% then send RTCP acked within RTP stream
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
-	{noreply, State};
-handle_cast({#rtcp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtcpport = Port} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
-	{noreply, State};
-
-handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
-	% FIXME
-	{noreply, State};
-
-handle_cast({update, Params}, State) ->
-	% FIXME consider changing another params as well
-	SendRecvStrategy = get_send_recv_strategy(Params),
-	{ok, State#state{sendrecv = SendRecvStrategy}};
-
-handle_cast(Request, State = #state{mod=Module, modstate=ModState}) ->
-	case Module:handle_cast(Request, ModState) of
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState}}
-	end.
-
-code_change(_OldVsn, State, _Extra) ->
-	{ok, State}.
-
-terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, tref = TRef, encoder = Encoder, decoders = Decoders}) ->
-	timer:cancel(TRef),
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:close(Fd0),
-	% FIXME We must send RTCP bye here
-	gen_udp:close(Fd1),
-	Mod:terminate(Reason, ModState),
-	% Close encoder and decoders (if any)
-	case Encoder of
-		false -> ok;
-		_ -> codec:close(Encoder)
-	end,
-	lists:foreach(fun(Codec) -> codec:close(Codec) end, Decoders).
-
-handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv} = State) ->
-	inet:setopts(Fd, [{active, once}]),
-	NewState = SendRecv(Msg, Ip, Port, State),
-	{noreply, NewState};
-
-handle_info(interim_update, #state{mod=Module, modstate=ModState, alive = true} = State) ->
-	case Module:handle_info(interim_update, ModState) of
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState, alive=false}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState, alive=false}}
-	end;
-handle_info(interim_update, #state{alive = false} = State) ->
-	{stop, timeout, State};
-
-handle_info({init, {Module, Params, Addon}}, State) ->
-	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
-	Transport = proplists:get_value(transport, Params, udp),
-	SockParams = proplists:get_value(sockparams, Params, []),
-	% Either specify IPv4 or IPv6 explicitly or provide two special
-	% values - "::" for any available IPv6 or "0.0.0.0" or "0" for
-	% any available IPv4.
-	{ok, IpAddr} = inet_parse:address(proplists:get_value(ip, Params, "0.0.0.0")),
-	% Either specify port explicitly or provide none if don't care
-	IpPort = proplists:get_value(port, Params, 0),
-	% 'weak' - receives data from any Ip and Port with any SSRC
-	% 'selective' - receives data from only one Ip and Port *or* with the same SSRC as before
-	% 'enforcing' - Ip, Port and SSRC *must* match previously recorded data
-	% 'srtp' - depends on SRTP/ZRTP
-	SendRecvStrategy = get_send_recv_strategy(Params),
-	CipherParams = case SendRecvStrategy of
-		srtp ->
-			MasterKey = proplists:get_value(mkey, Params),
-			MasterSalt = proplists:get_value(msalt, Params),
-			Aalg = proplists:get_value(ealg, Params, srtpAuthenticationSha1Hmac),
-			Ealg = proplists:get_value(ealg, Params, srtpEncryptionAESCM),
-			TagLength = proplists:get_value(tag_length, Params, 80),
-			{MasterKey, MasterSalt, Aalg, Ealg, TagLength};
-		_ ->
-			null
-	end,
-	% 'true' - act as a proxy (send RTP and RTCP packets further as is)
-	% 'false' - strip-off everything except RTP payload. Regenerate RTCP. 
-	% FIXME only proxy (bypass) mode for now
-	Proxy = proplists:get_value(proxy, Params, true),
-	% 'false' = no muxing at all (RTP will be sent in the RTP and RTCP - in the RTCP channels separately)
-	% 'true' - both RTP and RTCP will be sent in the RTP channel
-	% 'auto' - the same as 'false' until we'll find muxed packet.
-	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 	{Encoder, Decoders} = case proplists:get_value(transcode, Params, false) of
 		false ->
 			{
@@ -229,31 +98,66 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 			}
 	end,
 
-	Timeout = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
-	{ok, TRef} = timer:send_interval(Timeout, interim_update),
+	{ok, ModState} = Module:init([Params, Addon]),
 
-	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
-
-	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
-	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
-
-	{ok, ModState} = Module:init([Ip, PortRtp, PortRtcp, Addon]),
-
-	{noreply, #state{
+	{ok, #state{
 			mod = Module,
 			modstate = ModState,
-			rtp = Fd0,
-			rtcp = Fd1,
-			mux = MuxRtpRtcp,
-			sendrecv = SendRecvStrategy,
-			proxy = Proxy,
 			encoder = Encoder,
-			decoders = Decoders,
-			cipher = passthru,
-			cipher_params = CipherParams,
-			tref = TRef
+			decoders = Decoders
 		}
-	};
+	}.
+
+handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
+	case Module:handle_call(Request, From, ModState) of
+		{reply, Reply, NewModState} ->
+			{reply, Reply, State#state{modstate=NewModState}};
+		{noreply, NewModState} ->
+			{noreply, State#state{modstate=NewModState}};
+		{stop, Reason, NewModState} ->
+			{stop, Reason, State#state{modstate=NewModState}};
+		{stop, Reason, Reply, NewModState} ->
+			{stop, Reason, Reply, State#state{modstate=NewModState}}
+	 end.
+
+handle_cast({#rtp{} = Pkt, _, _}, State) ->
+	% FIXME - send to the next level?
+	{noreply, State};
+handle_cast({#rtp{} = Pkt, _, _}, #state{encoder = Encoder, decoders = Decoders} = State) ->
+	Pkt2 = transcode(Pkt, Encoder, Decoders),
+	% FIXME - send to the next level?
+	{noreply, State};
+handle_cast({#rtcp{} = Pkt, _, _}, State) ->
+	% FIXME - send to the next level?
+	{noreply, State};
+
+handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
+	% FIXME
+	{noreply, State};
+
+handle_cast({update, Params}, State) ->
+	% FIXME consider changing some parameters
+	{ok, State};
+
+handle_cast(Request, State = #state{mod=Module, modstate=ModState}) ->
+	case Module:handle_cast(Request, ModState) of
+		{noreply, NewModState} ->
+			{noreply, State#state{modstate=NewModState}};
+		{stop, Reason, NewModState} ->
+			{stop, Reason, State#state{modstate=NewModState}}
+	end.
+
+code_change(_OldVsn, State, _Extra) ->
+	{ok, State}.
+
+terminate(Reason, #state{mod = Mod, modstate = ModState, encoder = Encoder, decoders = Decoders}) ->
+	Mod:terminate(Reason, ModState),
+	% Close encoder and decoders (if any)
+	case Encoder of
+		false -> ok;
+		_ -> codec:close(Encoder)
+	end,
+	lists:foreach(fun(Codec) -> codec:close(Codec) end, Decoders).
 
 handle_info(Info, State = #state{mod=Module, modstate=ModState}) ->
 	case Module:handle_info(Info, ModState) of
@@ -266,162 +170,6 @@ handle_info(Info, State = #state{mod=Module, modstate=ModState}) ->
 %%
 %% Private functions
 %%
-
-%% Open a pair of UDP ports - N and N+1 (for RTP and RTCP consequently)
-get_fd_pair({Transport, {I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
-	is_integer(I0), 0 =< I0, I0 < 65536,
-	is_integer(I1), 0 =< I1, I1 < 65536,
-	is_integer(I2), 0 =< I2, I2 < 65536,
-	is_integer(I3), 0 =< I3, I3 < 65536,
-	is_integer(I4), 0 =< I4, I4 < 65536,
-	is_integer(I5), 0 =< I5, I5 < 65536,
-	is_integer(I6), 0 =< I6, I6 < 65536,
-	is_integer(I7), 0 =< I7, I7 < 65536 ->
-	get_fd_pair(Transport, IPv6, Port, proplists:delete(ipv6, SockParams) ++ [inet6], 10);
-get_fd_pair({Transport, {I0,I1,I2,I3} = IPv4, Port, SockParams}) when
-	is_integer(I0), 0 =< I0, I0 < 256,
-	is_integer(I1), 0 =< I1, I1 < 256,
-	is_integer(I2), 0 =< I2, I2 < 256,
-	is_integer(I3), 0 =< I3, I3 < 256 ->
-	get_fd_pair(Transport, IPv4, Port, proplists:delete(ipv6, SockParams), 10).
-
-get_fd_pair(Transport, I, P, SockParams, 0) ->
-	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
-	error;
-get_fd_pair(Transport, I, P, SockParams, NTry) ->
-	case gen_udp:open(P, [binary, {ip, I}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
-		{ok, Fd} ->
-			{ok, {Ip,Port}} = inet:sockname(Fd),
-			Port2 = case Port rem 2 of
-				0 -> Port + 1;
-				1 -> Port - 1
-			end,
-			case gen_udp:open(Port2, [binary, {ip, Ip}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
-				{ok, Fd2} ->
-					if
-						Port > Port2 -> {Fd2, Fd};
-						Port < Port2 -> {Fd, Fd2}
-					end;
-				{error, _} ->
-					gen_udp:close(Fd),
-					get_fd_pair(Transport, I, P, SockParams, NTry - 1)
-			end;
-		{error, _} ->
-			get_fd_pair(Transport, I, P, SockParams, NTry - 1)
-	end.
-
-get_send_recv_strategy(Params) ->
-	case proplists:get_value(sendrecv, Params, weak) of
-		weak -> fun send_recv_simple/4;
-		simple -> fun send_recv_simple/4;
-		selective -> fun send_recv_selective/4;
-		enforcing -> fun send_recv_enforcing/4;
-		srtp -> fun send_recv_srtp/4
-	end.
-%%
-%% Various callbacks
-%%
-
-% 'weak' mode - just get data, decode and notify subscriber
-send_recv_simple(Msg, Ip, Port, #state{mod = Module, modstate = ModState} = State) ->
-	case catch rtp:decode(Msg) of
-		{ok, #rtp{} = Pkt} ->
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtpport = Port, alive = true};
-		{ok, #rtcp{} = Pkt} ->
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			State
-	end.
-
-% 'selective' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
-send_recv_selective(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
-	case {catch rtp:decode(Msg), I, P1, P2, S} of
-		{{ok, #rtp{} = Pkt}, Ip, Port, _, _} ->
-			% Legitimate RTP packet - discard SSRC matching
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), alive = true};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
-			% First RTP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, _, SSRC, _} ->
-			% Changed address - roaming (drop RTCP port - we don't know anything about it)
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, rtcpport = null, lastseen = now(), alive = true};
-		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
-			% Legitimate RTCP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, mux = Mux};
-		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
-			% First RTCP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			State
-	end.
-
-% 'enforcing' - Ip, Port and SSRC must match previously recorded data
-send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
-	case {catch rtp:decode(Msg), I, P1, P2, S} of
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, Ip, Port, _, SSRC} ->
-			% Legitimate RTP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), alive = true};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
-			% First RTP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
-		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
-			% Legitimate RTCP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, mux = Mux};
-		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
-			% First RTCP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			State
-	end.
-
-% 'srtp' - depends on SRTP/ZRTP
-send_recv_srtp(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, cipher = Cipher, cipher_params = CipherParams, mod = Module, modstate = ModState} = State) ->
-	case {catch srtp:decrypt(Msg, Cipher), I, P1, P2, S} of
-		{{ok, #rtp{ssrc = SSRC} = Pkt, NewCipher}, Ip, Port, _, SSRC} ->
-			% Legitimate RTP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, cipher = NewCipher};
-		{{ok, #rtp{ssrc = SSRC} = Pkt, _}, _, null, _, _} ->
-			{MasterKey, MasterSalt, Aalg, Ealg, TagLength} = CipherParams,
-			% Create real security context
-			Ctx = srtp:new_ctx(SSRC, Ealg, Aalg, MasterKey, MasterSalt, TagLength),
-			{ok, Pkt, NewCtx} = srtp:decrypt(Msg, Ctx),
-			% First RTP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtpport = Port, ssrc = SSRC, alive = true, cipher = NewCtx, cipher_params = null};
-		{{ok, #rtcp{} = Pkt, NewCipher}, Ip, _, Port, _} ->
-			% Legitimate RTCP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, cipher = NewCipher, mux = Mux};
-		{{ok, #rtcp{} = Pkt, NewCipher}, _, _, null, _} ->
-			% First RTCP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, cipher = NewCipher, mux = Mux};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			State
-	end.
 
 transcode(Pkt, false, _) ->
 	Pkt;
