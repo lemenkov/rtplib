@@ -34,20 +34,20 @@
 
 crc32c_test_() ->
 	{setup,
-		fun() -> crc32c:load_tables() end,
+		fun() -> crc32c:init() end,
 		fun (_) -> ok end,
 		[
 			{"32 bytes of zeroes (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(true, crc32c:check(<< <<0:8>> || X <- lists:seq(0,31) >>, <<16#aa, 16#36, 16#91, 16#8a>>)) end
+				fun() -> ?assertEqual(<<16#aa, 16#36, 16#91, 16#8a>>, crc32c:crc32c(<< <<0:8>> || X <- lists:seq(0,31) >>)) end
 			},
 			{"32 bytes of 0xFF (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(true, crc32c:check(<< <<16#ff:8>> || X <- lists:seq(0,31) >>, <<16#43, 16#ab, 16#a8, 16#62>>)) end
+				fun() -> ?assertEqual(<<16#43, 16#ab, 16#a8, 16#62>>, crc32c:crc32c(<< <<16#ff:8>> || X <- lists:seq(0,31) >>)) end
 			},
 			{"32 bytes of consequently incrementing values (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(true, crc32c:check(<< <<X:8>> || X <- lists:seq(0,31) >>, <<16#4e, 16#79, 16#dd, 16#46>>)) end
+				fun() -> ?assertEqual(<<16#4e, 16#79, 16#dd, 16#46>>, crc32c:crc32c(<< <<X:8>> || X <- lists:seq(0,31) >>)) end
 			},
 			{"32 bytes of consequently decrementing values (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(true, crc32c:check(<< <<(31-X):8>> || X <- lists:seq(0,31) >>, <<16#5c, 16#db, 16#3f, 16#11>>)) end
+				fun() -> ?assertEqual(<<16#5c, 16#db, 16#3f, 16#11>>, crc32c:crc32c(<< <<(31-X):8>> || X <- lists:seq(0,31) >>)) end
 			}
 		]
 	}.

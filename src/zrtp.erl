@@ -756,13 +756,13 @@ handle_info(Other, State) ->
 decode(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, Rest/binary>>) ->
 	L = size(Rest) - 4,
 	<<BinMessage:L/binary, CRC:32>> = Rest,
-	true = check_crc32c(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, BinMessage/binary>>, CRC),
+	<<CRC:32>> == crc32c:crc32c(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, BinMessage/binary>>),
 	{ok, Message} = decode_message(BinMessage),
 	{ok, #zrtp{sequence = Sequence, ssrc = SSRC, message = Message}}.
 
 encode(#zrtp{sequence = Sequence, ssrc = SSRC, message = Message}) ->
 	BinMessage = encode_message(Message),
-	CRC = make_crc32c(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, BinMessage/binary>>),
+	CRC = crc32c:crc32c(<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, BinMessage/binary>>),
 	<<?ZRTP_MARKER:16, Sequence:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, BinMessage/binary, CRC/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -997,35 +997,6 @@ encode_message(_) ->
 %%% Various helpers
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-check_crc32c(Message, CRC) ->
-	<<NewCRC:32>> = make_crc32c(Message),
-	NewCRC == CRC.
-
-make_crc32c(Message) ->
-	% FIXME use NIF here instead of that
-	load_library(crc32c_drv),
-	Port = open_port({spawn, crc32c_drv}, [binary]),
-	CRC = port_control(Port, 0, Message),
-	port_close(Port),
-	CRC.
-
-% FIXME remove this
-load_library(Name) ->
-	case erl_ddll:load_driver(get_priv(), Name) of
-		ok -> ok;
-		{error, already_loaded} -> ok;
-		{error, permanent} -> ok;
-		{error, Error} ->
-			error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
-			{error, Error}
-	end.
-
--ifdef(TEST).
-get_priv() -> "../priv". % Probably eunit session
--else.
-get_priv() -> code:lib_dir(rtplib, priv).
--endif.
 
 calculate_hvi(#hello{} = Hello, #dhpart2{} = DHPart2, HashFun) ->
 	HelloBin = encode_message(Hello),
