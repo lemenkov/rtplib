@@ -22,6 +22,7 @@ lib_LTLIBRARIES = \
 		  $(SPEEX_CODEC_DRV) \
 		  $(ILBC_CODEC_DRV) \
 		  crc32c_drv.la \
+		  sas_nif.la \
 		  resampler_drv.la
 
 dvi4_codec_drv_la_SOURCES = dvi4_codec.c
@@ -84,6 +85,11 @@ crc32c_drv_la_SOURCES = crc32c.c
 crc32c_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@
 crc32c_drv_la_LIBADD = @ERLANG_LIBS@
 crc32c_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
+
+sas_nif_la_SOURCES = sas_nif.c
+sas_nif_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@
+sas_nif_la_LIBADD = @ERLANG_LIBS@
+sas_nif_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
 resampler_drv_la_SOURCES = resampler.c
 resampler_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SAMPLERATE_CFLAGS@

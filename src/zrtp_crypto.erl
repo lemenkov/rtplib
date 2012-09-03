@@ -172,7 +172,6 @@ kdf(?ZRTP_HASH_S384, Key, Label, KDF_Context) ->
 	hmac:hmac384(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 384:8>>).
 
 sas(SASValue, ?ZRTP_SAS_TYPE_B32) ->
-	"test";
+	sas:b32(SASValue);
 sas(SASValue, ?ZRTP_SAS_TYPE_B256) ->
-	<<Byte0:8, Byte1:8, _/binary>> = SASValue,
-	"hello:test".
+	sas:b256(SASValue).
