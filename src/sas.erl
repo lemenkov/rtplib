@@ -30,11 +30,11 @@
 
 -module(sas).
 
--export([sas_nif_init/0]).
+-export([init/0]).
 -export([b32/1]).
 -export([b256/1]).
 
-sas_nif_init() ->
+init() ->
 	SoName = case code:priv_dir(rtplib) of
 		{error, bad_name} -> filename:join("../priv", "sas_nif");
 		Dir -> filename:join(Dir, "sas_nif")
