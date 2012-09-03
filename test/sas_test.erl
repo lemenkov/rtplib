@@ -1,5 +1,5 @@
 %%%----------------------------------------------------------------------
-%%% Copyright (c) 2008-2012 Peter Lemenkov <lemenkov@gmail.com>
+%%% Copyright (c) 2012 Peter Lemenkov <lemenkov@gmail.com>
 %%%
 %%% All rights reserved.
 %%%
@@ -28,26 +28,45 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(crc32c_test).
+-module(sas_test).
 
 -include_lib("eunit/include/eunit.hrl").
 
-crc32c_test_() ->
+b32_test_() ->
 	{setup,
-		fun() -> crc32c:init() end,
+		fun() -> sas:init() end,
 		fun (_) -> ok end,
 		[
-			{"32 bytes of zeroes (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(<<16#aa, 16#36, 16#91, 16#8a>>, crc32c:crc32c(<< <<0:8>> || X <- lists:seq(0,31) >>)) end
+			% https://github.com/wernerd/ZRTPCPP/blob/master/zrtp/Base32.cpp#L255
+			{"Vector 01",
+				fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
 			},
-			{"32 bytes of 0xFF (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(<<16#43, 16#ab, 16#a8, 16#62>>, crc32c:crc32c(<< <<16#ff:8>> || X <- lists:seq(0,31) >>)) end
+			{"Vector 02",
+				fun() -> ?assertEqual(<<"oyyy">>, sas:b32(<<16#80, 16#00, 16#00, 16#00>>)) end
 			},
-			{"32 bytes of consequently incrementing values (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(<<16#4e, 16#79, 16#dd, 16#46>>, crc32c:crc32c(<< <<X:8>> || X <- lists:seq(0,31) >>)) end
+			{"Vector 03",
+				fun() -> ?assertEqual(<<"eyyy">>, sas:b32(<<16#40, 16#00, 16#00, 16#00>>)) end
 			},
-			{"32 bytes of consequently decrementing values (see RFC 3270 B.4).",
-				fun() -> ?assertEqual(<<16#5c, 16#db, 16#3f, 16#11>>, crc32c:crc32c(<< <<(31-X):8>> || X <- lists:seq(0,31) >>)) end
+			{"Vector 04",
+				fun() -> ?assertEqual(<<"ayyy">>, sas:b32(<<16#c0, 16#00, 16#00, 16#00>>)) end
+			},
+			{"Vector 05",
+				fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
+			},
+			{"Vector 06",
+				fun() -> ?assertEqual(<<"onyy">>, sas:b32(<<16#80, 16#80, 16#00, 16#00>>)) end
+			},
+			{"Vector 07",
+				fun() -> ?assertEqual(<<"tqre">>, sas:b32(<<16#8b, 16#88, 16#80, 16#00>>)) end
+			},
+			{"Vector 08",
+				fun() -> ?assertEqual(<<"6n9h">>, sas:b32(<<16#f0, 16#bf, 16#c7, 16#00>>)) end
+			},
+			{"Vector 09",
+				fun() -> ?assertEqual(<<"4t7y">>, sas:b32(<<16#d4, 16#7a, 16#04, 16#00>>)) end
+			},
+			{"Vector 10",
+				fun() -> ?assertEqual(<<"6im5">>, sas:b32(<<16#f5, 16#57, 16#bb, 16#0c>>)) end
 			}
 		]
 	}.

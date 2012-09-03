@@ -38,6 +38,8 @@
 %%
 
 zrtp_parsing_test_() ->
+	crc32c:init(),
+
 	ZrtpMarker = <<16,0>>, % 16#1000
 	MagicCookie = <<"ZRTP">>,
 
