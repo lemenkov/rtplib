@@ -29,7 +29,7 @@
  */
 
 #include <stdint.h>
-#include "erl_driver.h"
+#include "erl_nif.h"
 
 /* http://tools.ietf.org/html/draft-ietf-tsvwg-sctpcsum-01 */
 /* http://tools.ietf.org/html/draft-ietf-tsvwg-sctpcsum-03 */
@@ -122,40 +122,24 @@ static const uint32_t crc_c[256] = {
     0xBE2DA0A5, 0x4C4623A6, 0x5F16D052, 0xAD7D5351,
 };
 
-typedef struct {
-	ErlDrvPort port;
-} codec_data;
-
-
-static ErlDrvData codec_drv_start(ErlDrvPort port, char *buff)
+static int crc32c(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	codec_data* d = (codec_data*)driver_alloc(sizeof(codec_data));
-	d->port = port;
-	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
-	return (ErlDrvData)d;
-}
+//		char **rbuf, int rlen
+//
+	ErlNifBinary bin;
+	ErlNifBinary out;
 
-static void codec_drv_stop(ErlDrvData handle)
-{
-	driver_free((char*)handle);
-}
+	enif_inspect_binary(env, argv[0], &bin);
+	enif_alloc_binary(4, &out);
 
-static int codec_drv_control(
-		ErlDrvData handle,
-		unsigned int command,
-		char *buf, int len,
-		char **rbuf, int rlen)
-{
 	uint32_t crc32c = ~(uint32_t) 0;
 	uint32_t result;
 	uint32_t i;
 #ifdef __BIG_ENDIAN__
 	uint8_t byte0, byte1, byte2, byte3;
 #endif
-	ErlDrvBinary *out;
-
-	for (i = 0; i < len ; i++)
-		CRC32C(crc32c, ((uint8_t*)buf)[i]);
+	for (i = 0; i < bin.size ; i++)
+		CRC32C(crc32c, ((uint8_t*)(bin.data))[i]);
 
 	result = ~crc32c;
 
@@ -169,40 +153,14 @@ static int codec_drv_control(
 #else
 	crc32c = result;
 #endif
-	out = driver_alloc_binary(4);
-	memcpy(out->orig_bytes, &crc32c, 4);
-	*rbuf = (char *) out;
+	memcpy(out.data, &crc32c, 4);
 
-	return 4;
+	return enif_make_binary(env, &out);
 }
 
-ErlDrvEntry codec_driver_entry = {
-	NULL,			/* F_PTR init, N/A */
-	codec_drv_start,	/* L_PTR start, called when port is opened */
-	codec_drv_stop,		/* F_PTR stop, called when port is closed */
-	NULL,			/* F_PTR output, called when erlang has sent */
-	NULL,			/* F_PTR ready_input, called when input descriptor ready */
-	NULL,			/* F_PTR ready_output, called when output descriptor ready */
-	"crc32c_drv",		/* char *driver_name, the argument to open_port */
-	NULL,			/* F_PTR finish, called when unloaded */
-	NULL,			/* handle */
-	codec_drv_control,	/* F_PTR control, port_command callback */
-	NULL,			/* F_PTR timeout, reserved */
-	NULL,			/* F_PTR outputv, reserved */
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	ERL_DRV_EXTENDED_MARKER,
-	ERL_DRV_EXTENDED_MAJOR_VERSION,
-	ERL_DRV_EXTENDED_MINOR_VERSION,
-	0,
-	NULL,
-	NULL,
-	NULL
+static ErlNifFunc nif_funcs[] =
+{
+	    {"crc32c", 1, crc32c}
 };
 
-DRIVER_INIT(codec_drv) /* must match name in driver_entry */
-{
-	return &codec_driver_entry;
-}
+ERL_NIF_INIT(crc32c,nif_funcs,NULL,NULL,NULL,NULL)
