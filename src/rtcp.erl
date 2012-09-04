@@ -58,7 +58,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decode(Data) when is_binary(Data) ->
-	decode(Data, []).
+	case decode(Data, []) of
+		{ok, Rtcps} -> {ok, Rtcps};
+		{warn, Rtcp} -> {ok, Rtcp#rtcp{encrypted = Data}}
+	end.
 
 decode(<<>>, DecodedRtcps) ->
 	% No data left, so we simply return list of decoded RTCP-packets
@@ -194,8 +197,8 @@ decode(<<0:32, Rest/binary>>, DecodedRtcps) ->
 	decode(Rest, DecodedRtcps);
 
 decode(Padding, DecodedRtcps) ->
-	error_logger:warning_msg("RTCP unknown padding [~p]~n", [Padding]),
-	{ok, #rtcp{payloads = DecodedRtcps}}.
+	error_logger:warning_msg("RTCP unknown padding (SRTCP?) [~p]~n", [Padding]),
+	{warn, #rtcp{payloads = DecodedRtcps}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -335,8 +338,10 @@ decode_bye(<<SSRC:32, Tail/binary>>, RC, Ret) when RC>0 ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode(#rtcp{payloads = List}) when is_list(List) ->
+encode(#rtcp{payloads = List, encrypted = null}) when is_list(List) ->
 	<< <<(encode(X))/binary>> || X <- List >>;
+encode(#rtcp{encrypted = Binary}) when is_binary(Binary) ->
+	Binary;
 
 encode(#fir{ssrc = SSRC}) ->
 	encode_fir(SSRC);
