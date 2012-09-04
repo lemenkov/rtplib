@@ -47,6 +47,7 @@
 -include("../include/zrtp.hrl").
 
 -record(state, {
+		parent = null,
 		zid,
 		ssrc,
 		h0,
@@ -98,9 +99,11 @@ start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
 %% Generate Alice's ZRTP server
-init([ZID, SSRC]) when is_binary(ZID) ->
-	init([ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
-init([ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) when is_binary(ZID) ->
+init([ZID, SSRC])->
+	init([null, ZID, SSRC]);
+init([Parent, ZID, SSRC]) ->
+	init([Parent, ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
+init([Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) when is_binary(ZID) ->
 	% Deferred init
 	self() ! {init, Params},
 	{ok, #state{}}.
@@ -634,12 +637,13 @@ handle_call(
 	} = Confirm2,
 	_From,
 	#state{
+		parent = Parent,
 		h0 = H0,
 		hash = Hash,
-		srtp_key_i = MasterKeyI,
-		srtp_salt_i = MasterSaltI,
-		srtp_key_r = MasterKeyR,
-		srtp_salt_r = MasterSaltR,
+		srtp_key_i = KeyI,
+		srtp_salt_i = SaltI,
+		srtp_key_r = KeyR,
+		srtp_salt_r = SaltR,
 		hmac_key_i = HMacKeyI,
 		hmac_key_r = HMacKeyR,
 		confirm_key_i = ConfirmKeyI,
@@ -673,6 +677,9 @@ handle_call(
 
 	case verify_hmac(DHpart2, HashImageH0) of
 		true ->
+			% We must send blocking request here
+			% And we're Responder
+			(Parent == null) orelse gen_server:call(Parent, {prepcrypto,  {SSRC, KeyI, SaltI}, {MySSRC, KeyR, SaltR}}),
 			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = conf2ack}, State};
 		false ->
 			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
@@ -683,10 +690,22 @@ handle_call(
 		sequence = SN,
 		ssrc = SSRC,
 		message = conf2ack
-	} = Conf2AckAck,
+	} = Conf2Ack,
 	_From,
-	#state{} = State) ->
-	% FIXME set SRTP keys
+	#state{
+		ssrc = MySSRC,
+		other_ssrc = SSRC,
+		parent = Parent,
+		srtp_key_i = KeyI,
+		srtp_salt_i = SaltI,
+		srtp_key_r = KeyR,
+		srtp_salt_r = SaltR
+	} = State) ->
+
+	% We must send blocking request here
+	% And we're Initiator
+	(Parent == null) orelse gen_server:call(Parent, {gocrypto,  {MySSRC, KeyI, SaltI}, {SSRC, KeyR, SaltR}}),
+
 	{reply, ok, State};
 
 handle_call(get_keys, _From, State) ->
@@ -711,7 +730,7 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, State) ->
 	ok.
 
-handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
+handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
 	% Intialize NIF libraries if not initialized yet
 	crc32c:init(),
 	sas:init(),
@@ -740,6 +759,7 @@ handle_info({init, [ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}
 	lists:map(fun(Atom) -> ets:insert(Tid, {Atom, crypto:rand_bytes(32)}) end, [rs1, rs2, rs3, rs4]),
 
 	{noreply, #state{
+			parent = Parent,
 			zid = ZID,
 			ssrc = SSRC,
 			h0 = H0,
