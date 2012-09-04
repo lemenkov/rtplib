@@ -268,7 +268,7 @@ get_fd_pair(Transport, I, P, SockParams, NTry) ->
 	end.
 
 get_send_recv_strategy(Params) ->
-	case proplists:get_value(sendrecv, Params, weak) of
+	case proplists:get_value(sendrecv, Params, roaming) of
 		weak -> fun send_recv_simple/4;
 		roaming -> fun send_recv_roaming/4;
 		enforcing -> fun send_recv_enforcing/4
