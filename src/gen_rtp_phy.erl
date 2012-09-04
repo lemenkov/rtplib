@@ -178,7 +178,7 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	% Either specify port explicitly or provide none if don't care
 	IpPort = proplists:get_value(port, Params, 0),
 	% 'weak' - receives data from any Ip and Port with any SSRC
-	% 'selective' - receives data from only one Ip and Port *or* with the same SSRC as before
+	% 'roaming' - receives data from only one Ip and Port *or* with the same SSRC as before
 	% 'enforcing' - Ip, Port and SSRC *must* match previously recorded data
 	SendRecvStrategy = get_send_recv_strategy(Params),
 	% 'false' = no muxing at all (RTP will be sent in the RTP and RTCP - in the RTCP channels separately)
@@ -265,7 +265,7 @@ get_fd_pair(Transport, I, P, SockParams, NTry) ->
 get_send_recv_strategy(Params) ->
 	case proplists:get_value(sendrecv, Params, weak) of
 		weak -> fun send_recv_simple/4;
-		selective -> fun send_recv_selective/4;
+		roaming -> fun send_recv_roaming/4;
 		enforcing -> fun send_recv_enforcing/4
 	end.
 
@@ -288,8 +288,8 @@ send_recv_simple(Msg, Ip, Port, #state{mod = Module, modstate = ModState} = Stat
 			State
 	end.
 
-% 'selective' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
-send_recv_selective(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
+% 'roaming' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
+send_recv_roaming(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
 	case {catch rtp:decode(Msg), I, P1, P2, S} of
 		{{ok, #rtp{} = Pkt}, Ip, Port, _, _} ->
 			% Legitimate RTP packet - discard SSRC matching
