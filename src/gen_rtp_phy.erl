@@ -284,7 +284,7 @@ send_recv_simple(Msg, Ip, Port, State) ->
 		{ok, #rtp{} = Pkt} ->
 			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
 		{ok, #rtcp{} = Pkt} ->
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{ok, #zrtp{} = Pkt} ->
 			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
@@ -309,11 +309,11 @@ send_recv_roaming(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssr
 			{Pkt, Ip, Port, null, State#state.mux, SSRC};
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{ok, #zrtp{} = Pkt, Ip, Port, _, _} ->
 			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
@@ -335,11 +335,11 @@ send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, s
 			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, SSRC};
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{ok, #zrtp{} = Pkt, Ip, Port, _, _} ->
 			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
