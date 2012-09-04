@@ -152,10 +152,15 @@ terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, 
 	gen_udp:close(Fd1),
 	Mod:terminate(Reason, ModState).
 
-handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv} = State) ->
+handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
 	inet:setopts(Fd, [{active, once}]),
-	NewState = SendRecv(Msg, Ip, Port, State),
-	{noreply, NewState};
+	case SendRecv(Msg, Ip, Port, State) of
+		{Pkt, Ip, RtpPort, RtcpPort, Mux, SSRC} ->
+			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
+			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, mux = Mux, ssrc = SSRC}};
+		false ->
+			{noreply, State}
+	end;
 
 handle_info(interim_update, #state{mod=Module, modstate=ModState, alive = true} = State) ->
 	case Module:handle_info(interim_update, ModState) of
@@ -274,72 +279,65 @@ get_send_recv_strategy(Params) ->
 %%
 
 % 'weak' mode - just get data, decode and notify subscriber
-send_recv_simple(Msg, Ip, Port, #state{mod = Module, modstate = ModState} = State) ->
+send_recv_simple(Msg, Ip, Port, State) ->
 	case catch rtp:decode(Msg) of
 		{ok, #rtp{} = Pkt} ->
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtpport = Port, alive = true};
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
 		{ok, #rtcp{} = Pkt} ->
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
+			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
+		{ok, #zrtp{} = Pkt} ->
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
+		{ok, #stun{} = Pkt} ->
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
-			State
+			false
 	end.
 
 % 'roaming' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
-send_recv_roaming(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
+send_recv_roaming(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S} = State) ->
 	case {catch rtp:decode(Msg), I, P1, P2, S} of
 		{{ok, #rtp{} = Pkt}, Ip, Port, _, _} ->
 			% Legitimate RTP packet - discard SSRC matching
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), alive = true};
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
 		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
 			% First RTP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, SSRC};
 		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, _, SSRC, _} ->
 			% Changed address - roaming (drop RTCP port - we don't know anything about it)
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, rtcpport = null, lastseen = now(), alive = true};
+			{Pkt, Ip, Port, null, State#state.mux, SSRC};
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, mux = Mux};
+			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
+			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
-			State
+			false
 	end.
 
 % 'enforcing' - Ip, Port and SSRC must match previously recorded data
-send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S, mod = Module, modstate = ModState} = State) ->
+send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S} = State) ->
 	case {catch rtp:decode(Msg), I, P1, P2, S} of
 		{{ok, #rtp{ssrc = SSRC} = Pkt}, Ip, Port, _, SSRC} ->
 			% Legitimate RTP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, lastseen = now(), alive = true};
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
 		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
 			% First RTP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			State#state{modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC, lastseen = now(), alive = true};
+			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, SSRC};
 		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
 			% Legitimate RTCP packet
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), alive = true, mux = Mux};
+			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
 			% First RTCP packet - save parameters
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Ip) and (State#state.mux == auto)),
-			State#state{modstate = NewModState, lastseen = now(), ip = Ip, rtcpport = Port, alive = true, mux = Mux};
+			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
 		_ ->
 			rtp_utils:dump_packet(node(), self(), Msg),
-			State
+			false
 	end.
