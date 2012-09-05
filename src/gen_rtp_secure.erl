@@ -71,6 +71,7 @@ behaviour_info(_) ->
 -record(state, {
 		mod = null,
 		modstate = null,
+		zrtp = null,
 		ctxI = passthru,
 		ctxR = passthru
 	}
