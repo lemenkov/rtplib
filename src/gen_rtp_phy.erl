@@ -152,15 +152,42 @@ terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, 
 	gen_udp:close(Fd1),
 	Mod:terminate(Reason, ModState).
 
-handle_info({udp, Fd, Ip, Port, Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
+handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State)  when PayloadType =< 34; 96 =< PayloadType ->
 	inet:setopts(Fd, [{active, once}]),
-	case SendRecv(Msg, Ip, Port, State) of
-		{Pkt, Ip, RtpPort, RtcpPort, Mux, SSRC} ->
-			{noreply, NewModState} = Module:handle_info({Pkt, Ip, Port}, ModState),
-			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, mux = Mux, ssrc = SSRC}};
+	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
+		true ->
+			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
+			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
-	end;
+	end,
+	{noreply, State};
+handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State)  when 64 =< PayloadType, PayloadType =< 82 ->
+	inet:setopts(Fd, [{active, once}]),
+	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
+		true ->
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
+			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
+			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+		false ->
+			{noreply, State}
+	end,
+	{noreply, State};
+handle_info({udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
+	inet:setopts(Fd, [{active, once}]),
+	% Treat ZRTP in the same way as RTP
+	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
+		true ->
+			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
+			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC}};
+		false ->
+			{noreply, State}
+	end,
+	{noreply, State};
+handle_info({udp, Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
+	inet:setopts(Fd, [{active, once}]),
+	% FIXME this is a STUN message - we should reply at this level
+	{noreply, State};
 
 handle_info(interim_update, #state{mod=Module, modstate=ModState, alive = true} = State) ->
 	case Module:handle_info(interim_update, ModState) of
@@ -269,9 +296,9 @@ get_fd_pair(Transport, I, P, SockParams, NTry) ->
 
 get_send_recv_strategy(Params) ->
 	case proplists:get_value(sendrecv, Params, roaming) of
-		weak -> fun send_recv_simple/4;
-		roaming -> fun send_recv_roaming/4;
-		enforcing -> fun send_recv_enforcing/4
+		weak -> fun send_recv_simple/6;
+		roaming -> fun send_recv_roaming/6;
+		enforcing -> fun send_recv_enforcing/6
 	end.
 
 %%
@@ -279,73 +306,22 @@ get_send_recv_strategy(Params) ->
 %%
 
 % 'weak' mode - just get data, decode and notify subscriber
-send_recv_simple(Msg, Ip, Port, State) ->
-	case catch rtp:decode(Msg) of
-		{ok, #rtp{} = Pkt} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{ok, #rtcp{} = Pkt} ->
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
-		{ok, #zrtp{} = Pkt} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{ok, #stun{} = Pkt} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			false
-	end.
+send_recv_simple(_, _, _, _, _, _) -> true.
 
 % 'roaming' mode - get data, check for the Ip and Port or for the SSRC (after decoding), decode and notify subscriber
-send_recv_roaming(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S} = State) ->
-	case {catch rtp:decode(Msg), I, P1, P2, S} of
-		{{ok, #rtp{} = Pkt}, Ip, Port, _, _} ->
-			% Legitimate RTP packet - discard SSRC matching
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
-			% First RTP packet - save parameters
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, SSRC};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, _, SSRC, _} ->
-			% Changed address - roaming (drop RTCP port - we don't know anything about it)
-			{Pkt, Ip, Port, null, State#state.mux, SSRC};
-		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
-			% Legitimate RTCP packet
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
-		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
-			% First RTCP packet - save parameters
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
-		{ok, #zrtp{} = Pkt, Ip, Port, _, _} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{ok, #stun{} = Pkt, Ip, Port, _, _} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			false
-	end.
+% Legitimate RTP/RTCP packet - discard SSRC matching
+send_recv_roaming(Ip, Port, _, Ip, Port, _) -> true;
+% First RTP/RTCP packet
+send_recv_roaming(Ip, Port, SSRC, _, null, _) -> true;
+% Changed address - roaming
+send_recv_roaming(Ip, Port, SSRC, _, _, SSRC) -> true;
+% Different IP and SSRC - drop
+send_recv_roaming(_, _, _, _, _, _) -> false.
 
 % 'enforcing' - Ip, Port and SSRC must match previously recorded data
-send_recv_enforcing(Msg, Ip, Port, #state{ip = I, rtpport = P1, rtcpport = P2, ssrc = S} = State) ->
-	case {catch rtp:decode(Msg), I, P1, P2, S} of
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, Ip, Port, _, SSRC} ->
-			% Legitimate RTP packet
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{{ok, #rtp{ssrc = SSRC} = Pkt}, _, null, _, _} ->
-			% First RTP packet - save parameters
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, SSRC};
-		{{ok, #rtcp{} = Pkt}, Ip, _, Port, _} ->
-			% Legitimate RTCP packet
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
-		{{ok, #rtcp{} = Pkt}, _, _, null, _} ->
-			% First RTCP packet - save parameters
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{Pkt, Ip, State#state.rtpport, Port, Mux, State#state.ssrc};
-		{ok, #zrtp{} = Pkt, Ip, Port, _, _} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		{ok, #stun{} = Pkt, Ip, Port, _, _} ->
-			{Pkt, Ip, Port, State#state.rtcpport, State#state.mux, State#state.ssrc};
-		_ ->
-			rtp_utils:dump_packet(node(), self(), Msg),
-			false
-	end.
+% Legitimate RTP/RTCP packet
+send_recv_enforcing(Ip, Port, SSRC, Ip, Port, SSRC) -> true;
+% First RTP/RTCP packet
+send_recv_enforcing(Ip, Port, SSRC, _, null, _) -> true;
+% Different IP and/or SSRC - drop
+send_recv_enforcing(_, _, _, _, _, _) -> false.
