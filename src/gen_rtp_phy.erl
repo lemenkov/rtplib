@@ -123,6 +123,10 @@ handle_cast({#rtcp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtcpport = Port} =
 	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
+handle_cast({#zrtp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtpport = Port} = State) ->
+	% FIXME - see transport parameter in the init(...) function arguments
+	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+	{noreply, State};
 
 handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
 	% FIXME
