@@ -116,7 +116,7 @@ handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port} = St
 handle_cast({#rtcp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, mux = true} = State) ->
 	% FIXME - see transport parameter in the init(...) function arguments
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
-	% then send RTCP acked within RTP stream
+	% then send RTCP muxed within RTP stream
 	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
 	{noreply, State};
 handle_cast({#rtcp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtcpport = Port} = State) ->
