@@ -681,7 +681,7 @@ handle_call(
 		true ->
 			% We must send blocking request here
 			% And we're Responder
-			(Parent == null) orelse gen_server:call(Parent, {prepcrypto, Cipher, Auth, {SSRC, KeyI, SaltI}, {MySSRC, KeyR, SaltR}}),
+			(Parent == null) orelse gen_server:call(Parent, {prepcrypto, Cipher, Auth, get_taglength(Auth), {SSRC, KeyI, SaltI}, {MySSRC, KeyR, SaltR}}),
 			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = conf2ack}, State};
 		false ->
 			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
@@ -708,7 +708,7 @@ handle_call(
 
 	% We must send blocking request here
 	% And we're Initiator
-	(Parent == null) orelse gen_server:call(Parent, {gocrypto, Cipher, Auth, {MySSRC, KeyI, SaltI}, {SSRC, KeyR, SaltR}}),
+	(Parent == null) orelse gen_server:call(Parent, {gocrypto, Cipher, Auth, get_taglength(Auth), {MySSRC, KeyI, SaltI}, {SSRC, KeyR, SaltR}}),
 
 	{reply, ok, State};
 
@@ -1108,6 +1108,10 @@ get_hashlength(?ZRTP_HASH_S384) -> 48.
 get_keylength(?ZRTP_CIPHER_AES1) -> 16;
 get_keylength(?ZRTP_CIPHER_AES2) -> 24;
 get_keylength(?ZRTP_CIPHER_AES3) -> 32.
+get_taglength(?ZRTP_AUTH_TAG_HS32) -> 4;
+get_taglength(?ZRTP_AUTH_TAG_HS80) -> 10;
+get_taglength(?ZRTP_AUTH_TAG_SK32) -> 4;
+get_taglength(?ZRTP_AUTH_TAG_SK64) -> 8.
 
 to_binary(B) when is_binary(B) -> B;
 to_binary(B) when is_list(B) -> list_to_binary(B).
