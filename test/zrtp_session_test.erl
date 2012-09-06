@@ -40,8 +40,8 @@ zrtp_session_test_() ->
 	Ssrc1 = crypto:rand_bytes(4),
 	Ssrc2 = crypto:rand_bytes(4),
 
-	{ok, Zrtp1} = zrtp:start_link([Zid1, Ssrc1]),
-	{ok, Zrtp2} = zrtp:start_link([Zid2, Ssrc2]),
+	{ok, Zrtp1} = zrtp:start_link([null, Zid1, Ssrc1]),
+	{ok, Zrtp2} = zrtp:start_link([null, Zid2, Ssrc2]),
 
 	Hello1 = gen_server:call(Zrtp1, init),
 	Hello2 = gen_server:call(Zrtp2, init),

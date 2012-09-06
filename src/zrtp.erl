@@ -99,8 +99,8 @@ start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
 %% Generate Alice's ZRTP server
-init([ZID, SSRC])->
-	init([null, ZID, SSRC]);
+init([Parent])->
+	init([Parent, null, null]);
 init([Parent, ZID, SSRC]) ->
 	init([Parent, ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
 init([Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) when is_binary(ZID) ->
@@ -745,6 +745,11 @@ handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SA
 	crc32c:init(),
 	sas:init(),
 
+	Z = case ZID of
+		null -> crypto:rand_bytes(96);
+		_ -> ZID
+	end,
+
 	% First hash is a random set of bytes
 	% Th rest are a chain of hashes made with predefined hash function
 	H0 = crypto:rand_bytes(32),
@@ -770,7 +775,7 @@ handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SA
 
 	{noreply, #state{
 			parent = Parent,
-			zid = ZID,
+			zid = Z,
 			ssrc = SSRC,
 			h0 = H0,
 			h1 = H1,
