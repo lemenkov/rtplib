@@ -681,7 +681,10 @@ handle_call(
 		true ->
 			% We must send blocking request here
 			% And we're Responder
-			(Parent == null) orelse gen_server:call(Parent, {prepcrypto, Cipher, Auth, get_taglength(Auth), {SSRC, KeyI, SaltI}, {MySSRC, KeyR, SaltR}}),
+			(Parent == null) orelse gen_server:call(Parent, {prepcrypto,
+					{SSRC, Cipher, Auth, get_taglength(Auth), KeyI, SaltI},
+					{MySSRC, Cipher, Auth, get_taglength(Auth), KeyR, SaltR}}
+			),
 			{reply, #zrtp{sequence = SN+1, ssrc = MySSRC, message = conf2ack}, State};
 		false ->
 			{reply, #error{code = ?ZRTP_ERROR_HELLO_MISMATCH}, State}
@@ -708,7 +711,10 @@ handle_call(
 
 	% We must send blocking request here
 	% And we're Initiator
-	(Parent == null) orelse gen_server:call(Parent, {gocrypto, Cipher, Auth, get_taglength(Auth), {MySSRC, KeyI, SaltI}, {SSRC, KeyR, SaltR}}),
+	(Parent == null) orelse gen_server:call(Parent, {gocrypto,
+			{MySSRC, Cipher, Auth, get_taglength(Auth), KeyI, SaltI},
+			{SSRC, Cipher, Auth, get_taglength(Auth), KeyR, SaltR}}
+	),
 
 	{reply, ok, State};
 
