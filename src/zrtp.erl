@@ -718,6 +718,9 @@ handle_call(
 
 	{reply, ok, State};
 
+handle_call({ssrc, SSRC}, _From, State) ->
+	{reply, ok, State#state{ ssrc = SSRC}};
+
 handle_call(get_keys, _From, State) ->
 	{reply,
 		{
@@ -730,9 +733,6 @@ handle_call(get_keys, _From, State) ->
 
 handle_call(Other, _From, State) ->
 	{reply, error, State}.
-
-handle_cast({ssrc, SSRC}, State) ->
-	{noreply, State#state{ ssrc = SSRC}};
 
 handle_cast(Other, State) ->
 	{noreply, State}.
