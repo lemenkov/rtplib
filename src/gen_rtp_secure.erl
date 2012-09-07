@@ -73,7 +73,9 @@ behaviour_info(_) ->
 		modstate = null,
 		zrtp = null,
 		ctxI = passthru,
-		ctxR = passthru
+		ctxR = passthru,
+		ssrc = null,
+		other_ssrc = null
 	}
 ).
 
@@ -83,11 +85,27 @@ start_link(Module, Params, Addon) ->
 	gen_rtp_phy:start_link(?MODULE, [Module, Params, Addon], []).
 
 init([Module, Params, Addon]) when is_atom(Module) ->
+	% FIXME either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
+	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC} = case proplists:get_value(ctx, Params, zrtp) of
+		zrtp ->
+			{ok, ZrtpFsm} = zrtp:start_link([self()]),
+			{ZrtpFsm, passthru, passthru, null, null};
+		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
+			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
+			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
+			{null, CI, CR, SI, SR}
+	end,
+
 	{ok, ModState} = Module:init([Params, Addon]),
 
 	{ok, #state{
 			mod = Module,
-			modstate = ModState
+			modstate = ModState,
+			zrtp = Zrtp,
+			ctxI = CtxI,
+			ctxR = CtxR,
+			ssrc = SSRC,
+			other_ssrc = OtherSSRC
 		}
 	}.
 
@@ -106,7 +124,7 @@ handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
 handle_cast({#zrtp{} = Pkt, _, _}, State) ->
 	% FIXME - process ZRTP context
 	{noreply, State};
-handle_cast({#rtp{} = Pkt, _, _}, State) ->
+handle_cast({#rtp{ssrc = SSRC} = Pkt, _, _}, State) ->
 	% FIXME - send to the next level?
 	{noreply, State};
 handle_cast({#rtcp{} = Pkt, _, _}, State) ->
@@ -131,6 +149,38 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, #state{mod = Mod, modstate = ModState}) ->
 	Mod:terminate(Reason, ModState).
 
+handle_info({<<?RTP_VERSION:2, _:62, SSRC:32, _/binary>> = Msg, Ip, Port}, State = #state{mod=Module, modstate=ModState, ssrc = SSRC, ctxI = Ctx}) ->
+	{ok, #rtp{} = Rtp, NewCtx} = srtp:decrypt(Msg, Ctx),
+	case Module:handle_info({Rtp, Ip, Port}, ModState) of
+		{noreply, NewModState} ->
+			{noreply, State#state{modstate=NewModState}};
+		{stop, Reason, NewModState} ->
+			{stop, Reason, State#state{modstate=NewModState}}
+	end;
+handle_info({<<?RTP_VERSION:2, _:30, SSRC:32, _/binary>> = Msg, Ip, Port}, State = #state{mod=Module, modstate=ModState, ssrc = SSRC, ctxI = Ctx}) ->
+	{ok, #rtcp{} = Rtcp, NewCtx} = srtp:decrypt(Msg, Ctx),
+	case Module:handle_info({Rtcp, Ip, Port}, ModState) of
+		{noreply, NewModState} ->
+			{noreply, State#state{modstate=NewModState}};
+		{stop, Reason, NewModState} ->
+			{stop, Reason, State#state{modstate=NewModState}}
+	end;
+% Initial SSRC setup
+handle_info({<<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg, Ip, Port}, State = #state{zrtp = ZrtpFsm, mod=Module, modstate=ModState, ssrc = null, ctxI = Ctx}) when PayloadType =< 34; 96 =< PayloadType ->
+	{ok, #rtp{} = Rtp, NewCtx} = srtp:decrypt(Msg, Ctx),
+	case Module:handle_info({Rtp, Ip, Port}, ModState) of
+		{noreply, NewModState} ->
+			{noreply, State#state{ssrc = SSRC, modstate=NewModState}};
+		{stop, Reason, NewModState} ->
+			{stop, Reason, State#state{modstate=NewModState}}
+	end;
+handle_info({<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, Ip, Port}, State = #state{zrtp = null, mod=Module, modstate=ModState, ssrc = SSRC}) ->
+	% Discard bogus ZRTP packet
+	{noreply, State};
+handle_info({<<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, Ip, Port}, State = #state{zrtp = ZrtpFsm, mod=Module, modstate=ModState, ssrc = SSRC}) when is_pid(ZrtpFsm) ->
+	{ok, Zrtp} = zrtp:decode(Msg),
+	gen_server:cast(self(), gen_server:call(ZrtpFsm, Zrtp)),
+	{noreply, State};
 handle_info(Info, State = #state{mod=Module, modstate=ModState}) ->
 	case Module:handle_info(Info, ModState) of
 		{noreply, NewModState} ->
