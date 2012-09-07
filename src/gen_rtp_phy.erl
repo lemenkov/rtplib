@@ -156,7 +156,7 @@ terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, 
 	gen_udp:close(Fd1),
 	Mod:terminate(Reason, ModState).
 
-handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State)  when PayloadType =< 34; 96 =< PayloadType ->
+handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) when PayloadType =< 34; 96 =< PayloadType ->
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
@@ -166,7 +166,7 @@ handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC
 			{noreply, State}
 	end,
 	{noreply, State};
-handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State)  when 64 =< PayloadType, PayloadType =< 82 ->
+handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) when 64 =< PayloadType, PayloadType =< 82 ->
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
