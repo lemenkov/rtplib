@@ -36,8 +36,6 @@
 -export([start/3]).
 -export([start_link/3]).
 
--export([behaviour_info/1]).
-
 -export([init/1]).
 -export([handle_call/3]).
 -export([handle_cast/2]).
@@ -50,19 +48,6 @@
 -include("../include/srtp.hrl").
 -include("../include/stun.hrl").
 -include("../include/zrtp.hrl").
-
-%% @private
-behaviour_info(callbacks) ->
-	[
-		{init, 1},
-		{handle_call, 3},
-		{handle_cast, 2},
-		{handle_info, 2},
-		{code_change, 3},
-		{terminate, 2}
-	];
-behaviour_info(_) ->
-	undefined.
 
 % Default value of RTP timeout in milliseconds.
 -define(INTERIM_UPDATE, 30000).
