@@ -224,11 +224,11 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 
 	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
 	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, SrtpEncode, SrtpDecode} = case proplists:get_value(ctx, Params, none) of
+		none ->
+			{null, null, null, null, null, [], []};
 		zrtp ->
 			{ok, ZrtpFsm} = zrtp:start_link([self()]),
 			{ZrtpFsm, passthru, passthru, null, null, fun srtp_encode/2, fun srtp_decode/2};
-		none ->
-			{null, null, null, null, null, [], []};
 		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
 			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
 			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
@@ -242,12 +242,12 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 			parent = proplists:get_value(parent, Params),
 			rtp = Fd0,
 			rtcp = Fd1,
-			% FIXME - properly set transport
 			zrtp = Zrtp,
 			ctxI = CtxI,
 			ctxR = CtxR,
 			ssrc = SSRC,
 			other_ssrc = OtherSSRC,
+			% FIXME - properly set transport
 			tmod = gen_udp,
 			process_chain_up = [fun rtp_decode/2]  ++ SrtpDecode ++ Transcode,
 			process_chain_down = Transcode ++ SrtpEncode ++ [fun rtp_encode/2],
