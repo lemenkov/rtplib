@@ -53,17 +53,23 @@
 -define(INTERIM_UPDATE, 30000).
 
 -record(state, {
-		mod = null,
-		modstate = null,
+		parent = null,
 		rtp,
 		rtcp,
 		ip = null,
 		rtpport = null,
 		rtcpport = null,
+		tmod = null,
 		ssrc = null,
 		sendrecv,
 		mux,
+		zrtp = null,
+		ctxI = passthru,
+		ctxR = passthru,
+		other_ssrc = null,
 		lastseen = null,
+		process_chain_up = [],
+		process_chain_down = [],
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
 		alive = false,
@@ -72,9 +78,11 @@
 ).
 
 start(Module, Params, Addon) ->
-	gen_server:start(?MODULE, [Module, Params, Addon], []).
+	PPid = self(),
+	gen_server:start(?MODULE, [Module, Params ++ [{parent, PPid}], Addon], []).
 start_link(Module, Params, Addon) ->
-	gen_server:start_link(?MODULE, [Module, Params, Addon], []).
+	PPid = self(),
+	gen_server:start_link(?MODULE, [Module, Params ++ [{parent, PPid}], Addon], []).
 
 init([Module, Params, Addon]) when is_atom(Module) ->
 	% Deferred init
@@ -82,35 +90,34 @@ init([Module, Params, Addon]) when is_atom(Module) ->
 
 	{ok, #state{}}.
 
-handle_call(Request, From, State = #state{mod=Module, modstate=ModState}) ->
-	case Module:handle_call(Request, From, ModState) of
-		{reply, Reply, NewModState} ->
-			{reply, Reply, State#state{modstate=NewModState}};
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState}};
-		{stop, Reason, Reply, NewModState} ->
-			{stop, Reason, Reply, State#state{modstate=NewModState}}
-	 end.
+handle_call(Request, From, State) ->
+	{reply, ok, State}.
 
-handle_cast({#rtp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+handle_cast(
+	{#rtp{} = Pkt, _, _},
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+) ->
+	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
 	{noreply, State};
-handle_cast({#rtcp{} = Pkt, _, _}, #state{rtp = Fd, ip = Ip, rtpport = Port, mux = true} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
+handle_cast(
+	{#rtcp{} = Pkt, _, _},
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, mux = true} = State
+) ->
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
 	% then send RTCP muxed within RTP stream
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
 	{noreply, State};
-handle_cast({#rtcp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtcpport = Port} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+handle_cast(
+	{#rtcp{} = Pkt, _, _},
+	#state{rtcp = Fd, ip = Ip, rtcpport = Port, tmod = TMod, process_chain_down = Chain} = State
+) ->
+	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
 	{noreply, State};
-handle_cast({#zrtp{} = Pkt, _, _}, #state{rtcp = Fd, ip = Ip, rtpport = Port} = State) ->
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:send(Fd, Ip, Port, rtp:encode(Pkt)),
+handle_cast(
+	{#zrtp{} = Pkt, _, _},
+	#state{rtcp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+) ->
+	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
 	{noreply, State};
 
 handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
@@ -122,69 +129,69 @@ handle_cast({update, Params}, State) ->
 	SendRecvStrategy = get_send_recv_strategy(Params),
 	{ok, State#state{sendrecv = SendRecvStrategy}};
 
-handle_cast(Request, State = #state{mod=Module, modstate=ModState}) ->
-	case Module:handle_cast(Request, ModState) of
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState}}
-	end.
+handle_cast(Request, State) ->
+	{noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{mod = Mod, modstate = ModState, rtp = Fd0, rtcp = Fd1, tref = TRef}) ->
+terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tref = TRef}) ->
 	timer:cancel(TRef),
 	% FIXME - see transport parameter in the init(...) function arguments
 	gen_udp:close(Fd0),
 	% FIXME We must send RTCP bye here
 	gen_udp:close(Fd1),
-	Mod:terminate(Reason, ModState).
+	ok.
 
-handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) when PayloadType =< 34; 96 =< PayloadType ->
+handle_info(
+	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
+	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
+) when PType =< 34; 96 =< PType ->
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
-			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
+			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
-	end,
-	{noreply, State};
-handle_info({udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PayloadType:7, _:48, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) when 64 =< PayloadType, PayloadType =< 82 ->
+	end;
+handle_info(
+	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
+	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
+) when 64 =< PType, PType =< 82 ->
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
-			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
+			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
 		false ->
 			{noreply, State}
-	end,
-	{noreply, State};
-handle_info({udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
+	end;
+handle_info(
+	{udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg},
+	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
+) ->
 	inet:setopts(Fd, [{active, once}]),
 	% Treat ZRTP in the same way as RTP
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			{noreply, NewModState} = Module:handle_info({Msg, Ip, Port}, ModState),
-			{noreply, State#state{lastseen = now(), alive = true, modstate = NewModState, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
+			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
-	end,
-	{noreply, State};
-handle_info({udp, Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg}, #state{sendrecv = SendRecv, mod = Module, modstate = ModState} = State) ->
+	end;
+handle_info(
+	{udp, Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg},
+	State
+) ->
 	inet:setopts(Fd, [{active, once}]),
 	% FIXME this is a STUN message - we should reply at this level
 	{noreply, State};
 
-handle_info(interim_update, #state{mod=Module, modstate=ModState, alive = true} = State) ->
-	case Module:handle_info(interim_update, ModState) of
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState, alive=false}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState, alive=false}}
-	end;
+handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
+	Parent ! interim_update,
+	{noreply, State#state{alive=false}};
 handle_info(interim_update, #state{alive = false} = State) ->
 	{stop, timeout, State};
 
@@ -215,26 +222,43 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
 	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
 
-	{ok, ModState} = Module:init([Ip, PortRtp, PortRtcp, Addon]),
+	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
+	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, SrtpEncode, SrtpDecode} = case proplists:get_value(ctx, Params, none) of
+		zrtp ->
+			{ok, ZrtpFsm} = zrtp:start_link([self()]),
+			{ZrtpFsm, passthru, passthru, null, null, fun srtp_encode/2, fun srtp_decode/2};
+		none ->
+			{null, null, null, null, null, [], []};
+		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
+			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
+			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
+			{null, CI, CR, SI, SR, fun srtp_encode/2, fun srtp_decode/2}
+	end,
+
+	% FIXME
+	Transcode = fun transcode/2,
 
 	{noreply, #state{
-			mod = Module,
-			modstate = ModState,
+			parent = proplists:get_value(parent, Params),
 			rtp = Fd0,
 			rtcp = Fd1,
+			% FIXME - properly set transport
+			zrtp = Zrtp,
+			ctxI = CtxI,
+			ctxR = CtxR,
+			ssrc = SSRC,
+			other_ssrc = OtherSSRC,
+			tmod = gen_udp,
+			process_chain_up = [fun rtp_decode/2]  ++ SrtpDecode ++ Transcode,
+			process_chain_down = Transcode ++ SrtpEncode ++ [fun rtp_encode/2],
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef
 		}
 	};
 
-handle_info(Info, State = #state{mod=Module, modstate=ModState}) ->
-	case Module:handle_info(Info, ModState) of
-		{noreply, NewModState} ->
-			{noreply, State#state{modstate=NewModState}};
-		{stop, Reason, NewModState} ->
-			{stop, Reason, State#state{modstate=NewModState}}
-	end.
+handle_info(Info, State) ->
+	{noreply, State}.
 
 %%
 %% Private functions
@@ -314,3 +338,24 @@ send_recv_enforcing(Ip, Port, SSRC, Ip, Port, SSRC) -> true;
 send_recv_enforcing(Ip, Port, SSRC, _, null, _) -> true;
 % Different IP and/or SSRC - drop
 send_recv_enforcing(_, _, _, _, _, _) -> false.
+
+process_chain([], Pkt, State) ->
+	Pkt;
+process_chain([Fun|Funs], Pkt, State) ->
+	process_chain(Funs, Fun(Pkt, State), State).
+
+rtp_encode(Pkt, _) ->
+	rtp:encode(Pkt).
+rtp_decode(Pkt, _) ->
+	rtp:encode(Pkt).
+
+srtp_encode(Pkt, State) ->
+	% FIXME
+	Pkt.
+srtp_decode(Pkt, State) ->
+	% FIXME
+	Pkt.
+
+transcode(Pkt, State) ->
+	% FIXME
+	Pkt.
