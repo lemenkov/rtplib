@@ -176,7 +176,13 @@ handle_info(
 	% Treat ZRTP in the same way as RTP
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
+			{ok, Zrtp} = zrtp:decode(Msg),
+			case State#state.zrtp of
+				% If we didn't setup ZRTP FSM then we are acting
+				% as pass-thru ZRTP proxy
+				null -> Parent ! {process_chain(Chain, Msg, State), Ip, Port};
+				ZrtpFsm -> gen_server:cast(self(), gen_server:call(ZrtpFsm, Zrtp))
+			end,
 			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
