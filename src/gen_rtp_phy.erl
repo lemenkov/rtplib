@@ -97,22 +97,25 @@ handle_cast(
 	{#rtp{} = Pkt, _, _},
 	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
 ) ->
-	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
-	{noreply, State};
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	TMod:send(Fd, Ip, Port, NewPkt),
+	{noreply, NewState};
 handle_cast(
 	{#rtcp{} = Pkt, _, _},
 	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, mux = true} = State
 ) ->
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
 	% then send RTCP muxed within RTP stream
-	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
-	{noreply, State};
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	TMod:send(Fd, Ip, Port, NewPkt),
+	{noreply, NewState};
 handle_cast(
 	{#rtcp{} = Pkt, _, _},
 	#state{rtcp = Fd, ip = Ip, rtcpport = Port, tmod = TMod, process_chain_down = Chain} = State
 ) ->
-	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
-	{noreply, State};
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	TMod:send(Fd, Ip, Port, NewPkt),
+	{noreply, NewState};
 handle_cast(
 	{#zrtp{} = Pkt, _, _},
 	#state{rtcp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
@@ -149,8 +152,9 @@ handle_info(
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
-			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{NewMsg, NewState} = process_chain(Chain, Msg, State),
+			Parent ! {NewMsg, Ip, Port},
+			{noreply, newState#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -162,8 +166,9 @@ handle_info(
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			Parent ! {process_chain(Chain, Msg, State), Ip, Port},
-			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+			{NewMsg, NewState} = process_chain(Chain, Msg, State),
+			Parent ! {NewMsg, Ip, Port},
+			{noreply, NewState#state{lastseen = now(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -345,21 +350,23 @@ send_recv_enforcing(Ip, Port, SSRC, _, null, _) -> true;
 send_recv_enforcing(_, _, _, _, _, _) -> false.
 
 process_chain([], Pkt, State) ->
-	Pkt;
+	{Pkt, State};
 process_chain([Fun|Funs], Pkt, State) ->
-	process_chain(Funs, Fun(Pkt, State), State).
+	{NewPkt, NewState} = Fun(Pkt, State),
+	process_chain(Funs, NewPkt, NewState).
 
-rtp_encode(Pkt, _) ->
-	rtp:encode(Pkt).
-rtp_decode(Pkt, _) ->
-	rtp:encode(Pkt).
+rtp_encode(Pkt, S) ->
+	{rtp:encode(Pkt), S}.
+rtp_decode(Pkt, S) ->
+	{ok, NewPkt} = rtp:encode(Pkt),
+	{NewPkt, S}.
 
-srtp_encode(Pkt, State) ->
-	% FIXME
-	Pkt.
-srtp_decode(Pkt, State) ->
-	% FIXME
-	Pkt.
+srtp_encode(Pkt, State = #state{ctxR = Ctx}) ->
+	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
+	{NewPkt, State#state{ctxR = NewCtx}}.
+srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
+	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
+	{NewPkt, State#state{ctxI = NewCtx}}.
 
 transcode(Pkt, State) ->
 	% FIXME
