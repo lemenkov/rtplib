@@ -70,6 +70,8 @@
 		lastseen = null,
 		process_chain_up = [],
 		process_chain_down = [],
+		encoder = false,
+		decoders = [],
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
 		alive = false,
@@ -138,12 +140,16 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef}) ->
+terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encoder = Encoder, decoders = Decoders}) ->
 	timer:cancel(TRef),
 	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
 	TMod:close(Fd1),
-	ok.
+	case Encoder of
+		false -> ok;
+		_ -> codec:close(Encoder)
+	end,
+	lists:foreach(fun(Codec) -> codec:close(Codec) end, Decoders).
 
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
@@ -246,7 +252,23 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 	end,
 
 	% FIXME
-	Transcode = fun transcode/2,
+	{Encoder, Decoders, Transcode} = case proplists:get_value(transcode, Params, false) of
+		false ->
+			{
+				false,
+				[],
+				[]
+			};
+		CodecDesc ->
+			{
+				codec:start_link(CodecDesc),
+				lists:map(
+					fun(CodecDesc) -> codec:start_link(CodecDesc) end,
+					proplists:get_value(codecs, Params, [])
+				),
+				fun transcode/2
+			}
+	end,
 
 	{noreply, #state{
 			parent = proplists:get_value(parent, Params),
@@ -261,6 +283,8 @@ handle_info({init, {Module, Params, Addon}}, State) ->
 			tmod = gen_udp,
 			process_chain_up = [fun rtp_decode/2]  ++ SrtpDecode ++ Transcode,
 			process_chain_down = Transcode ++ SrtpEncode ++ [fun rtp_encode/2],
+			encoder = Encoder,
+			decoders = Decoders,
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef
@@ -368,6 +392,12 @@ srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
 	{NewPkt, State#state{ctxI = NewCtx}}.
 
+transcode(Pkt, State = #state{encoder = false}) ->
+	{Pkt, State};
+transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
+	Decoder = proplists:get_value(OldPayloadType, Decoders),
+	{ok, RawData} = codec:decode(Decoder, Payload),
+	{ok, NewPayload} = codec:encode(Encoder, RawData),
+	{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State};
 transcode(Pkt, State) ->
-	% FIXME
-	Pkt.
+	{Pkt, State}.
