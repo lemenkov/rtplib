@@ -75,7 +75,7 @@
 % A compound structure for RTCP (or multiple RTCP packets stacked together
 -record(rtcp, {
 		payloads = [],
-		encrypted = <<>>
+		encrypted = null
 	}).
 
 % Full INTRA-frame Request (h.261 specific)

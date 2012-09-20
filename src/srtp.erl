@@ -83,6 +83,8 @@ decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) wh
 decrypt(<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data, passthru) when 64 =< PayloadType, PayloadType =< 82 ->
 	{ok, #rtcp{encrypted = Data}, passthru};
 
+decrypt(#rtp{} = Rtp, Ctx) ->
+	decrypt(rtp:encode(Rtp), Ctx);
 decrypt(
 	<<?RTP_VERSION:2, _:7, PayloadType:7, SequenceNumber:16, _:32, SSRC:32, Rest/binary>> = Data,
 	#srtp_crypto_ctx{ssrc = SSRC, s_l = OldSequenceNumber, roc = Roc, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
@@ -91,6 +93,8 @@ decrypt(
 	DecryptedPayload = decrypt_payload(EncryptedPayload, SSRC, guess_index(SequenceNumber, OldSequenceNumber, Roc), Ealg, KeyE, Salt, KeyDerivationRate, ?SRTP_LABEL_RTP_ENCR),
 	{ok, Rtp} = rtp:decode(<<Header:12/binary, DecryptedPayload/binary>>),
 	{ok, Rtp, update_ctx(Ctx, SequenceNumber, OldSequenceNumber, Roc)};
+decrypt(#rtcp{encrypted = Data}, Ctx) ->
+	decrypt(Data, Ctx);
 decrypt(
 	<<?RTP_VERSION:2, _:7, PayloadType:7, Rest/binary>> = Data,
 	#srtp_crypto_ctx{ssrc = SSRC, aalg = Aalg, ealg = Ealg, keyDerivRate = KeyDerivationRate, k_a = KeyA, k_e = KeyE, k_s = Salt, tagLength = TagLength} = Ctx
