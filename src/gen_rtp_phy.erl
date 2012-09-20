@@ -135,12 +135,11 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tref = TRef}) ->
+terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef}) ->
 	timer:cancel(TRef),
-	% FIXME - see transport parameter in the init(...) function arguments
-	gen_udp:close(Fd0),
+	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
-	gen_udp:close(Fd1),
+	TMod:close(Fd1),
 	ok.
 
 handle_info(
