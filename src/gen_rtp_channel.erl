@@ -28,7 +28,7 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(gen_rtp_phy).
+-module(gen_rtp_channel).
 -author('lemenkov@gmail.com').
 
 -behaviour(gen_server).
