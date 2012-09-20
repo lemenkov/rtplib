@@ -117,7 +117,7 @@ handle_cast(
 	{#zrtp{} = Pkt, _, _},
 	#state{rtcp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
 ) ->
-	TMod:send(Fd, Ip, Port, process_chain(Chain, Pkt, State)),
+	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
 	{noreply, State};
 
 handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
@@ -179,7 +179,7 @@ handle_info(
 			case State#state.zrtp of
 				% If we didn't setup ZRTP FSM then we are acting
 				% as pass-thru ZRTP proxy
-				null -> Parent ! {process_chain(Chain, Msg, State), Ip, Port};
+				null -> Parent ! Zrtp;
 				ZrtpFsm -> gen_server:cast(self(), gen_server:call(ZrtpFsm, Zrtp))
 			end,
 			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
