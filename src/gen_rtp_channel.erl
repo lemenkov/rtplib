@@ -92,6 +92,30 @@ init([Params]) ->
 
 	{ok, #state{}}.
 
+handle_call({
+		prepcrypto,
+		{SSRCI, Cipher, Auth, TagLength, KeyI, SaltI},
+		{SSRCR, Cipher, Auth, TagLength, KeyR, SaltR}
+	},
+	From,
+	State) ->
+	CtxI = srtp:new_ctx(SSRCI, Cipher, Auth, KeyI, SaltI, TagLen),
+	CtxR = srtp:new_ctx(SSRCR, Cipher, Auth, KeyR, SaltR, TagLen),
+	% Prepare starting SRTP - set up Ctx but wait for the SRTP from the other side
+	{reply, ok, State#state{ctxI = CtxI, ctxR = CtxR}};
+
+handle_call({
+		gocrypto,
+		{SSRC, Cipher, Auth, TagLength, KeyI, SaltI},
+		{MySSRC, Cipher, Auth, TagLength, KeyR, SaltR}
+	},
+	From,
+	State) ->
+	% Start SRTP immediately after setting up Ctx
+	CtxI = srtp:new_ctx(SSRCI, Cipher, Auth, KeyI, SaltI, TagLen),
+	CtxR = srtp:new_ctx(SSRCR, Cipher, Auth, KeyR, SaltR, TagLen),
+	{reply, ok, State#state{ctxI = CtxI, ctxR = CtxR}};
+
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
