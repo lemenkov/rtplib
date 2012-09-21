@@ -33,8 +33,8 @@
 
 -behaviour(gen_server).
 
--export([start/3]).
--export([start_link/3]).
+-export([start/1]).
+-export([start_link/1]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -79,16 +79,16 @@
 	}
 ).
 
-start(Module, Params, Addon) ->
+start(Params) ->
 	PPid = self(),
-	gen_server:start(?MODULE, [Module, Params ++ [{parent, PPid}], Addon], []).
-start_link(Module, Params, Addon) ->
+	gen_server:start(?MODULE, [Params ++ [{parent, PPid}]], []).
+start_link(Params) ->
 	PPid = self(),
-	gen_server:start_link(?MODULE, [Module, Params ++ [{parent, PPid}], Addon], []).
+	gen_server:start_link(?MODULE, [Params ++ [{parent, PPid}]], []).
 
-init([Module, Params, Addon]) when is_atom(Module) ->
+init([Params]) ->
 	% Deferred init
-	self() ! {init, {Module, Params, Addon}},
+	self() ! {init, Params},
 
 	{ok, #state{}}.
 
@@ -211,7 +211,7 @@ handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
 handle_info(interim_update, #state{alive = false} = State) ->
 	{stop, timeout, State};
 
-handle_info({init, {Module, Params, Addon}}, State) ->
+handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
 	Transport = proplists:get_value(transport, Params, udp),
 	SockParams = proplists:get_value(sockparams, Params, []),
