@@ -100,7 +100,7 @@ ret_P3072() ->
 	<<384:32/integer-big, P3072/binary>>.
 
 %% 512 bytes
-ret_P4096_mpint() ->
+ret_P4096() ->
 	P4096 =	<<16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#C9, 16#0F, 16#DA, 16#A2,
 	16#21, 16#68, 16#C2, 16#34, 16#C4, 16#C6, 16#62, 16#8B, 16#80, 16#DC, 16#1C, 16#D1,
 	16#29, 16#02, 16#4E, 16#08, 16#8A, 16#67, 16#CC, 16#74, 16#02, 16#0B, 16#BE, 16#A6,
@@ -150,7 +150,8 @@ ret_P4096_mpint() ->
 mkdh(KeyAgr) ->
 	P = case KeyAgr of
 		?ZRTP_KEY_AGREEMENT_DH2K -> ret_P2048();
-		?ZRTP_KEY_AGREEMENT_DH3K -> ret_P3072()
+		?ZRTP_KEY_AGREEMENT_DH3K -> ret_P3072();
+		?ZRTP_KEY_AGREEMENT_DH4K -> ret_P4096()
 	end,
 	G = crypto:mpint(2),
 	crypto:dh_generate_key([P, G]).
@@ -163,7 +164,10 @@ mkfinal(Pvr, PrivateKey) ->
 			crypto:dh_compute_key(<<256:32/integer-big, Pvr/binary>>, PrivateKey, [P, G]);
 		384 ->
 			P = ret_P3072(),
-			crypto:dh_compute_key(<<384:32/integer-big, Pvr/binary>>, PrivateKey, [P, G])
+			crypto:dh_compute_key(<<384:32/integer-big, Pvr/binary>>, PrivateKey, [P, G]);
+		512 ->
+			P = ret_P4096(),
+			crypto:dh_compute_key(<<512:32/integer-big, Pvr/binary>>, PrivateKey, [P, G])
 	end.
 
 kdf(?ZRTP_HASH_S256, Key, Label, KDF_Context) ->

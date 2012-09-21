@@ -72,12 +72,13 @@
 
 -define(ZRTP_KEY_AGREEMENT_DH2K, "DH2k"). % DH mode with p=2048 bit prime per RFC 3526, Section 3.
 -define(ZRTP_KEY_AGREEMENT_DH3K, "DH3k"). % DH mode with p=3072 bit prime per RFC 3526, Section 4.
+-define(ZRTP_KEY_AGREEMENT_DH4K, "DH4k"). % DH mode with p=3072 bit prime per RFC 3526, Section 5.
 -define(ZRTP_KEY_AGREEMENT_EC25, "EC25"). % Elliptic Curve DH, P-256 per RFC 5114, Section 2.6
 -define(ZRTP_KEY_AGREEMENT_EC38, "EC38"). % Elliptic Curve DH, P-384 per RFC 5114, Section 2.7
 -define(ZRTP_KEY_AGREEMENT_EC52, "EC52"). % Elliptic Curve DH, P-521 per RFC 5114, Section 2.8 (deprecated - do not use)
 -define(ZRTP_KEY_AGREEMENT_PRSH, "Prsh"). % Preshared Non-DH mode
 -define(ZRTP_KEY_AGREEMENT_MULT, "Mult"). % Multistream Non-DH mode
--define(ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, [?ZRTP_KEY_AGREEMENT_DH2K, ?ZRTP_KEY_AGREEMENT_DH3K]).
+-define(ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, [?ZRTP_KEY_AGREEMENT_DH2K, ?ZRTP_KEY_AGREEMENT_DH3K, ?ZRTP_KEY_AGREEMENT_DH4K]).
 
 -define(ZRTP_SAS_TYPE_B32, "B32 ").
 -define(ZRTP_SAS_TYPE_B256, "B256").
