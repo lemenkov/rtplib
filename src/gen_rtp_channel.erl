@@ -244,9 +244,9 @@ handle_info({init, Params}, State) ->
 	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
 
 	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
-	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, SrtpEncode, SrtpDecode} = case proplists:get_value(ctx, Params, none) of
+	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, RtpEncode, RtpDecode} = case proplists:get_value(ctx, Params, none) of
 		none ->
-			{null, null, null, null, null, [], []};
+			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
 		zrtp ->
 			{ok, ZrtpFsm} = zrtp:start_link([self()]),
 			{ZrtpFsm, passthru, passthru, null, null, fun srtp_encode/2, fun srtp_decode/2};
@@ -286,8 +286,8 @@ handle_info({init, Params}, State) ->
 			other_ssrc = OtherSSRC,
 			% FIXME - properly set transport
 			tmod = gen_udp,
-			process_chain_up = [fun rtp_decode/2]  ++ SrtpDecode ++ Transcode,
-			process_chain_down = Transcode ++ SrtpEncode ++ [fun rtp_encode/2],
+			process_chain_up = RtpDecode ++ Transcode,
+			process_chain_down = Transcode ++ RtpEncode,
 			encoder = Encoder,
 			decoders = Decoders,
 			mux = MuxRtpRtcp,
