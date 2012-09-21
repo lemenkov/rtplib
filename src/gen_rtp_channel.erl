@@ -218,7 +218,7 @@ handle_info({init, Params}, State) ->
 	% Either specify IPv4 or IPv6 explicitly or provide two special
 	% values - "::" for any available IPv6 or "0.0.0.0" or "0" for
 	% any available IPv4.
-	{ok, IpAddr} = inet_parse:address(proplists:get_value(ip, Params, "0.0.0.0")),
+	IpAddr = proplists:get_value(ip, Params, {0,0,0,0}),
 	% Either specify port explicitly or provide none if don't care
 	IpPort = proplists:get_value(port, Params, 0),
 	% 'weak' - receives data from any Ip and Port with any SSRC
