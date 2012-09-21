@@ -566,7 +566,7 @@ static int b32(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	bytes[0] = ((uint8_t*)(bin.data))[0];
 	bytes[1] = ((uint8_t*)(bin.data))[1];
 	bytes[2] = ((uint8_t*)(bin.data))[2] & 0xf0;
-	bits = (bytes[0]  << 24) | (bytes[1] << 16) | (bytes[0] << 0) | 0;
+	bits = (bytes[0]  << 24) | (bytes[1] << 16) | (bytes[2] << 8) | 0;
 
 	for (i=0,shift=27; i!=4; ++i,shift-=5){
 		n = (bits>>shift) & 31;
