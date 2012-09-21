@@ -558,10 +558,10 @@ static int b32(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	ErlNifBinary out;
 	enif_inspect_binary(env, argv[0], &bin);
 
-	int bits;
+	uint32_t bits;
 	uint8_t bytes[3];
 	char result[4];
-	int i, n, shift;
+	uint8_t i, n, shift;
 
 	bytes[0] = ((uint8_t*)(bin.data))[0];
 	bytes[1] = ((uint8_t*)(bin.data))[1];
