@@ -94,8 +94,8 @@ init([Params]) ->
 
 handle_call({
 		prepcrypto,
-		{SSRCI, Cipher, Auth, TagLength, KeyI, SaltI},
-		{SSRCR, Cipher, Auth, TagLength, KeyR, SaltR}
+		{SSRCI, Cipher, Auth, TagLen, KeyI, SaltI},
+		{SSRCR, Cipher, Auth, TagLen, KeyR, SaltR}
 	},
 	From,
 	State) ->
@@ -106,8 +106,8 @@ handle_call({
 
 handle_call({
 		gocrypto,
-		{SSRCI, Cipher, Auth, TagLength, KeyI, SaltI},
-		{SSRCR, Cipher, Auth, TagLength, KeyR, SaltR}
+		{SSRCI, Cipher, Auth, TagLen, KeyI, SaltI},
+		{SSRCR, Cipher, Auth, TagLen, KeyR, SaltR}
 	},
 	From,
 	State) ->
