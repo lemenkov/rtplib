@@ -235,8 +235,13 @@ handle_info({init, Params}, State) ->
 
 	{Fd0, Fd1} = get_fd_pair({Transport, IpAddr, IpPort, SockParams}),
 
+	Parent = proplists:get_value(parent, Params),
+
 	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
 	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
+
+	% Notify parent
+	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
 
 	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
 	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, SrtpEncode, SrtpDecode} = case proplists:get_value(ctx, Params, none) of
@@ -271,7 +276,7 @@ handle_info({init, Params}, State) ->
 	end,
 
 	{noreply, #state{
-			parent = proplists:get_value(parent, Params),
+			parent = Parent,
 			rtp = Fd0,
 			rtcp = Fd1,
 			zrtp = Zrtp,
