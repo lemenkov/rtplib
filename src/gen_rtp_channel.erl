@@ -160,7 +160,7 @@ handle_info(
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, newState#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{noreply, NewState#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
