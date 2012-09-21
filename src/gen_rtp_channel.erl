@@ -106,8 +106,8 @@ handle_call({
 
 handle_call({
 		gocrypto,
-		{SSRC, Cipher, Auth, TagLength, KeyI, SaltI},
-		{MySSRC, Cipher, Auth, TagLength, KeyR, SaltR}
+		{SSRCI, Cipher, Auth, TagLength, KeyI, SaltI},
+		{SSRCR, Cipher, Auth, TagLength, KeyR, SaltR}
 	},
 	From,
 	State) ->
