@@ -387,7 +387,7 @@ process_chain([Fun|Funs], Pkt, State) ->
 rtp_encode(Pkt, S) ->
 	{rtp:encode(Pkt), S}.
 rtp_decode(Pkt, S) ->
-	{ok, NewPkt} = rtp:encode(Pkt),
+	{ok, NewPkt} = rtp:decode(Pkt),
 	{NewPkt, S}.
 
 srtp_encode(Pkt, State = #state{ctxR = Ctx}) ->
