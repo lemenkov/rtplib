@@ -264,9 +264,9 @@ handle_info({init, Params}, State) ->
 				[],
 				[]
 			};
-		CodecDesc ->
+		EncoderDesc ->
 			{
-				codec:start_link(CodecDesc),
+				codec:start_link(EncoderDesc),
 				lists:map(
 					fun(CodecDesc) -> codec:start_link(CodecDesc) end,
 					proplists:get_value(codecs, Params, [])
