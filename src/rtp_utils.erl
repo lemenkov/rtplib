@@ -48,7 +48,7 @@
 -include("../include/rtp.hrl").
 
 dump_packet(Node, Pid, Packet) ->
-	{H,M,Ms} = now(),
+	{H,M,Ms} = os:timestamp(),
 	% later we may try to decode these rtcp packets and to fix decoding errors:
 	file:write_file("/tmp/rtcp_err." ++ atom_to_list(Node) ++ "." ++ pid_to_list(Pid) ++ "." ++ integer_to_list(H) ++ "_" ++ integer_to_list(M) ++ "_" ++ integer_to_list(Ms) ++ ".bin", Packet).
 
@@ -86,7 +86,7 @@ ntp2now (<<NTPSec:32, NTPFrac:32>>) ->
 	{MegaSecs, Secs, MicroSecs}.
 
 now2ntp () ->
-	now2ntp (now()).
+	now2ntp (os:timestamp()).
 
 now2ntp ({MegaSecs, Secs, MicroSecs}) ->
 	% 2208988800 is the number of seconds from 00:00:00 01-01-1900 to 00:00:00 01-01-1970

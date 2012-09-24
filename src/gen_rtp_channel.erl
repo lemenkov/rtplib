@@ -184,7 +184,7 @@ handle_info(
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, NewState#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{noreply, NewState#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -198,7 +198,7 @@ handle_info(
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, NewState#state{lastseen = now(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+			{noreply, NewState#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -217,7 +217,7 @@ handle_info(
 				null -> Parent ! Zrtp;
 				ZrtpFsm -> gen_server:cast(self(), gen_server:call(ZrtpFsm, Zrtp))
 			end,
-			{noreply, State#state{lastseen = now(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{noreply, State#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
