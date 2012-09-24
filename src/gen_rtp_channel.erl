@@ -65,7 +65,7 @@
 		mux,
 		zrtp = null,
 		ctxI = passthru,
-		ctxR = passthru,
+		ctxO = passthru,
 		other_ssrc = null,
 		lastseen = null,
 		process_chain_up = [],
@@ -95,26 +95,26 @@ init([Params]) ->
 handle_call({
 		prepcrypto,
 		{SSRCI, Cipher, Auth, TagLen, KeyI, SaltI},
-		{SSRCR, Cipher, Auth, TagLen, KeyR, SaltR}
+		{SSRCO, Cipher, Auth, TagLen, KeyO, SaltO}
 	},
 	From,
 	State) ->
 	CtxI = srtp:new_ctx(SSRCI, Cipher, Auth, KeyI, SaltI, TagLen),
-	CtxR = srtp:new_ctx(SSRCR, Cipher, Auth, KeyR, SaltR, TagLen),
+	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
 	% Prepare starting SRTP - set up Ctx but wait for the SRTP from the other side
-	{reply, ok, State#state{ctxI = CtxI, ctxR = CtxR}};
+	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
 handle_call({
 		gocrypto,
 		{SSRCI, Cipher, Auth, TagLen, KeyI, SaltI},
-		{SSRCR, Cipher, Auth, TagLen, KeyR, SaltR}
+		{SSRCO, Cipher, Auth, TagLen, KeyO, SaltO}
 	},
 	From,
 	State) ->
 	% Start SRTP immediately after setting up Ctx
 	CtxI = srtp:new_ctx(SSRCI, Cipher, Auth, KeyI, SaltI, TagLen),
-	CtxR = srtp:new_ctx(SSRCR, Cipher, Auth, KeyR, SaltR, TagLen),
-	{reply, ok, State#state{ctxI = CtxI, ctxR = CtxR}};
+	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
+	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
@@ -268,7 +268,7 @@ handle_info({init, Params}, State) ->
 	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
 
 	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
-	{Zrtp, CtxI, CtxR, SSRC, OtherSSRC, RtpEncode, RtpDecode} = case proplists:get_value(ctx, Params, none) of
+	{Zrtp, CtxI, CtxO, SSRC, OtherSSRC, RtpEncode, RtpDecode} = case proplists:get_value(ctx, Params, none) of
 		none ->
 			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
 		zrtp ->
@@ -305,7 +305,7 @@ handle_info({init, Params}, State) ->
 			rtcp = Fd1,
 			zrtp = Zrtp,
 			ctxI = CtxI,
-			ctxR = CtxR,
+			ctxO = CtxO,
 			ssrc = SSRC,
 			other_ssrc = OtherSSRC,
 			% FIXME - properly set transport
@@ -414,9 +414,9 @@ rtp_decode(Pkt, S) ->
 	{ok, NewPkt} = rtp:decode(Pkt),
 	{NewPkt, S}.
 
-srtp_encode(Pkt, State = #state{ctxR = Ctx}) ->
+srtp_encode(Pkt, State = #state{ctxO = Ctx}) ->
 	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
-	{NewPkt, State#state{ctxR = NewCtx}}.
+	{NewPkt, State#state{ctxO = NewCtx}}.
 srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
 	{NewPkt, State#state{ctxI = NewCtx}}.
