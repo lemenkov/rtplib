@@ -2,6 +2,10 @@
 %global upstream lemenkov
 %global git_tag 1234567
 %global patchnumber 0
+%{?filter_setup:
+%filter_provides_in %{_libdir}/erlang/lib/.*\.so$
+%filter_setup
+}
 
 
 Name:		erlang-%{realname}
