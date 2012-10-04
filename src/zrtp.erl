@@ -672,7 +672,7 @@ handle_call(
 	% Verify HMAC chain
 	HashImageH1 = crypto:hash(sha256, HashImageH0),
 	HashImageH2 = crypto:hash(sha256, HashImageH1),
-	HashImageH3 = crypto:hash(sha256, HashImageH0),
+	HashImageH3 = crypto:hash(sha256, HashImageH2),
 
 	% Lookup Bob's DHpart2 packet
 	DHpart2 = ets:lookup_element(Tid, {bob, dhpart2}, 2),
