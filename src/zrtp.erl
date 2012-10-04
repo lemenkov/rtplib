@@ -597,9 +597,9 @@ handle_call(
 %	end,
 
 	% Verify HMAC chain
-	HashImageH1 = erlsha2:sha256(HashImageH0),
-	HashImageH2 = erlsha2:sha256(HashImageH1),
-	HashImageH3 = erlsha2:sha256(HashImageH2),
+	HashImageH1 = crypto:hash(sha256, HashImageH0),
+	HashImageH2 = crypto:hash(sha256, HashImageH1),
+	HashImageH3 = crypto:hash(sha256, HashImageH2),
 
 	% Lookup Bob's DHpart1 packet
 	DHpart1 = ets:lookup_element(Tid, {bob, dhpart1}, 2),
@@ -670,9 +670,9 @@ handle_call(
 %	end,
 
 	% Verify HMAC chain
-	HashImageH1 = erlsha2:sha256(HashImageH0),
-	HashImageH2 = erlsha2:sha256(HashImageH1),
-	HashImageH3 = erlsha2:sha256(HashImageH0),
+	HashImageH1 = crypto:hash(sha256, HashImageH0),
+	HashImageH2 = crypto:hash(sha256, HashImageH1),
+	HashImageH3 = crypto:hash(sha256, HashImageH0),
 
 	% Lookup Bob's DHpart2 packet
 	DHpart2 = ets:lookup_element(Tid, {bob, dhpart2}, 2),
@@ -757,9 +757,9 @@ handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SA
 	% First hash is a random set of bytes
 	% Th rest are a chain of hashes made with predefined hash function
 	H0 = crypto:rand_bytes(32),
-	H1 = erlsha2:sha256(H0),
-	H2 = erlsha2:sha256(H1),
-	H3 = erlsha2:sha256(H2),
+	H1 = crypto:hash(sha256, H0),
+	H2 = crypto:hash(sha256, H1),
+	H3 = crypto:hash(sha256, H2),
 
 	IV = crypto:rand_bytes(16),
 
@@ -1114,8 +1114,8 @@ choose([Item | Rest], IntersectList) ->
 		_ -> choose(Rest, IntersectList)
 	end.
 
-get_hashfun(?ZRTP_HASH_S256) -> fun erlsha2:sha256/1;
-get_hashfun(?ZRTP_HASH_S384) -> fun erlsha2:sha384/1.
+get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
+get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
 get_hmacfun(?ZRTP_HASH_S256) -> fun hmac:hmac256/2;
 get_hmacfun(?ZRTP_HASH_S384) -> fun hmac:hmac384/2.
 get_hashlength(?ZRTP_HASH_S256) -> 32;
