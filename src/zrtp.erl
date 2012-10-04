@@ -1061,7 +1061,7 @@ mkhmac(Msg, Hash) ->
 	Payload = encode_message(Msg),
 	Size = size(Payload) - 8,
 	<<Data:Size/binary, _/binary>> = Payload,
-	<<Mac:8/binary, _/binary>> = hmac:hmac256(Hash, Data),
+	<<Mac:8/binary, _/binary>> = crypto:sha256_mac(Hash, Data),
 	Mac.
 
 verify_hmac(_, _, null) ->
@@ -1116,8 +1116,8 @@ choose([Item | Rest], IntersectList) ->
 
 get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
 get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
-get_hmacfun(?ZRTP_HASH_S256) -> fun hmac:hmac256/2;
-get_hmacfun(?ZRTP_HASH_S384) -> fun hmac:hmac384/2.
+get_hmacfun(?ZRTP_HASH_S256) -> fun crypto:sha256_mac/2;
+get_hmacfun(?ZRTP_HASH_S384) -> fun crypto:sha384_mac/2.
 get_hashlength(?ZRTP_HASH_S256) -> 32;
 get_hashlength(?ZRTP_HASH_S384) -> 48.
 get_keylength(?ZRTP_CIPHER_AES1) -> 16;
