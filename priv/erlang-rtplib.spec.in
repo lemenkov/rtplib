@@ -20,6 +20,7 @@ Source0:	%{upstream}-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	autoconf
 BuildRequires:	automake
+BuildRequires:	erlang >= R15B
 BuildRequires:	erlang-erlando
 BuildRequires:	erlang-eunit
 BuildRequires:	erlang-skerl
