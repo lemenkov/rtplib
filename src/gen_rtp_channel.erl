@@ -273,11 +273,11 @@ handle_info({init, Params}, State) ->
 			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
 		zrtp ->
 			{ok, ZrtpFsm} = zrtp:start_link([self()]),
-			{ZrtpFsm, passthru, passthru, null, null, fun srtp_encode/2, fun srtp_decode/2};
+			{ZrtpFsm, passthru, passthru, null, null, [fun srtp_encode/2], [fun srtp_decode/2]};
 		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
 			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
 			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
-			{null, CI, CR, SI, SR, fun srtp_encode/2, fun srtp_decode/2}
+			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
 	end,
 
 	% FIXME
@@ -295,7 +295,7 @@ handle_info({init, Params}, State) ->
 					fun(CodecDesc) -> codec:start_link(CodecDesc) end,
 					proplists:get_value(codecs, Params, [])
 				),
-				fun transcode/2
+				[fun transcode/2]
 			}
 	end,
 
