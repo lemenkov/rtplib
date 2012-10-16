@@ -415,7 +415,7 @@ rtp_decode(Pkt, S) ->
 	{NewPkt, S}.
 
 srtp_encode(Pkt, State = #state{ctxO = Ctx}) ->
-	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
+	{ok, NewPkt, NewCtx} = srtp:encrypt(Pkt, Ctx),
 	{NewPkt, State#state{ctxO = NewCtx}}.
 srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
