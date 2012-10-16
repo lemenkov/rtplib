@@ -214,7 +214,7 @@ handle_info(
 			case State#state.zrtp of
 				% If we didn't setup ZRTP FSM then we are acting
 				% as pass-thru ZRTP proxy
-				null -> Parent ! Zrtp;
+				null -> Parent ! {Zrtp, Ip, Port};
 				ZrtpFsm -> gen_server:cast(self(), gen_server:call(ZrtpFsm, Zrtp))
 			end,
 			{noreply, State#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
