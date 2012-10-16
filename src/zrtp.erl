@@ -100,10 +100,11 @@ start_link(Args) ->
 
 %% Generate Alice's ZRTP server
 init([Parent])->
+
 	init([Parent, null, null]);
 init([Parent, ZID, SSRC]) ->
 	init([Parent, ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
-init([Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) when is_binary(ZID) ->
+init([Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes] = Params) ->
 	% Deferred init
 	self() ! {init, Params},
 	{ok, #state{}}.
