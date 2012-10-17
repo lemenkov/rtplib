@@ -120,12 +120,20 @@ handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
 handle_cast(
-	{#rtp{} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+	{#rtp{ssrc = OtherSSRC} = Pkt, _, _},
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	TMod:send(Fd, Ip, Port, NewPkt),
 	{noreply, NewState};
+handle_cast(
+	{#rtp{ssrc = OtherSSRC} = Pkt, _, _},
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	TMod:send(Fd, Ip, Port, NewPkt),
+	(ZrtFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
+	{noreply, NewState#state{other_ssrc = OtherSSRC}};
 handle_cast(
 	{#rtcp{} = Pkt, _, _},
 	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, mux = true} = State
