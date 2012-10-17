@@ -723,12 +723,12 @@ handle_call(
 
 	{reply, ok, State};
 
-handle_call({ssrc, SSRC}, _From, #state{ssrc = null, tref = null} = State) ->
+handle_call({ssrc, MySSRC}, _From, #state{ssrc = null, tref = null} = State) ->
 	{A1,A2,A3} = os:timestamp(),
 	random:seed(A1, A2, A3),
 	Interval = random:uniform(2000),
 	{ok, TRef} = timer:send_interval(Interval, init),
-	{reply, ok, State#state{ssrc = SSRC, tref = TRef}};
+	{reply, ok, State#state{ssrc = MySSRC, tref = TRef}};
 
 handle_call(get_keys, _From, State) ->
 	{reply,
@@ -752,7 +752,7 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, State) ->
 	ok.
 
-handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
+handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
 	% Intialize NIF libraries if not initialized yet
 	% FIXME move outside this module
 	crc32c:init(),
@@ -789,7 +789,7 @@ handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SA
 	{noreply, #state{
 			parent = Parent,
 			zid = Z,
-			ssrc = SSRC,
+			ssrc = MySSRC,
 			h0 = H0,
 			h1 = H1,
 			h2 = H2,
