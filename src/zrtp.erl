@@ -91,7 +91,9 @@
 		other_h2 = null,
 		other_h3 = null,
 		prev_sn = 0,
-		storage = null
+
+		storage = null,
+		tref = null
 	}
 ).
 
@@ -119,6 +121,9 @@ handle_call(
 		storage = Tid
 	} = State) ->
 
+	% Stop init timer if any
+	(State#state.tref == null) orelse timer:cancel(State#state.tref),
+
 	HelloMsg = #hello{
 		h3 = H3,
 		zid = ZID,
@@ -141,7 +146,7 @@ handle_call(
 	% Store full Alice's HELLO message
 	ets:insert(Tid, {{alice, hello}, Hello}),
 
-	{reply, Hello, State};
+	{reply, Hello, State#state{tref = null}};
 
 handle_call(
 	#zrtp{
@@ -718,8 +723,12 @@ handle_call(
 
 	{reply, ok, State};
 
-handle_call({ssrc, SSRC}, _From, #state{ ssrc = null} = State) ->
-	{reply, ok, State#state{ ssrc = SSRC}};
+handle_call({ssrc, SSRC}, _From, #state{ssrc = null, tref = null} = State) ->
+	{A1,A2,A3} = os:timestamp(),
+	random:seed(A1, A2, A3),
+	Interval = random:uniform(2000),
+	{ok, TRef} = timer:send_interval(Interval, init),
+	{reply, ok, State#state{ssrc = SSRC, tref = TRef}};
 
 handle_call(get_keys, _From, State) ->
 	{reply,
@@ -789,6 +798,34 @@ handle_info({init, [Parent, ZID, SSRC, Hashes, Ciphers, Auths, KeyAgreements, SA
 			storage = Tid
 		}
 	};
+handle_info(init, #state{zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = Tid} = State) ->
+	% Stop init timer
+	timer:cancel(State#state.tref),
+
+	HelloMsg = #hello{
+		h3 = H3,
+		zid = ZID,
+		s = 0, % FIXME allow checking digital signature (see http://zfone.com/docs/ietf/rfc6189bis.html#SignSAS )
+		m = 1, % FIXME allow to set to false
+		p = 0, % We can send COMMIT messages
+		hash = ets:lookup_element(Tid, hash, 2),
+		cipher = ets:lookup_element(Tid, cipher, 2),
+		auth = ets:lookup_element(Tid, auth, 2),
+		keyagr = ets:lookup_element(Tid, keyagr, 2),
+		sas = ets:lookup_element(Tid, sas, 2)
+	},
+
+	Hello = #zrtp{
+		sequence = 1,
+		ssrc = MySSRC,
+		message = HelloMsg#hello{mac = mkhmac(HelloMsg, H2)}
+	},
+
+	% Store full Alice's HELLO message
+	ets:insert(Tid, {{alice, hello}, Hello}),
+
+	{noreply, State#state{tref = null}};
+
 handle_info(Other, State) ->
 	{noreply, State}.
 
