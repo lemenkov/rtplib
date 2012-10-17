@@ -100,7 +100,6 @@ start_link(Args) ->
 
 %% Generate Alice's ZRTP server
 init([Parent])->
-
 	init([Parent, null, null]);
 init([Parent, ZID, SSRC]) ->
 	init([Parent, ZID, SSRC, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_ALL_SUPPORTED]);
@@ -719,7 +718,7 @@ handle_call(
 
 	{reply, ok, State};
 
-handle_call({ssrc, SSRC}, _From, State) ->
+handle_call({ssrc, SSRC}, _From, #state{ ssrc = null} = State) ->
 	{reply, ok, State#state{ ssrc = SSRC}};
 
 handle_call(get_keys, _From, State) ->
