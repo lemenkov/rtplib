@@ -144,7 +144,7 @@ handle_cast(
 	{noreply, NewState};
 handle_cast(
 	{#zrtp{} = Pkt, _, _},
-	#state{rtcp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
 ) ->
 	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
 	{noreply, State};
