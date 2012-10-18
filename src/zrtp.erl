@@ -890,26 +890,26 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:
 			hvi = HVI,
 			mac = MAC
 	}};
-decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_MULT, SAS:4/binary, Nonce:16/binary, MAC:8/binary>>) ->
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Mult", SAS:4/binary, Nonce:16/binary, MAC:8/binary>>) ->
 	{ok, #commit{
 			h2 = HashImageH2,
 			zid = ZID,
 			hash = Hash,
 			cipher = Cipher,
 			auth = AuthType,
-			keyagr = <<"Mult">>,
+			keyagr = ?ZRTP_KEY_AGREEMENT_MULT,
 			sas = SAS,
 			nonce = Nonce,
 			mac = MAC
 	}};
-decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>) ->
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Prsh", SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>) ->
 	{ok, #commit{
 			h2 = HashImageH2,
 			zid = ZID,
 			hash = Hash,
 			cipher = Cipher,
 			auth = AuthType,
-			keyagr = <<"Prsh">>,
+			keyagr = ?ZRTP_KEY_AGREEMENT_PRSH,
 			sas = SAS,
 			nonce = Nonce,
 			keyid = KeyID,
@@ -1000,22 +1000,22 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	AC = length(Auths),
 	KC = length(KeyAgreements),
 	SC = length(SASTypes),
-	BinHashes = << <<(to_binary(X))/binary>> || X <- Hashes >>,
-	BinCiphers = << <<(to_binary(X))/binary>> || X <- Ciphers >>,
-	BinAuths = << <<(to_binary(X))/binary>> || X <- Auths >>,
-	BinKeyAgreements = << <<(to_binary(X))/binary>> || X <- KeyAgreements >>,
-	BinSASTypes = << <<(to_binary(X))/binary>> || X <- SASTypes >>,
+	BinHashes = << <<X/binary>> || X <- Hashes >>,
+	BinCiphers = << <<X/binary>> || X <- Ciphers >>,
+	BinAuths = << <<X/binary>> || X <- Auths >>,
+	BinKeyAgreements = << <<X/binary>> || X <- KeyAgreements >>,
+	BinSASTypes = << <<X/binary>> || X <- SASTypes >>,
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
 encode_message(helloack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_HELLOACK>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = <<"Mult">>,sas = SAS,nonce = Nonce,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_MULT, (to_binary(SAS)):4/binary, Nonce:16/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Mult", SAS:4/binary, Nonce:16/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2, zid = ZID, hash = Hash, cipher = Cipher, auth = AuthType, keyagr = <<"Prsh">>, sas = SAS, nonce = Nonce, keyid = KeyID, mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, (to_binary(SAS)):4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Prsh", SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = KeyAgreement,sas = SAS,hvi = HVI,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, (to_binary(KeyAgreement)):4/binary, (to_binary(SAS)):4/binary, HVI:32/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, KeyAgreement:4/binary, SAS:4/binary, HVI:32/binary, MAC:8/binary>>;
 encode_message(#dhpart1{h1 = HashImageH1,rs1IDr = Rs1IDr,rs2IDr = Rs2IDr,auxsecretIDr = AuxsecretIDr,pbxsecretIDr = PbxsecretIDr,pvr = PVR,mac = MAC}) ->
 	Length = 1 + 2 + 8 + 2 + 2 + 2 + 2 + size(PVR) div 4 + 2,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART1, HashImageH1:32/binary, Rs1IDr:8/binary, Rs2IDr:8/binary, AuxsecretIDr:8/binary, PbxsecretIDr:8/binary, PVR/binary, MAC/binary>>;
@@ -1166,6 +1166,3 @@ get_taglength(?ZRTP_AUTH_TAG_HS32) -> 4;
 get_taglength(?ZRTP_AUTH_TAG_HS80) -> 10;
 get_taglength(?ZRTP_AUTH_TAG_SK32) -> 4;
 get_taglength(?ZRTP_AUTH_TAG_SK64) -> 8.
-
-to_binary(B) when is_binary(B) -> B;
-to_binary(B) when is_list(B) -> list_to_binary(B).
