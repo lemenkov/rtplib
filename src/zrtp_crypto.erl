@@ -34,6 +34,14 @@
 -export([mkfinal/2]).
 -export([kdf/4]).
 -export([sas/2]).
+-export([get_hashfun/1]).
+-export([get_hmacfun/1]).
+-export([get_hashlength/1]).
+-export([get_keylength/1]).
+-export([get_taglength/1]).
+
+-export([mkhmac/2]).
+-export([verify_hmac/3]).
 
 -include("../include/zrtp.hrl").
 
@@ -179,3 +187,29 @@ sas(SASValue, ?ZRTP_SAS_TYPE_B32) ->
 	sas:b32(SASValue);
 sas(SASValue, ?ZRTP_SAS_TYPE_B256) ->
 	sas:b256(SASValue).
+
+get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
+get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
+get_hmacfun(?ZRTP_HASH_S256) -> fun crypto:sha256_mac/2;
+get_hmacfun(?ZRTP_HASH_S384) -> fun crypto:sha384_mac/2.
+get_hashlength(?ZRTP_HASH_S256) -> 32;
+get_hashlength(?ZRTP_HASH_S384) -> 48.
+get_keylength(?ZRTP_CIPHER_AES1) -> 16;
+get_keylength(?ZRTP_CIPHER_AES2) -> 24;
+get_keylength(?ZRTP_CIPHER_AES3) -> 32.
+get_taglength(?ZRTP_AUTH_TAG_HS32) -> 4;
+get_taglength(?ZRTP_AUTH_TAG_HS80) -> 10;
+get_taglength(?ZRTP_AUTH_TAG_SK32) -> 4;
+get_taglength(?ZRTP_AUTH_TAG_SK64) -> 8.
+
+mkhmac(Msg, Hash) ->
+	Payload = zrtp:encode_message(Msg),
+	Size = size(Payload) - 8,
+	<<Data:Size/binary, _/binary>> = Payload,
+	<<Mac:8/binary, _/binary>> = crypto:sha256_mac(Hash, Data),
+	Mac.
+
+verify_hmac(_, _, null) ->
+	false;
+verify_hmac(Msg, Mac, Hash) ->
+	Mac == mkhmac(Msg, Hash).

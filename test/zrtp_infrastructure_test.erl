@@ -40,18 +40,18 @@
 zrtp_infrastructure_test_() ->
 	[
 		{"Check hash negitiation",
-			fun() -> ?assertEqual(?ZRTP_HASH_S256, zrtp:negotiate(?ZRTP_HASH_S256, [], [<<"S256">>, <<"S384">>])) end
+			fun() -> ?assertEqual(?ZRTP_HASH_S256, zrtp_fsm:negotiate(?ZRTP_HASH_S256, [], [<<"S256">>, <<"S384">>])) end
 		},
 		{"Check cipher negitiation",
-			fun() -> ?assertEqual(?ZRTP_CIPHER_AES1, zrtp:negotiate(?ZRTP_CIPHER_AES1, [], [<<"AES1">>])) end
+			fun() -> ?assertEqual(?ZRTP_CIPHER_AES1, zrtp_fsm:negotiate(?ZRTP_CIPHER_AES1, [], [<<"AES1">>])) end
 		},
 		{"Check auth negitiation",
-			fun() -> ?assertEqual(?ZRTP_AUTH_TAG_HS32, zrtp:negotiate(?ZRTP_AUTH_TAG_HS32, [], [<<"HS32">>, <<"HS80">>])) end
+			fun() -> ?assertEqual(?ZRTP_AUTH_TAG_HS32, zrtp_fsm:negotiate(?ZRTP_AUTH_TAG_HS32, [], [<<"HS32">>, <<"HS80">>])) end
 		},
 		{"Check key agreement negitiation",
-			fun() -> ?assertEqual(?ZRTP_KEY_AGREEMENT_DH3K, zrtp:negotiate(?ZRTP_KEY_AGREEMENT_DH3K, [], [<<"DH3k">>, <<"Mult">>])) end
+			fun() -> ?assertEqual(?ZRTP_KEY_AGREEMENT_DH3K, zrtp_fsm:negotiate(?ZRTP_KEY_AGREEMENT_DH3K, [], [<<"DH3k">>, <<"Mult">>])) end
 		},
 		{"Check SAS negitiation",
-			fun() -> ?assertEqual(?ZRTP_SAS_TYPE_B32, zrtp:negotiate(?ZRTP_SAS_TYPE_B32, [], [<<"B32 ">>])) end
+			fun() -> ?assertEqual(?ZRTP_SAS_TYPE_B32, zrtp_fsm:negotiate(?ZRTP_SAS_TYPE_B32, [], [<<"B32 ">>])) end
 		}
 	].

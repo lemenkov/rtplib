@@ -280,7 +280,7 @@ handle_info({init, Params}, State) ->
 		none ->
 			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
 		zrtp ->
-			{ok, ZrtpFsm} = zrtp:start_link([self()]),
+			{ok, ZrtpFsm} = zrtp_fsm:start_link([self()]),
 			{ZrtpFsm, passthru, passthru, null, null, [fun srtp_encode/2], [fun srtp_decode/2]};
 		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
 			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),

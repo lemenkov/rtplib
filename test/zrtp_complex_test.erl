@@ -264,18 +264,18 @@ zrtp_complex_test_() ->
 		%%
 
 		{"Check that we can confirm HELLO message integrity based on H2",
-			fun() -> ?assertEqual(true, zrtp:verify_hmac(HelloZrtp, H2)) end
+			fun() -> ?assertEqual(true, zrtp_fsm:verify_hmac(HelloZrtp, H2)) end
 		},
 		{"Check that we can confirm COMMIT message integrity based on H1",
-			fun() -> ?assertEqual(true, zrtp:verify_hmac(CommitZrtp, H1)) end
+			fun() -> ?assertEqual(true, zrtp_fsm:verify_hmac(CommitZrtp, H1)) end
 		},
 		{"Check that we CAN NOT confirm DHPart1 message integrity based on Confirm1's H0 (cannot decode it)",
-			fun() -> ?assertEqual(false, zrtp:verify_hmac(Confirm1Zrtp, null)) end
+			fun() -> ?assertEqual(false, zrtp_fsm:verify_hmac(Confirm1Zrtp, null)) end
 		},
 		{"Compute hvi which will be used within COMMIT message",
 			fun() -> ?assertEqual(
 						<<191,42,166,117,108,247,80,187,84,5,165,235,67,92,41,134,220,5,136,28,64,33,206,232,225,82,115,165,37,76,197,111>>,
-						zrtp:calculate_hvi(HelloMessage, Dhpart2Message, fun erlsha2:sha256/1)
+						zrtp_fsm:calculate_hvi(HelloMessage, Dhpart2Message, fun erlsha2:sha256/1)
 					) end
 		}
 	].
