@@ -170,11 +170,11 @@ handle_call(
 		ssrc = MySSRC,
 		storage = Tid
 	} = State) ->
-	Hash = negotiate(Tid, hash, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_HASH_S256, Hashes),
-	Cipher = negotiate(Tid, cipher, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_CIPHER_AES1, Ciphers),
-	Auth = negotiate(Tid, auth, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_AUTH_TAG_HS32, Auths),
-	KeyAgr = negotiate(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_DH3K, KeyAgreements),
-	SAS = negotiate(Tid, sas, ?ZRTP_SAS_TYPE_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_B32, SASTypes),
+	Hash = negotiate(Tid, hash, ?ZRTP_HASH_S256, Hashes),
+	Cipher = negotiate(Tid, cipher, ?ZRTP_CIPHER_AES1, Ciphers),
+	Auth = negotiate(Tid, auth, ?ZRTP_AUTH_TAG_HS32, Auths),
+	KeyAgr = negotiate(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_DH3K, KeyAgreements),
+	SAS = negotiate(Tid, sas, ?ZRTP_SAS_TYPE_B32, SASTypes),
 
 	% Store full Bob's HELLO message
 	ets:insert(Tid, {{bob, hello}, Hello}),
@@ -1139,25 +1139,17 @@ validate_and_save(Tid, RecId, Default, List) ->
 	lists:foreach(fun(X) -> true = lists:member(X, Default) end, List),
 	ets:insert(Tid, {RecId, List}).
 
-negotiate(Tid, RecId, Supported, Default, BobList) ->
+negotiate(Tid, RecId, Default, BobList) ->
 	AliceList = ets:lookup_element(Tid, RecId, 2),
-	negotiate(Supported, Default, AliceList, BobList).
+	negotiate(Default, AliceList, BobList).
 
-negotiate(_, Default, [], _) ->
+negotiate(Default, [], _) ->
 	Default;
-negotiate(_, Default, _, []) ->
+negotiate(Default, _, []) ->
 	Default;
-negotiate(Supported, _, AliceList, BobList) ->
-	IntersectList = lists:filter(fun(X) -> lists:member(X, AliceList) end, BobList),
-	choose(Supported, IntersectList).
-
-choose([], IntersectList) ->
-	throw({error,cant_negotiate});
-choose([Item | Rest], IntersectList) ->
-	case lists:member(Item, IntersectList) of
-		true -> Item;
-		_ -> choose(Rest, IntersectList)
-	end.
+negotiate(_, AliceList, BobList) ->
+	[Item | _] = lists:filter(fun(X) -> lists:member(X, AliceList) end, BobList),
+	Item.
 
 get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
 get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
