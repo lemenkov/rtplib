@@ -87,16 +87,6 @@
 -define(ZRTP_SIGNATURE_TYPE_PGP, <<"PGP ">>.).
 -define(ZRTP_SIGNATURE_TYPE_X509, <<"X509">>).
 
--define(ZRTP_SIGNATURE_HELLO, 16#505a).
-
--define(ZRTP_VERSION, "1.10").
--define(ZRTP_SOFTWARE, <<"Erlang (Z)RTPLIB">>).
-
--define(HASH_IMAGE_SIZE, 32).
-
--define(STR_INITIATOR, "Initiator").
--define(STR_RESPONDER, "Responder").
-
 -define(ZRTP_ERROR_MALFORMED_PACKET, 16#10). % Malformed packet (CRC OK, but wrong structure)
 -define(ZRTP_ERROR_SOFTWARE, 16#20). % Critical software error
 -define(ZRTP_ERROR_UNSUPPORTED_VERSION, 16#30). % Unsupported ZRTP version
@@ -125,7 +115,7 @@
 	}).
 
 -record(hello, {
-		clientid = ?ZRTP_SOFTWARE,
+		clientid = <<"Erlang (Z)RTPLIB">>,
 		h3,
 		zid,
 		s,

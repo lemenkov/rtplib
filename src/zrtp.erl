@@ -46,6 +46,10 @@
 
 -include("../include/zrtp.hrl").
 
+-define(ZRTP_SIGNATURE_HELLO, 16#505a).
+
+-define(ZRTP_VERSION, "1.10").
+
 -record(state, {
 		parent = null,
 		zid,
@@ -227,14 +231,14 @@ handle_call(
 	Rs3 = ets:lookup_element(Tid, rs3, 2),
 	Rs4 = ets:lookup_element(Tid, rs4, 2),
 
-	<<Rs1IDi:8/binary, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
-	<<Rs1IDr:8/binary, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
-	<<Rs2IDi:8/binary, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
-	<<Rs2IDr:8/binary, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
+	<<Rs1IDi:8/binary, _/binary>> = HMacFun(Rs1, "Initiator"),
+	<<Rs1IDr:8/binary, _/binary>> = HMacFun(Rs1, "Responder"),
+	<<Rs2IDi:8/binary, _/binary>> = HMacFun(Rs2, "Initiator"),
+	<<Rs2IDr:8/binary, _/binary>> = HMacFun(Rs2, "Responder"),
 	<<AuxSecretIDi:8/binary, _/binary>> = HMacFun(Rs3, H3),
 	<<AuxSecretIDr:8/binary, _/binary>> = HMacFun(Rs3, H3),
-	<<PbxSecretIDi:8/binary, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
-	<<PbxSecretIDr:8/binary, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
+	<<PbxSecretIDi:8/binary, _/binary>> = HMacFun(Rs4, "Initiator"),
+	<<PbxSecretIDr:8/binary, _/binary>> = HMacFun(Rs4, "Responder"),
 
 	{PublicKey, PrivateKey} = ets:lookup_element(Tid, {pki,KeyAgr}, 2),
 
