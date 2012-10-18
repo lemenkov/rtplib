@@ -50,52 +50,42 @@
 -define(ZRTP_MSG_PING,		"Ping    ").
 -define(ZRTP_MSG_PINGACK,	"PingACK ").
 
--define(ZRTP_HASH_S256, "S256").
--define(ZRTP_HASH_S384, "S384").
--define(ZRTP_HASH_N256, "N256").
--define(ZRTP_HASH_N384, "N384").
+-define(ZRTP_HASH_S256, <<"S256">>).
+-define(ZRTP_HASH_S384, <<"S384">>).
+-define(ZRTP_HASH_N256, <<"N256">>).
+-define(ZRTP_HASH_N384, <<"N384">>).
 -define(ZRTP_HASH_ALL_SUPPORTED, [?ZRTP_HASH_S256, ?ZRTP_HASH_S384]).
 
--define(ZRTP_CIPHER_AES1, "AES1").
--define(ZRTP_CIPHER_AES2, "AES2").
--define(ZRTP_CIPHER_AES3, "AES3").
--define(ZRTP_CIPHER_2FS1, "2FS1").
--define(ZRTP_CIPHER_2FS2, "2FS2").
--define(ZRTP_CIPHER_2FS3, "2FS3").
+-define(ZRTP_CIPHER_AES1, <<"AES1">>).
+-define(ZRTP_CIPHER_AES2, <<"AES2">>).
+-define(ZRTP_CIPHER_AES3, <<"AES3">>).
+-define(ZRTP_CIPHER_2FS1, <<"2FS1">>).
+-define(ZRTP_CIPHER_2FS2, <<"2FS2">>).
+-define(ZRTP_CIPHER_2FS3, <<"2FS3">>).
 -define(ZRTP_CIPHER_ALL_SUPPORTED, [?ZRTP_CIPHER_AES1, ?ZRTP_CIPHER_AES2, ?ZRTP_CIPHER_AES3]).
 
--define(ZRTP_AUTH_TAG_HS32, "HS32").
--define(ZRTP_AUTH_TAG_HS80, "HS80").
--define(ZRTP_AUTH_TAG_SK32, "SK32").
--define(ZRTP_AUTH_TAG_SK64, "SK64").
+-define(ZRTP_AUTH_TAG_HS32, <<"HS32">>).
+-define(ZRTP_AUTH_TAG_HS80, <<"HS80">>).
+-define(ZRTP_AUTH_TAG_SK32, <<"SK32">>).
+-define(ZRTP_AUTH_TAG_SK64, <<"SK64">>).
 -define(ZRTP_AUTH_ALL_SUPPORTED, [?ZRTP_AUTH_TAG_HS32, ?ZRTP_AUTH_TAG_HS80]).
 
--define(ZRTP_KEY_AGREEMENT_DH2K, "DH2k"). % DH mode with p=2048 bit prime per RFC 3526, Section 3.
--define(ZRTP_KEY_AGREEMENT_DH3K, "DH3k"). % DH mode with p=3072 bit prime per RFC 3526, Section 4.
--define(ZRTP_KEY_AGREEMENT_DH4K, "DH4k"). % DH mode with p=3072 bit prime per RFC 3526, Section 5.
--define(ZRTP_KEY_AGREEMENT_EC25, "EC25"). % Elliptic Curve DH, P-256 per RFC 5114, Section 2.6
--define(ZRTP_KEY_AGREEMENT_EC38, "EC38"). % Elliptic Curve DH, P-384 per RFC 5114, Section 2.7
--define(ZRTP_KEY_AGREEMENT_EC52, "EC52"). % Elliptic Curve DH, P-521 per RFC 5114, Section 2.8 (deprecated - do not use)
--define(ZRTP_KEY_AGREEMENT_PRSH, "Prsh"). % Preshared Non-DH mode
--define(ZRTP_KEY_AGREEMENT_MULT, "Mult"). % Multistream Non-DH mode
+-define(ZRTP_KEY_AGREEMENT_DH2K, <<"DH2k">>). % DH mode with p=2048 bit prime per RFC 3526, Section 3.
+-define(ZRTP_KEY_AGREEMENT_DH3K, <<"DH3k">>). % DH mode with p=3072 bit prime per RFC 3526, Section 4.
+-define(ZRTP_KEY_AGREEMENT_DH4K, <<"DH4k">>). % DH mode with p=3072 bit prime per RFC 3526, Section 5.
+-define(ZRTP_KEY_AGREEMENT_EC25, <<"EC25">>). % Elliptic Curve DH, P-256 per RFC 5114, Section 2.6
+-define(ZRTP_KEY_AGREEMENT_EC38, <<"EC38">>). % Elliptic Curve DH, P-384 per RFC 5114, Section 2.7
+-define(ZRTP_KEY_AGREEMENT_EC52, <<"EC52">>). % Elliptic Curve DH, P-521 per RFC 5114, Section 2.8 (deprecated - do not use)
+-define(ZRTP_KEY_AGREEMENT_PRSH, <<"Prsh">>). % Preshared Non-DH mode
+-define(ZRTP_KEY_AGREEMENT_MULT, <<"Mult">>). % Multistream Non-DH mode
 -define(ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, [?ZRTP_KEY_AGREEMENT_DH2K, ?ZRTP_KEY_AGREEMENT_DH3K, ?ZRTP_KEY_AGREEMENT_DH4K]).
 
--define(ZRTP_SAS_TYPE_B32, "B32 ").
--define(ZRTP_SAS_TYPE_B256, "B256").
+-define(ZRTP_SAS_TYPE_B32, <<"B32 ">>).
+-define(ZRTP_SAS_TYPE_B256, <<"B256">>).
 -define(ZRTP_SAS_TYPE_ALL_SUPPORTED, [?ZRTP_SAS_TYPE_B32, ?ZRTP_SAS_TYPE_B256]).
 
--define(ZRTP_SIGNATURE_TYPE_PGP, "PGP ").
--define(ZRTP_SIGNATURE_TYPE_X509, "X509").
-
--define(ZRTP_SIGNATURE_HELLO, 16#505a).
-
--define(ZRTP_VERSION, "1.10").
--define(ZRTP_SOFTWARE, <<"Erlang (Z)RTPLIB">>).
-
--define(HASH_IMAGE_SIZE, 32).
-
--define(STR_INITIATOR, "Initiator").
--define(STR_RESPONDER, "Responder").
+-define(ZRTP_SIGNATURE_TYPE_PGP, <<"PGP ">>.).
+-define(ZRTP_SIGNATURE_TYPE_X509, <<"X509">>).
 
 -define(ZRTP_ERROR_MALFORMED_PACKET, 16#10). % Malformed packet (CRC OK, but wrong structure)
 -define(ZRTP_ERROR_SOFTWARE, 16#20). % Critical software error
@@ -125,7 +115,7 @@
 	}).
 
 -record(hello, {
-		clientid = ?ZRTP_SOFTWARE,
+		clientid = <<"Erlang (Z)RTPLIB">>,
 		h3,
 		zid,
 		s,

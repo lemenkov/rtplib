@@ -46,6 +46,10 @@
 
 -include("../include/zrtp.hrl").
 
+-define(ZRTP_SIGNATURE_HELLO, 16#505a).
+
+-define(ZRTP_VERSION, "1.10").
+
 -record(state, {
 		parent = null,
 		zid,
@@ -170,11 +174,11 @@ handle_call(
 		ssrc = MySSRC,
 		storage = Tid
 	} = State) ->
-	Hash = negotiate(Tid, hash, ?ZRTP_HASH_ALL_SUPPORTED, ?ZRTP_HASH_S256, Hashes),
-	Cipher = negotiate(Tid, cipher, ?ZRTP_CIPHER_ALL_SUPPORTED, ?ZRTP_CIPHER_AES1, Ciphers),
-	Auth = negotiate(Tid, auth, ?ZRTP_AUTH_ALL_SUPPORTED, ?ZRTP_AUTH_TAG_HS32, Auths),
-	KeyAgr = negotiate(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, ?ZRTP_KEY_AGREEMENT_DH3K, KeyAgreements),
-	SAS = negotiate(Tid, sas, ?ZRTP_SAS_TYPE_ALL_SUPPORTED, ?ZRTP_SAS_TYPE_B32, SASTypes),
+	Hash = negotiate(Tid, hash, ?ZRTP_HASH_S256, Hashes),
+	Cipher = negotiate(Tid, cipher, ?ZRTP_CIPHER_AES1, Ciphers),
+	Auth = negotiate(Tid, auth, ?ZRTP_AUTH_TAG_HS32, Auths),
+	KeyAgr = negotiate(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_DH3K, KeyAgreements),
+	SAS = negotiate(Tid, sas, ?ZRTP_SAS_TYPE_B32, SASTypes),
 
 	% Store full Bob's HELLO message
 	ets:insert(Tid, {{bob, hello}, Hello}),
@@ -227,14 +231,14 @@ handle_call(
 	Rs3 = ets:lookup_element(Tid, rs3, 2),
 	Rs4 = ets:lookup_element(Tid, rs4, 2),
 
-	<<Rs1IDi:8/binary, _/binary>> = HMacFun(Rs1, ?STR_INITIATOR),
-	<<Rs1IDr:8/binary, _/binary>> = HMacFun(Rs1, ?STR_RESPONDER),
-	<<Rs2IDi:8/binary, _/binary>> = HMacFun(Rs2, ?STR_INITIATOR),
-	<<Rs2IDr:8/binary, _/binary>> = HMacFun(Rs2, ?STR_RESPONDER),
+	<<Rs1IDi:8/binary, _/binary>> = HMacFun(Rs1, "Initiator"),
+	<<Rs1IDr:8/binary, _/binary>> = HMacFun(Rs1, "Responder"),
+	<<Rs2IDi:8/binary, _/binary>> = HMacFun(Rs2, "Initiator"),
+	<<Rs2IDr:8/binary, _/binary>> = HMacFun(Rs2, "Responder"),
 	<<AuxSecretIDi:8/binary, _/binary>> = HMacFun(Rs3, H3),
 	<<AuxSecretIDr:8/binary, _/binary>> = HMacFun(Rs3, H3),
-	<<PbxSecretIDi:8/binary, _/binary>> = HMacFun(Rs4, ?STR_INITIATOR),
-	<<PbxSecretIDr:8/binary, _/binary>> = HMacFun(Rs4, ?STR_RESPONDER),
+	<<PbxSecretIDi:8/binary, _/binary>> = HMacFun(Rs4, "Initiator"),
+	<<PbxSecretIDr:8/binary, _/binary>> = HMacFun(Rs4, "Responder"),
 
 	{PublicKey, PrivateKey} = ets:lookup_element(Tid, {pki,KeyAgr}, 2),
 
@@ -774,11 +778,12 @@ handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, 
 
 	Tid = ets:new(zrtp, [private]),
 
-	ets:insert(Tid, {hash, Hashes}),
-	ets:insert(Tid, {cipher, Ciphers}),
-	ets:insert(Tid, {auth, Auths}),
-	ets:insert(Tid, {keyagr, KeyAgreements}),
-	ets:insert(Tid, {sas, SASTypes}),
+	% Filter out requested lists and die if we'll find any unsupported value
+	validate_and_save(Tid, hash, ?ZRTP_HASH_ALL_SUPPORTED, Hashes),
+	validate_and_save(Tid, cipher, ?ZRTP_CIPHER_ALL_SUPPORTED, Ciphers),
+	validate_and_save(Tid, auth, ?ZRTP_AUTH_ALL_SUPPORTED, Auths),
+	validate_and_save(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, KeyAgreements),
+	validate_and_save(Tid, sas, ?ZRTP_SAS_TYPE_ALL_SUPPORTED, SASTypes),
 
 	% To speedup things later we precompute all keys - we have a plenty of time for that right now
 	lists:map(fun(KA) -> {PublicKey, PrivateKey} = zrtp_crypto:mkdh(KA), ets:insert(Tid, {{pki,KA}, {PublicKey, PrivateKey}}) end, KeyAgreements),
@@ -798,7 +803,7 @@ handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, 
 			storage = Tid
 		}
 	};
-handle_info(init, #state{zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = Tid} = State) ->
+handle_info(init, #state{parent = Parent, zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = Tid} = State) ->
 	% Stop init timer
 	timer:cancel(State#state.tref),
 
@@ -823,6 +828,8 @@ handle_info(init, #state{zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = T
 
 	% Store full Alice's HELLO message
 	ets:insert(Tid, {{alice, hello}, Hello}),
+
+	(Parent == null) orelse gen_server:cast(Parent, {Hello, null, null}),
 
 	{noreply, State#state{tref = null}};
 
@@ -888,26 +895,26 @@ decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:
 			hvi = HVI,
 			mac = MAC
 	}};
-decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_MULT, SAS:4/binary, Nonce:16/binary, MAC:8/binary>>) ->
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Mult", SAS:4/binary, Nonce:16/binary, MAC:8/binary>>) ->
 	{ok, #commit{
 			h2 = HashImageH2,
 			zid = ZID,
 			hash = Hash,
 			cipher = Cipher,
 			auth = AuthType,
-			keyagr = <<"Mult">>,
+			keyagr = ?ZRTP_KEY_AGREEMENT_MULT,
 			sas = SAS,
 			nonce = Nonce,
 			mac = MAC
 	}};
-decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>) ->
+decode_message(<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Prsh", SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>) ->
 	{ok, #commit{
 			h2 = HashImageH2,
 			zid = ZID,
 			hash = Hash,
 			cipher = Cipher,
 			auth = AuthType,
-			keyagr = <<"Prsh">>,
+			keyagr = ?ZRTP_KEY_AGREEMENT_PRSH,
 			sas = SAS,
 			nonce = Nonce,
 			keyid = KeyID,
@@ -998,22 +1005,22 @@ encode_message(#hello{clientid = ClientIdentifier, h3 = HashImageH3, zid = ZID, 
 	AC = length(Auths),
 	KC = length(KeyAgreements),
 	SC = length(SASTypes),
-	BinHashes = << <<(to_binary(X))/binary>> || X <- Hashes >>,
-	BinCiphers = << <<(to_binary(X))/binary>> || X <- Ciphers >>,
-	BinAuths = << <<(to_binary(X))/binary>> || X <- Auths >>,
-	BinKeyAgreements = << <<(to_binary(X))/binary>> || X <- KeyAgreements >>,
-	BinSASTypes = << <<(to_binary(X))/binary>> || X <- SASTypes >>,
+	BinHashes = << <<X/binary>> || X <- Hashes >>,
+	BinCiphers = << <<X/binary>> || X <- Ciphers >>,
+	BinAuths = << <<X/binary>> || X <- Auths >>,
+	BinKeyAgreements = << <<X/binary>> || X <- KeyAgreements >>,
+	BinSASTypes = << <<X/binary>> || X <- SASTypes >>,
 	Rest = <<BinHashes/binary, BinCiphers/binary, BinAuths/binary, BinKeyAgreements/binary, BinSASTypes/binary, MAC/binary>>,
 	Length = (2 + 2 + 8 + 4 + 16 + 32 + 12 + 4 + size(Rest)) div 4,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_HELLO, ?ZRTP_VERSION, ClientIdentifier:16/binary, HashImageH3:32/binary, ZID:12/binary, 0:1, S:1, M:1, P:1, 0:8, HC:4, CC:4, AC:4, KC:4, SC:4, Rest/binary>>;
 encode_message(helloack) ->
 	<<?ZRTP_SIGNATURE_HELLO:16, 3:16, ?ZRTP_MSG_HELLOACK>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = <<"Mult">>,sas = SAS,nonce = Nonce,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_MULT, (to_binary(SAS)):4/binary, Nonce:16/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 25:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Mult", SAS:4/binary, Nonce:16/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2, zid = ZID, hash = Hash, cipher = Cipher, auth = AuthType, keyagr = <<"Prsh">>, sas = SAS, nonce = Nonce, keyid = KeyID, mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, ?ZRTP_KEY_AGREEMENT_PRSH, (to_binary(SAS)):4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 27:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, "Prsh", SAS:4/binary, Nonce:16/binary, KeyID:8/binary, MAC:8/binary>>;
 encode_message(#commit{h2 = HashImageH2,zid = ZID,hash = Hash,cipher = Cipher,auth = AuthType,keyagr = KeyAgreement,sas = SAS,hvi = HVI,mac = MAC}) ->
-	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, (to_binary(Hash)):4/binary, (to_binary(Cipher)):4/binary, (to_binary(AuthType)):4/binary, (to_binary(KeyAgreement)):4/binary, (to_binary(SAS)):4/binary, HVI:32/binary, MAC:8/binary>>;
+	<<?ZRTP_SIGNATURE_HELLO:16, 29:16, ?ZRTP_MSG_COMMIT, HashImageH2:32/binary, ZID:12/binary, Hash:4/binary, Cipher:4/binary, AuthType:4/binary, KeyAgreement:4/binary, SAS:4/binary, HVI:32/binary, MAC:8/binary>>;
 encode_message(#dhpart1{h1 = HashImageH1,rs1IDr = Rs1IDr,rs2IDr = Rs2IDr,auxsecretIDr = AuxsecretIDr,pbxsecretIDr = PbxsecretIDr,pvr = PVR,mac = MAC}) ->
 	Length = 1 + 2 + 8 + 2 + 2 + 2 + 2 + size(PVR) div 4 + 2,
 	<<?ZRTP_SIGNATURE_HELLO:16, Length:16, ?ZRTP_MSG_DHPART1, HashImageH1:32/binary, Rs1IDr:8/binary, Rs2IDr:8/binary, AuxsecretIDr:8/binary, PbxsecretIDr:8/binary, PVR/binary, MAC/binary>>;
@@ -1131,25 +1138,24 @@ mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey) ->
 	Mac = mkhmac(DHpart2, H0),
 	DHpart2#dhpart2{mac = Mac}.
 
-negotiate(Tid, RecId, Supported, Default, BobList) ->
+validate_and_save(Tid, RecId, Default, List) ->
+	% Each value from List must be a member of a Default list
+	lists:foreach(fun(X) -> true = lists:member(X, Default) end, List),
+	% Now let's sort the List list according the the Default list
+	SortedList = lists:filter(fun(X) -> lists:member(X, List) end, Default),
+	ets:insert(Tid, {RecId, SortedList}).
+
+negotiate(Tid, RecId, Default, BobList) ->
 	AliceList = ets:lookup_element(Tid, RecId, 2),
-	negotiate(Supported, Default, AliceList, BobList).
+	negotiate(Default, AliceList, BobList).
 
-negotiate(_, Default, [], _) ->
+negotiate(Default, [], _) ->
 	Default;
-negotiate(_, Default, _, []) ->
+negotiate(Default, _, []) ->
 	Default;
-negotiate(Supported, _, AliceList, BobList) ->
-	IntersectList = lists:filter(fun(X) -> lists:member(X, AliceList) end, BobList),
-	choose(Supported, IntersectList).
-
-choose([], IntersectList) ->
-	throw({error,cant_negotiate});
-choose([Item | Rest], IntersectList) ->
-	case lists:member(Item, IntersectList) of
-		true -> Item;
-		_ -> choose(Rest, IntersectList)
-	end.
+negotiate(_, AliceList, BobList) ->
+	[Item | _] = lists:filter(fun(X) -> lists:member(X, AliceList) end, BobList),
+	Item.
 
 get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
 get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
@@ -1164,6 +1170,3 @@ get_taglength(?ZRTP_AUTH_TAG_HS32) -> 4;
 get_taglength(?ZRTP_AUTH_TAG_HS80) -> 10;
 get_taglength(?ZRTP_AUTH_TAG_SK32) -> 4;
 get_taglength(?ZRTP_AUTH_TAG_SK64) -> 8.
-
-to_binary(B) when is_binary(B) -> B;
-to_binary(B) when is_list(B) -> list_to_binary(B).
