@@ -1137,7 +1137,9 @@ mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey) ->
 validate_and_save(Tid, RecId, Default, List) ->
 	% Each value from List must be a member of a Default list
 	lists:foreach(fun(X) -> true = lists:member(X, Default) end, List),
-	ets:insert(Tid, {RecId, List}).
+	% Now let's sort the List list according the the Default list
+	SortedList = lists:filter(fun(X) -> lists:member(X, List) end, Default),
+	ets:insert(Tid, {RecId, SortedList}).
 
 negotiate(Tid, RecId, Default, BobList) ->
 	AliceList = ets:lookup_element(Tid, RecId, 2),
