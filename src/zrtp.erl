@@ -798,7 +798,7 @@ handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, 
 			storage = Tid
 		}
 	};
-handle_info(init, #state{zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = Tid} = State) ->
+handle_info(init, #state{parent = Parent, zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = Tid} = State) ->
 	% Stop init timer
 	timer:cancel(State#state.tref),
 
@@ -823,6 +823,8 @@ handle_info(init, #state{zid = ZID, ssrc = MySSRC, h3 = H3, h2 = H2, storage = T
 
 	% Store full Alice's HELLO message
 	ets:insert(Tid, {{alice, hello}, Hello}),
+
+	(Parent == null) orelse gen_server:cast(Parent, {Hello, null, null}),
 
 	{noreply, State#state{tref = null}};
 
