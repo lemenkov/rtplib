@@ -774,11 +774,12 @@ handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, 
 
 	Tid = ets:new(zrtp, [private]),
 
-	ets:insert(Tid, {hash, Hashes}),
-	ets:insert(Tid, {cipher, Ciphers}),
-	ets:insert(Tid, {auth, Auths}),
-	ets:insert(Tid, {keyagr, KeyAgreements}),
-	ets:insert(Tid, {sas, SASTypes}),
+	% Filter out requested lists and die if we'll find any unsupported value
+	validate_and_save(Tid, hash, ?ZRTP_HASH_ALL_SUPPORTED, Hashes),
+	validate_and_save(Tid, cipher, ?ZRTP_CIPHER_ALL_SUPPORTED, Ciphers),
+	validate_and_save(Tid, auth, ?ZRTP_AUTH_ALL_SUPPORTED, Auths),
+	validate_and_save(Tid, keyagr, ?ZRTP_KEY_AGREEMENT_ALL_SUPPORTED, KeyAgreements),
+	validate_and_save(Tid, sas, ?ZRTP_SAS_TYPE_ALL_SUPPORTED, SASTypes),
 
 	% To speedup things later we precompute all keys - we have a plenty of time for that right now
 	lists:map(fun(KA) -> {PublicKey, PrivateKey} = zrtp_crypto:mkdh(KA), ets:insert(Tid, {{pki,KA}, {PublicKey, PrivateKey}}) end, KeyAgreements),
@@ -1132,6 +1133,11 @@ mkdhpart2(H0, H1, Rs1IDi, Rs2IDi, AuxSecretIDi, PbxSecretIDi, PublicKey) ->
 	},
 	Mac = mkhmac(DHpart2, H0),
 	DHpart2#dhpart2{mac = Mac}.
+
+validate_and_save(Tid, RecId, Default, List) ->
+	% Each value from List must be a member of a Default list
+	lists:foreach(fun(X) -> true = lists:member(X, Default) end, List),
+	ets:insert(Tid, {RecId, List}).
 
 negotiate(Tid, RecId, Supported, Default, BobList) ->
 	AliceList = ets:lookup_element(Tid, RecId, 2),
