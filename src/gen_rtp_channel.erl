@@ -61,6 +61,7 @@
 		rtcpport = null,
 		tmod = null,
 		ssrc = null,
+		sn = null,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -157,7 +158,7 @@ handle_cast(
 	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
 	{noreply, State};
 
-handle_cast({raw, Ip, Port, {PayloadType, Msg}}, State) ->
+handle_cast({{PayloadType, Msg}, Ip, Port}, State) ->
 	% FIXME
 	{noreply, State};
 
@@ -288,6 +289,11 @@ handle_info({init, Params}, State) ->
 			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
 	end,
 
+	FunRebuildRtp = case proplists:get_value(rebuildrtp, Params, false) of
+		false -> [];
+		true -> [fun rebuild_rtp/2]
+	end,
+
 	% FIXME
 	{Encoder, Decoders, Transcode} = case proplists:get_value(transcode, Params, false) of
 		false ->
@@ -319,7 +325,7 @@ handle_info({init, Params}, State) ->
 			% FIXME - properly set transport
 			tmod = gen_udp,
 			process_chain_up = RtpDecode ++ Transcode,
-			process_chain_down = Transcode ++ RtpEncode,
+			process_chain_down = Transcode ++ RtpEncode ++ FunRebuildRtp,
 			encoder = Encoder,
 			decoders = Decoders,
 			mux = MuxRtpRtcp,
@@ -437,4 +443,9 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 	{ok, NewPayload} = codec:encode(Encoder, RawData),
 	{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State};
 transcode(Pkt, State) ->
+	{Pkt, State}.
+
+rebuild_rtp(#rtp{} = Pkt, #state{sn = SequenceNumber} = State) ->
+	{Pkt#rtp{marker = case SequenceNumber of 0 -> 1; _ -> 0 end, sequence_number = SequenceNumber}, State#state{sn = SequenceNumber + 1}};
+rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
