@@ -70,6 +70,10 @@ AC_ARG_WITH([audiocodec-ilbc],
 	    AC_HELP_STRING([--with-audiocodec-ilbc],[enable iLBC audiocodec [default=yes].]),
 	    [audiocodec_ilbc="$withval"],[audiocodec_ilbc="yes"])
 
+AC_ARG_WITH([audiocodec-g729],
+	    AC_HELP_STRING([--with-audiocodec-g729],[enable G.729 audiocodec [default=yes].]),
+	    [audiocodec_g729="$withval"],[audiocodec_g729="yes"])
+
 AC_CHECK_HEADER([spandsp/telephony.h],[audiocodec_dvi="yes"],[AC_MSG_ERROR([<spandsp/telephony.h> header not found])])
 AC_CHECK_HEADER([spandsp/ima_adpcm.h],,[AC_MSG_ERROR([<spandsp/ima_adpcm.h> header not found])],[
 		 AC_INCLUDES_DEFAULT
@@ -162,6 +166,22 @@ AC_CHECK_LIB([ilbc],
 )
 fi
 
+if test "$audiocodec_g729" = "yes"
+then
+AC_CHECK_HEADER([bcg729/decoder.h],,[AC_MSG_ERROR([<bcg729/decoder.h> header not found])])
+AC_CHECK_HEADER([bcg729/encoder.h],,[AC_MSG_ERROR([<bcg729/encoder.h> header not found])])
+AC_CHECK_LIB([bcg729],
+	     [initBcg729DecoderChannel],
+	     [
+	      G729_CFLAGS=`pkg-config --cflags libbcg729`
+	      G729_LIBS=`pkg-config --libs libbcg729`
+	      AC_SUBST([G729_CFLAGS])
+	      AC_SUBST([G729_LIBS])
+	     ],
+	     [AC_MSG_ERROR([bcg729 library missing])]
+)
+fi
+
 AC_CHECK_HEADER([samplerate.h],,[AC_MSG_ERROR([<samplerate.h> header not found])])
 AC_CHECK_LIB([samplerate],
 	     [src_simple],
@@ -180,6 +200,7 @@ AC_SUBST([BUILD_DATE])
 AC_PATH_PROG(REBAR, [rebar], [./rebar])
 
 AM_CONDITIONAL(WITH_ILBC, test "$audiocodec_ilbc" = "yes")
+AM_CONDITIONAL(WITH_G729, test "$audiocodec_g729" = "yes")
 AM_CONDITIONAL(WITH_OPUS, test "$audiocodec_opus" = "yes")
 AM_CONDITIONAL(WITH_SPEEX, test "$audiocodec_speex" = "yes")
 
