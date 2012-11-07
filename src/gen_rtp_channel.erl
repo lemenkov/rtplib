@@ -61,7 +61,7 @@
 		rtcpport = null,
 		tmod = null,
 		ssrc = null,
-		sn = null,
+		sn = 1,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -446,6 +446,6 @@ transcode(Pkt, State) ->
 	{Pkt, State}.
 
 rebuild_rtp(#rtp{} = Pkt, #state{sn = SequenceNumber} = State) ->
-	{Pkt#rtp{marker = case SequenceNumber of 0 -> 1; _ -> 0 end, sequence_number = SequenceNumber}, State#state{sn = SequenceNumber + 1}};
+	{Pkt#rtp{marker = case SequenceNumber of 1 -> 1; _ -> 0 end, sequence_number = SequenceNumber}, State#state{sn = SequenceNumber + 1}};
 rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
