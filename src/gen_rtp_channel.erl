@@ -325,7 +325,7 @@ handle_info({init, Params}, State) ->
 			% FIXME - properly set transport
 			tmod = gen_udp,
 			process_chain_up = RtpDecode ++ Transcode,
-			process_chain_down = Transcode ++ RtpEncode ++ FunRebuildRtp,
+			process_chain_down = Transcode ++ FunRebuildRtp ++ RtpEncode,
 			encoder = Encoder,
 			decoders = Decoders,
 			mux = MuxRtpRtcp,
