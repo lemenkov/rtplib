@@ -299,7 +299,7 @@ get_codec_from_payload(14) -> {'MPA',90000,0}; % FIXME 90000 Hz?
 get_codec_from_payload(15) -> {'G728',8000,1};
 get_codec_from_payload(16) -> {'DVI4',11025,1};
 get_codec_from_payload(17) -> {'DVI4',22050,1};
-get_codec_from_payload(18) -> {'G729',8000,1}; % FIXME the same as G.729a?
+get_codec_from_payload(18) -> {'G729',8000,1};
 
 get_codec_from_payload(31) -> {'H261',90000,0};
 get_codec_from_payload(34) -> {'H263',90000,0};
@@ -322,7 +322,7 @@ get_payload_from_codec({'MPA',90000,0}) -> 14;
 get_payload_from_codec({'G728',8000,1}) -> 15;
 get_payload_from_codec({'DVI4',11025,1}) -> 16;
 get_payload_from_codec({'DVI4',22050,1}) -> 17;
-get_payload_from_codec({'G729',8000,1}) -> 18; % FIXME the same as G.729a?
+get_payload_from_codec({'G729',8000,1}) -> 18;
 get_payload_from_codec({'H261',90000,0}) -> 31;
 get_payload_from_codec({'H263',90000,0}) -> 34;
 

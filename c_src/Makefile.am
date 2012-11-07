@@ -10,6 +10,10 @@ if WITH_ILBC
 ILBC_CODEC_DRV=ilbc_codec_drv.la
 endif
 
+if WITH_G729
+G729_CODEC_DRV=g729_codec_drv.la
+endif
+
 lib_LTLIBRARIES = \
 		  dvi4_codec_drv.la \
 		  g722_codec_drv.la \
@@ -21,6 +25,7 @@ lib_LTLIBRARIES = \
 		  $(OPUS_CODEC_DRV) \
 		  $(SPEEX_CODEC_DRV) \
 		  $(ILBC_CODEC_DRV) \
+		  $(G729_CODEC_DRV) \
 		  crc32c_nif.la \
 		  sas_nif.la \
 		  resampler_drv.la
@@ -79,6 +84,13 @@ ilbc_codec_drv_la_SOURCES = ilbc_codec.c
 ilbc_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @ILBC_CFLAGS@
 ilbc_codec_drv_la_LIBADD = @ILBC_LIBS@ @ERLANG_LIBS@
 ilbc_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
+endif
+
+if WITH_G729
+g729_codec_drv_la_SOURCES = g729_codec.c
+g729_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @G729_CFLAGS@
+g729_codec_drv_la_LIBADD = @G729_LIBS@ @ERLANG_LIBS@
+g729_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 endif
 
 crc32c_nif_la_SOURCES = crc32c_nif.c
