@@ -182,6 +182,7 @@ handle_cast(alive, State) ->
 	{noreply, State#state{alive = true}};
 
 handle_cast(Request, State) ->
+	error_logger:error_msg("gen_rtp unmatched cast [~p]", [Request]),
 	{noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
