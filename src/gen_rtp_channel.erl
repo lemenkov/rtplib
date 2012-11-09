@@ -159,7 +159,7 @@ handle_cast(
 	{noreply, State};
 
 handle_cast({raw, Type, Payload}, #state{sn = SequenceNumber, other_ssrc = OtherSSRC} = State) ->
-	<<Timestamp:32, _/binary>> = rtp_utils:now2ntp(),
+	<<_:32, Timestamp:32>> = rtp_utils:now2ntp(),
 	Pkt = #rtp{
 		padding = 0,
 		marker = case SequenceNumber of 0 -> 1; _ -> 0 end,
