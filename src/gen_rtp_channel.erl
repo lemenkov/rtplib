@@ -76,6 +76,7 @@
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
 		alive = false,
+		keepalive = true,
 		tref
 	}
 ).
@@ -178,8 +179,10 @@ handle_cast({update, Params}, State) ->
 	SendRecvStrategy = get_send_recv_strategy(Params),
 	{ok, State#state{sendrecv = SendRecvStrategy}};
 
-handle_cast(alive, State) ->
-	{noreply, State#state{alive = true}};
+handle_cast({keepalive, enable}, State) ->
+	{noreply, State#state{keepalive = true}};
+handle_cast({keepalive, disable}, State) ->
+	{noreply, State#state{keepalive = false}};
 
 handle_cast(Request, State) ->
 	error_logger:error_msg("gen_rtp unmatched cast [~p]", [Request]),
@@ -256,8 +259,11 @@ handle_info(
 handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
 	Parent ! interim_update,
 	{noreply, State#state{alive=false}};
-handle_info(interim_update, #state{alive = false} = State) ->
+handle_info(interim_update, #state{alive = false, keepalive = true} = State) ->
 	{stop, timeout, State};
+handle_info(interim_update, #state{alive = false, keepalive = false} = State) ->
+	error_logger:error_msg("gen_rtp ignore timeout"),
+	{noreply, State};
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
