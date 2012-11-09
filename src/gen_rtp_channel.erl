@@ -178,6 +178,9 @@ handle_cast({update, Params}, State) ->
 	SendRecvStrategy = get_send_recv_strategy(Params),
 	{ok, State#state{sendrecv = SendRecvStrategy}};
 
+handle_cast(alive, State) ->
+	{noreply, State#state{alive = true}};
+
 handle_cast(Request, State) ->
 	{noreply, State}.
 
