@@ -460,7 +460,9 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-rebuild_rtp(#rtp{} = Pkt, #state{sn = SequenceNumber} = State) ->
-	{Pkt#rtp{marker = case SequenceNumber of 1 -> 1; _ -> 0 end, sequence_number = SequenceNumber}, State#state{sn = SequenceNumber + 1}};
+rebuild_rtp(#rtp{} = Pkt, #state{sn = SN} = State) ->
+	<<_:32, T:32>> = rtp_utils:now2ntp(),
+	M = case SN of 1 -> 1; _ -> 0 end,
+	{Pkt#rtp{marker = M, timestamp = T, sequence_number = SN}, State#state{sn = SN + 1}};
 rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
