@@ -158,9 +158,20 @@ handle_cast(
 	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
 	{noreply, State};
 
-handle_cast({{PayloadType, Msg}, Ip, Port}, State) ->
-	% FIXME
-	{noreply, State};
+handle_cast({raw, Type, Payload}, #state{sn = SequenceNumber, other_ssrc = OtherSSRC} = State) ->
+	<<Timestamp:32, _/binary>> = rtp_utils:now2ntp(),
+	Pkt = #rtp{
+		padding = 0,
+		marker = case SequenceNumber of 0 -> 1; _ -> 0 end,
+		payload_type = Type,
+		sequence_number = SequenceNumber,
+		timestamp = Timestamp,
+		ssrc = OtherSSRC,
+		csrcs = [],
+		extension = null,
+		payload = Payload
+	},
+	handle_cast({Pkt, null, null}, State);
 
 handle_cast({update, Params}, State) ->
 	% FIXME consider changing another params as well
