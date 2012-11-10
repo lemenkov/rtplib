@@ -122,6 +122,16 @@ handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
 handle_cast(
+	{{Type, Payload} = Pkt, _, _},
+	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	TMod:send(Fd, Ip, Port, NewPkt),
+	% FIXME initial setup of a ZRTP
+	%(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
+	{noreply, NewState};
+
+handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, _, _},
 	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
 ) ->
@@ -158,21 +168,6 @@ handle_cast(
 ) ->
 	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
 	{noreply, State};
-
-handle_cast({raw, Type, Payload}, #state{sn = SequenceNumber, other_ssrc = OtherSSRC} = State) ->
-	<<_:32, Timestamp:32>> = rtp_utils:now2ntp(),
-	Pkt = #rtp{
-		padding = 0,
-		marker = case SequenceNumber of 0 -> 1; _ -> 0 end,
-		payload_type = Type,
-		sequence_number = SequenceNumber,
-		timestamp = Timestamp,
-		ssrc = OtherSSRC,
-		csrcs = [],
-		extension = null,
-		payload = Payload
-	},
-	handle_cast({Pkt, null, null}, State);
 
 handle_cast({update, Params}, State) ->
 	% FIXME consider changing another params as well
@@ -310,9 +305,9 @@ handle_info({init, Params}, State) ->
 			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
 	end,
 
-	FunRebuild = case proplists:get_value(rebuildrtp, Params, false) of
-		false -> [];
-		true -> [fun rebuild_rtp/2]
+	{FunRebuild, OtherSSRC2} = case proplists:get_value(rebuildrtp, Params, false) of
+		false -> {[], OtherSSRC};
+		true -> {[fun rebuild_rtp/2], case OtherSSRC of null -> random:uniform(1 bsl 32); _ -> OtherSSRC end}
 	end,
 
 	% FIXME
@@ -342,10 +337,10 @@ handle_info({init, Params}, State) ->
 			ctxI = CtxI,
 			ctxO = CtxO,
 			ssrc = SSRC,
-			other_ssrc = OtherSSRC,
+			other_ssrc = OtherSSRC2,
 			% FIXME - properly set transport
 			tmod = gen_udp,
-			process_chain_up = FunDecode ++ FunTranscode,
+			process_chain_up = FunDecode ++ FunTranscode ++ FunRebuild,
 			process_chain_down = FunRebuild ++ FunTranscode ++ FunEncode,
 			encoder = Encoder,
 			decoders = Decoders,
@@ -466,9 +461,21 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-rebuild_rtp(#rtp{} = Pkt, #state{sn = SN} = State) ->
-	<<_:32, T:32>> = rtp_utils:now2ntp(),
-	M = case SN of 1 -> 1; _ -> 0 end,
-	{Pkt#rtp{marker = M, timestamp = T, sequence_number = SN}, State#state{sn = SN + 1}};
+rebuild_rtp({Type, Payload}, #state{sn = SN, other_ssrc = OtherSSRC} = State) ->
+	<<_:32, Timestamp:32>> = rtp_utils:now2ntp(),
+	Pkt = #rtp{
+		padding = 0,
+		marker = case SN of 1 -> 1; _ -> 0 end,
+		payload_type = Type,
+		sequence_number = SN,
+		timestamp = Timestamp,
+		ssrc = OtherSSRC,
+		csrcs = [],
+		extension = null,
+		payload = Payload
+	},
+	{Pkt, State#state{sn = SN + 1}};
+rebuild_rtp(#rtp{} = Pkt, State) ->
+	{{Pkt#rtp.payload_type, Pkt#rtp.payload}, State};
 rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
