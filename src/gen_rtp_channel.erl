@@ -298,7 +298,7 @@ handle_info({init, Params}, State) ->
 	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
 
 	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
-	{Zrtp, CtxI, CtxO, SSRC, OtherSSRC, RtpEncode, RtpDecode} = case proplists:get_value(ctx, Params, none) of
+	{Zrtp, CtxI, CtxO, SSRC, OtherSSRC, FunEncode, FunDecode} = case proplists:get_value(ctx, Params, none) of
 		none ->
 			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
 		zrtp ->
@@ -310,13 +310,13 @@ handle_info({init, Params}, State) ->
 			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
 	end,
 
-	FunRebuildRtp = case proplists:get_value(rebuildrtp, Params, false) of
+	FunRebuild = case proplists:get_value(rebuildrtp, Params, false) of
 		false -> [];
 		true -> [fun rebuild_rtp/2]
 	end,
 
 	% FIXME
-	{Encoder, Decoders, Transcode} = case proplists:get_value(transcode, Params, false) of
+	{Encoder, Decoders, FunTranscode} = case proplists:get_value(transcode, Params, false) of
 		false ->
 			{
 				false,
@@ -345,8 +345,8 @@ handle_info({init, Params}, State) ->
 			other_ssrc = OtherSSRC,
 			% FIXME - properly set transport
 			tmod = gen_udp,
-			process_chain_up = RtpDecode ++ Transcode,
-			process_chain_down = Transcode ++ FunRebuildRtp ++ RtpEncode,
+			process_chain_up = FunDecode ++ FunTranscode,
+			process_chain_down = FunTranscode ++ FunRebuild ++ FunEncode,
 			encoder = Encoder,
 			decoders = Decoders,
 			mux = MuxRtpRtcp,
