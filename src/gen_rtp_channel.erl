@@ -62,6 +62,7 @@
 		tmod = null,
 		ssrc = null,
 		sn = 1,
+		starttime = null,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -337,6 +338,7 @@ handle_info({init, Params}, State) ->
 			ctxI = CtxI,
 			ctxO = CtxO,
 			ssrc = SSRC,
+			starttime = begin {MegaSecs, Secs, MicroSecs} = os:timestamp(), MegaSecs*1000000000 + Secs*1000  end,
 			other_ssrc = OtherSSRC2,
 			% FIXME - properly set transport
 			tmod = gen_udp,
@@ -461,8 +463,8 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-rebuild_rtp({Type, Payload}, #state{sn = SN, other_ssrc = OtherSSRC} = State) ->
-	<<_:32, Timestamp:32>> = rtp_utils:now2ntp(),
+rebuild_rtp({Type, Payload}, #state{sn = SN, starttime = ST, other_ssrc = OtherSSRC} = State) ->
+	Timestamp = rtp_utils:mktimestamp(Type, ST),
 	Pkt = #rtp{
 		padding = 0,
 		marker = case SN of 1 -> 1; _ -> 0 end,

@@ -40,6 +40,8 @@
 -export([now2ntp/0]).
 -export([now2ntp/1]).
 
+-export([mktimestamp/2]).
+
 -export([pp/1]).
 
 -export([fix_null_terminated/1]).
@@ -295,7 +297,7 @@ get_codec_from_payload(10) -> {'L16',8000,2}; % FIXME 44100 according to RFC3551
 get_codec_from_payload(11) -> {'L16',8000,1}; % FIXME 44100 according to RFC3551
 get_codec_from_payload(12) -> {'QCELP',8000,1};
 get_codec_from_payload(13) -> {'CN',8000,1};
-get_codec_from_payload(14) -> {'MPA',90000,0}; % FIXME 90000 Hz?
+get_codec_from_payload(14) -> {'MPA',90000,0};
 get_codec_from_payload(15) -> {'G728',8000,1};
 get_codec_from_payload(16) -> {'DVI4',11025,1};
 get_codec_from_payload(17) -> {'DVI4',22050,1};
@@ -327,3 +329,9 @@ get_payload_from_codec({'H261',90000,0}) -> 31;
 get_payload_from_codec({'H263',90000,0}) -> 34;
 
 get_payload_from_codec(C) when is_integer(C) -> C.
+
+mktimestamp(PayloadType, InitialTime) ->
+	{_, Clock, _} = get_codec_from_payload(PayloadType),
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	Millisecs = MegaSecs*1000000000 + Secs*1000 + (MicroSecs div 1000) - InitialTime,
+	round(Millisecs * (Clock  / 1000)).
