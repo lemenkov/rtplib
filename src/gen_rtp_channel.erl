@@ -35,6 +35,7 @@
 
 -export([start/1]).
 -export([start_link/1]).
+-export([close/1]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -88,6 +89,8 @@ start(Params) ->
 start_link(Params) ->
 	PPid = self(),
 	gen_server:start_link(?MODULE, [Params ++ [{parent, PPid}]], []).
+close(Pid) ->
+	gen_server:cast(Pid, stop).
 
 init([Params]) ->
 	% Deferred init
@@ -179,6 +182,9 @@ handle_cast({keepalive, enable}, State) ->
 	{noreply, State#state{keepalive = true}};
 handle_cast({keepalive, disable}, State) ->
 	{noreply, State#state{keepalive = false}};
+
+handle_cast(stop, State) ->
+	{stop, normal, State};
 
 handle_cast(Request, State) ->
 	error_logger:error_msg("gen_rtp unmatched cast [~p]", [Request]),
