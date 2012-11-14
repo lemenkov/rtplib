@@ -126,51 +126,51 @@ handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
 handle_cast(
-	{{Type, Payload} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain} = State
+	{{Type, Payload} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	TMod:send(Fd, Ip, Port, NewPkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	% FIXME initial setup of a ZRTP
 	%(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
 	{noreply, NewState};
 
 handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	TMod:send(Fd, Ip, Port, NewPkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState};
 handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm} = State
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	TMod:send(Fd, Ip, Port, NewPkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
 	{noreply, NewState#state{other_ssrc = OtherSSRC}};
 handle_cast(
-	{#rtcp{} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod, process_chain_down = Chain, mux = true} = State
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, mux = true} = State
 ) ->
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
 	% then send RTCP muxed within RTP stream
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	TMod:send(Fd, Ip, Port, NewPkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState};
 handle_cast(
-	{#rtcp{} = Pkt, _, _},
-	#state{rtcp = Fd, ip = Ip, rtcpport = Port, tmod = TMod, process_chain_down = Chain} = State
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	TMod:send(Fd, Ip, Port, NewPkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState};
 handle_cast(
-	{#zrtp{} = Pkt, _, _},
-	#state{rtp = Fd, ip = Ip, rtpport = Port, tmod = TMod} = State
+	{#zrtp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
 ) ->
-	TMod:send(Fd, Ip, Port, zrtp:encode(Pkt)),
+	send(TMod, Fd, zrtp:encode(Pkt), DefIp, DefPort, Ip, Port),
 	{noreply, State};
 
 handle_cast({update, Params}, State) ->
@@ -487,3 +487,10 @@ rebuild_rtp(#rtp{} = Pkt, State) ->
 	{{Pkt#rtp.payload_type, Pkt#rtp.payload}, State};
 rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
+
+send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
+	gen_udp:send(Fd, Ip, Port, Pkt);
+send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
+	gen_udp:send(Fd, Ip, Port, Pkt);
+send(gen_tcp, Fd, Pkt, _, _, _, _) ->
+	gen_tcp:send(Fd, Pkt).
