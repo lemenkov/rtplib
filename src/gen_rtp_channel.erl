@@ -33,10 +33,6 @@
 
 -behaviour(gen_server).
 
-% These will be removed soon
--export([start/1]).
--export([start_link/1]).
-
 -export([open/1]).
 -export([open/2]).
 -export([close/1]).
@@ -86,13 +82,6 @@
 		tref
 	}
 ).
-
-start(Params) ->
-	PPid = self(),
-	gen_server:start(?MODULE, [Params ++ [{parent, PPid}]], []).
-start_link(Params) ->
-	PPid = self(),
-	gen_server:start_link(?MODULE, [Params ++ [{parent, PPid}]], []).
 
 open(Port) ->
 	open(Port, []).
