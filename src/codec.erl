@@ -41,6 +41,8 @@
 -export([encode/2]).
 -export([close/1]).
 
+-export([default_codecs/0]).
+
 -export([start_link/1]).
 -export([init/1]).
 -export([handle_call/3]).
@@ -54,7 +56,12 @@
 -define(CMD_DECODE, 2).
 -define(CMD_RESAMPLE(FromSR, FromCh, ToSR, ToCh), (FromSR div 1000) * 16777216 + FromCh * 65536  + (ToSR div 1000) * 256 + ToCh).
 
+
 -record(state, {port, type, samplerate, channels, resolution, resampler}).
+
+% For testing purposes only
+default_codecs() ->
+	[{'PCMU',8000,1},{'GSM', 8000,1},{'PCMA',8000,1},{'G722',8000,1},{'G729',8000,1}].
 
 start_link(Args) when
 	Args == {'PCMU',8000,1};

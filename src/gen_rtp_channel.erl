@@ -199,9 +199,9 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 	TMod:close(Fd1),
 	case Encoder of
 		false -> ok;
-		_ -> codec:close(Encoder)
+		{_, E} -> codec:close(E)
 	end,
-	lists:foreach(fun(Codec) -> codec:close(Codec) end, Decoders).
+	lists:foreach(fun({_, Codec}) -> codec:close(Codec) end, Decoders).
 
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
@@ -326,10 +326,16 @@ handle_info({init, Params}, State) ->
 			};
 		EncoderDesc ->
 			{
-				codec:start_link(EncoderDesc),
+				begin
+					{ok, C1} = codec:start_link(EncoderDesc),
+					{rtp_utils:get_payload_from_codec(EncoderDesc), C1}
+				end,
 				lists:map(
-					fun(CodecDesc) -> codec:start_link(CodecDesc) end,
-					proplists:get_value(codecs, Params, [])
+					fun(CodecDesc) ->
+						{ok, C2} = codec:start_link(CodecDesc),
+						{rtp_utils:get_payload_from_codec(CodecDesc), C2}
+					end,
+					proplists:get_value(codecs, Params, codec:default_codecs())
 				),
 				[fun transcode/2]
 			}
