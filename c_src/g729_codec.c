@@ -126,7 +126,7 @@ ErlDrvEntry codec_driver_entry = {
 	NULL,			/* F_PTR output, called when erlang has sent */
 	NULL,			/* F_PTR ready_input, called when input descriptor ready */
 	NULL,			/* F_PTR ready_output, called when output descriptor ready */
-	"_codec_drv",		/* char *driver_name, the argument to open_port */
+	"g729_codec_drv",		/* char *driver_name, the argument to open_port */
 	NULL,			/* F_PTR finish, called when unloaded */
 	NULL,			/* handle */
 	codec_drv_control,	/* F_PTR control, port_command callback */
