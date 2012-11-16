@@ -78,16 +78,40 @@ static int codec_drv_control(
 
 	switch(command) {
 		case CMD_ENCODE:
-			out = driver_alloc_binary(10); // 80 bits
-			bcg729Encoder(d->estate, (int16_t*)buf, (uint8_t*)out->orig_bytes);
+			switch(len){
+				case 320: // 20 msec
+					out = driver_alloc_binary(20); // 2*80 bits
+					bcg729Encoder(d->estate, (int16_t*)buf, (uint8_t*)out->orig_bytes);
+					bcg729Encoder(d->estate, (int16_t*)buf+160, (uint8_t*)out->orig_bytes+10);
+					ret = 20;
+					break;
+				case 160: // 10 msec
+					out = driver_alloc_binary(10); // 80 bits
+					bcg729Encoder(d->estate, (int16_t*)buf, (uint8_t*)out->orig_bytes);
+					ret = 10;
+					break;
+				default:
+					break;
+			}
 			*rbuf = (char *) out;
-			ret = 10;
 			break;
 		 case CMD_DECODE:
-			out = driver_alloc_binary(320);
-			bcg729Decoder(d->dstate, (uint8_t*)buf, 0, (int16_t*)out->orig_bytes);
+			switch(len){
+				case 10: // 10 msec
+					out = driver_alloc_binary(160);
+					bcg729Decoder(d->dstate, (uint8_t*)buf, 0, (int16_t*)out->orig_bytes);
+					ret = 160;
+					break;
+				case 20: // 20 msec
+					out = driver_alloc_binary(320);
+					bcg729Decoder(d->dstate, (uint8_t*)buf, 0, (int16_t*)out->orig_bytes);
+					bcg729Decoder(d->dstate, (uint8_t*)buf+10, 0, (int16_t*)out->orig_bytes+160);
+					ret = 320;
+					break;
+				default:
+					break;
+			}
 			*rbuf = (char *) out;
-			ret = 320;
 			break;
 		 default:
 			break;
