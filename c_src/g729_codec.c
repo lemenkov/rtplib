@@ -76,41 +76,36 @@ static int codec_drv_control(
 	ErlDrvBinary *out;
 	*rbuf = NULL;
 
+	int n = 0; // Number of frames
+	int i = 0; // Temporary counter
+
 	switch(command) {
 		case CMD_ENCODE:
-			switch(len){
-				case 320: // 20 msec
-					out = driver_alloc_binary(20); // 2*80 bits
-					bcg729Encoder(d->estate, (int16_t*)buf, (uint8_t*)out->orig_bytes);
-					bcg729Encoder(d->estate, (int16_t*)buf+160, (uint8_t*)out->orig_bytes+10);
-					ret = 20;
-					break;
-				case 160: // 10 msec
-					out = driver_alloc_binary(10); // 80 bits
-					bcg729Encoder(d->estate, (int16_t*)buf, (uint8_t*)out->orig_bytes);
-					ret = 10;
-					break;
-				default:
-					break;
-			}
+			if (len % 160 != 0)
+				break;
+
+			n = len / 160; // Calculate a number of frames
+
+			out = driver_alloc_binary(n*10); // n*80 bits
+			ret = n*10;
+
+			for(i = 0; i<n; i++)
+				bcg729Encoder(d->estate, (int16_t*)buf+80*i, (uint8_t*)out->orig_bytes+10*i);
+
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
-			switch(len){
-				case 10: // 10 msec
-					out = driver_alloc_binary(160);
-					bcg729Decoder(d->dstate, (uint8_t*)buf, 0, (int16_t*)out->orig_bytes);
-					ret = 160;
-					break;
-				case 20: // 20 msec
-					out = driver_alloc_binary(320);
-					bcg729Decoder(d->dstate, (uint8_t*)buf, 0, (int16_t*)out->orig_bytes);
-					bcg729Decoder(d->dstate, (uint8_t*)buf+10, 0, (int16_t*)out->orig_bytes+160);
-					ret = 320;
-					break;
-				default:
-					break;
-			}
+			if (len % 10 != 0)
+				break;
+
+			n = len / 10; // Calculate a number of frames
+
+			out = driver_alloc_binary(n*160); // n*160 bytes
+			ret = n*160;
+
+			for(i = 0; i<n; i++)
+				bcg729Decoder(d->dstate, ((uint8_t*)buf)+10*i, 0, (int16_t*)out->orig_bytes+80*i);
+
 			*rbuf = (char *) out;
 			break;
 		 default:
@@ -126,7 +121,7 @@ ErlDrvEntry codec_driver_entry = {
 	NULL,			/* F_PTR output, called when erlang has sent */
 	NULL,			/* F_PTR ready_input, called when input descriptor ready */
 	NULL,			/* F_PTR ready_output, called when output descriptor ready */
-	"_codec_drv",		/* char *driver_name, the argument to open_port */
+	"g729_codec_drv",		/* char *driver_name, the argument to open_port */
 	NULL,			/* F_PTR finish, called when unloaded */
 	NULL,			/* handle */
 	codec_drv_control,	/* F_PTR control, port_command callback */
