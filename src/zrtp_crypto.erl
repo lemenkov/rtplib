@@ -43,6 +43,11 @@
 -export([mkhmac/2]).
 -export([verify_hmac/3]).
 
+-export([crypto_hash_sha256/1]).
+-export([crypto_hash_sha384/1]).
+-export([crypto_mac_sha256/2]).
+-export([crypto_mac_sha384/2]).
+
 -include("../include/zrtp.hrl").
 
 %% 256 bytes
@@ -179,19 +184,19 @@ mkfinal(Pvr, PrivateKey) ->
 	end.
 
 kdf(?ZRTP_HASH_S256, Key, Label, KDF_Context) ->
-	crypto:sha256_mac(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 256:8>>);
+	crypto_mac_sha256(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 256:8>>);
 kdf(?ZRTP_HASH_S384, Key, Label, KDF_Context) ->
-	crypto:sha384_mac(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 384:8>>).
+	crypto_mac_sha384(Key, <<1:32, Label/binary, 0:32, KDF_Context/binary, 384:8>>).
 
 sas(SASValue, ?ZRTP_SAS_TYPE_B32) ->
 	sas:b32(SASValue);
 sas(SASValue, ?ZRTP_SAS_TYPE_B256) ->
 	sas:b256(SASValue).
 
-get_hashfun(?ZRTP_HASH_S256) -> fun(X) -> crypto:hash(sha256, X) end;
-get_hashfun(?ZRTP_HASH_S384) -> fun(X) -> crypto:hash(sha384, X) end.
-get_hmacfun(?ZRTP_HASH_S256) -> fun crypto:sha256_mac/2;
-get_hmacfun(?ZRTP_HASH_S384) -> fun crypto:sha384_mac/2.
+get_hashfun(?ZRTP_HASH_S256) -> fun crypto_hash_sha256/1;
+get_hashfun(?ZRTP_HASH_S384) -> fun crypto_hash_sha384/1.
+get_hmacfun(?ZRTP_HASH_S256) -> fun crypto_mac_sha256/2;
+get_hmacfun(?ZRTP_HASH_S384) -> fun crypto_mac_sha384/2.
 get_hashlength(?ZRTP_HASH_S256) -> 32;
 get_hashlength(?ZRTP_HASH_S384) -> 48.
 get_keylength(?ZRTP_CIPHER_AES1) -> 16;
@@ -206,10 +211,24 @@ mkhmac(Msg, Hash) ->
 	Payload = zrtp:encode_message(Msg),
 	Size = size(Payload) - 8,
 	<<Data:Size/binary, _/binary>> = Payload,
-	<<Mac:8/binary, _/binary>> = crypto:sha256_mac(Hash, Data),
+	<<Mac:8/binary, _/binary>> = crypto_mac_sha256(Hash, Data),
 	Mac.
 
 verify_hmac(_, _, null) ->
 	false;
 verify_hmac(Msg, Mac, Hash) ->
 	Mac == mkhmac(Msg, Hash).
+
+crypto_hash_sha256(Data) ->
+%	crypto:hash(sha256, Data).
+	erlsha2:sha256(Data).
+crypto_hash_sha384(Data) ->
+%	crypto:hash(sha384, Data).
+	erlsha2:sha384(Data).
+
+crypto_mac_sha256(Hash, Data) ->
+%	crypto:sha256_mac(Hash, Data).
+	hmac:hmac256(Hash, Data).
+crypto_mac_sha384(Hash, Data) ->
+%	crypto:sha384_mac(Hash, Data).
+	hmac:hmac384(Hash, Data).
