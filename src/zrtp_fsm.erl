@@ -754,7 +754,6 @@ terminate(Reason, State) ->
 handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
 	% Intialize NIF libraries if not initialized yet
 	% FIXME move outside this module
-	crc32c:init(),
 	sas:init(),
 
 	Z = case ZID of
