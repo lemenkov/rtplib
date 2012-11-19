@@ -31,7 +31,8 @@
 -module(crc32c).
 -author('lemenkov@gmail.com').
 
--export([init/0, crc32c/1]).
+-export([crc32c/1]).
+-on_load(init/0).
 
 init() ->
 	SoName = case code:priv_dir(rtplib) of
