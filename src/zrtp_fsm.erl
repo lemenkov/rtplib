@@ -752,10 +752,6 @@ terminate(Reason, State) ->
 	ok.
 
 handle_info({init, [Parent, ZID, MySSRC, Hashes, Ciphers, Auths, KeyAgreements, SASTypes]}, State) ->
-	% Intialize NIF libraries if not initialized yet
-	% FIXME move outside this module
-	sas:init(),
-
 	Z = case ZID of
 		null -> crypto:rand_bytes(96);
 		_ -> ZID

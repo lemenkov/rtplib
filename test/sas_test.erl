@@ -33,40 +33,36 @@
 -include_lib("eunit/include/eunit.hrl").
 
 b32_test_() ->
-	{setup,
-		fun() -> sas:init() end,
-		fun (_) -> ok end,
-		[
-			% https://github.com/wernerd/ZRTPCPP/blob/master/zrtp/Base32.cpp#L255
-			{"Vector 01",
-				fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
-			},
-			{"Vector 02",
-				fun() -> ?assertEqual(<<"oyyy">>, sas:b32(<<16#80, 16#00, 16#00, 16#00>>)) end
-			},
-			{"Vector 03",
-				fun() -> ?assertEqual(<<"eyyy">>, sas:b32(<<16#40, 16#00, 16#00, 16#00>>)) end
-			},
-			{"Vector 04",
-				fun() -> ?assertEqual(<<"ayyy">>, sas:b32(<<16#c0, 16#00, 16#00, 16#00>>)) end
-			},
-			{"Vector 05",
-				fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
-			},
-			{"Vector 06",
-				fun() -> ?assertEqual(<<"onyy">>, sas:b32(<<16#80, 16#80, 16#00, 16#00>>)) end
-			},
-			{"Vector 07",
-				fun() -> ?assertEqual(<<"tqre">>, sas:b32(<<16#8b, 16#88, 16#80, 16#00>>)) end
-			},
-			{"Vector 08",
-				fun() -> ?assertEqual(<<"6n9h">>, sas:b32(<<16#f0, 16#bf, 16#c7, 16#00>>)) end
-			},
-			{"Vector 09",
-				fun() -> ?assertEqual(<<"4t7y">>, sas:b32(<<16#d4, 16#7a, 16#04, 16#00>>)) end
-			},
-			{"Vector 10",
-				fun() -> ?assertEqual(<<"6im5">>, sas:b32(<<16#f5, 16#57, 16#bb, 16#0c>>)) end
-			}
-		]
-	}.
+	[
+		% https://github.com/wernerd/ZRTPCPP/blob/master/zrtp/Base32.cpp#L255
+		{"Vector 01",
+			fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
+		},
+		{"Vector 02",
+			fun() -> ?assertEqual(<<"oyyy">>, sas:b32(<<16#80, 16#00, 16#00, 16#00>>)) end
+		},
+		{"Vector 03",
+			fun() -> ?assertEqual(<<"eyyy">>, sas:b32(<<16#40, 16#00, 16#00, 16#00>>)) end
+		},
+		{"Vector 04",
+			fun() -> ?assertEqual(<<"ayyy">>, sas:b32(<<16#c0, 16#00, 16#00, 16#00>>)) end
+		},
+		{"Vector 05",
+			fun() -> ?assertEqual(<<"yyyy">>, sas:b32(<<16#00, 16#00, 16#00, 16#00>>)) end
+		},
+		{"Vector 06",
+			fun() -> ?assertEqual(<<"onyy">>, sas:b32(<<16#80, 16#80, 16#00, 16#00>>)) end
+		},
+		{"Vector 07",
+			fun() -> ?assertEqual(<<"tqre">>, sas:b32(<<16#8b, 16#88, 16#80, 16#00>>)) end
+		},
+		{"Vector 08",
+			fun() -> ?assertEqual(<<"6n9h">>, sas:b32(<<16#f0, 16#bf, 16#c7, 16#00>>)) end
+		},
+		{"Vector 09",
+			fun() -> ?assertEqual(<<"4t7y">>, sas:b32(<<16#d4, 16#7a, 16#04, 16#00>>)) end
+		},
+		{"Vector 10",
+			fun() -> ?assertEqual(<<"6im5">>, sas:b32(<<16#f5, 16#57, 16#bb, 16#0c>>)) end
+		}
+	].

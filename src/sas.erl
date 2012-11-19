@@ -30,9 +30,9 @@
 
 -module(sas).
 
--export([init/0]).
 -export([b32/1]).
 -export([b256/1]).
+-on_load(init/0).
 
 init() ->
 	SoName = case code:priv_dir(rtplib) of
