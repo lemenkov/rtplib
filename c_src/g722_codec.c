@@ -34,7 +34,6 @@
 #include "erl_driver.h"
 #include <spandsp/telephony.h>
 #include <spandsp/g722.h>
-#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -86,18 +85,14 @@ static int codec_drv_control(
 	switch(command) {
 		case CMD_ENCODE:
 			out = driver_alloc_binary(len >> 1);
-#if !defined(__BIG_ENDIAN__)
-			htobe16_map((int16_t*)buf, len >> 1);
-#endif
+
 			ret = g722_encode(d->estate, (uint8_t *)out->orig_bytes, (const int16_t *)buf, len >> 1);
 			*rbuf = (char *) out;
 			break;
 		 case CMD_DECODE:
 			out = driver_alloc_binary(len << 1);
 			ret = g722_decode(d->dstate, (int16_t *)out->orig_bytes, (const uint8_t *)buf, len) << 1;
-#if !defined(__BIG_ENDIAN__)
-			htobe16_map((int16_t*)out->orig_bytes, len);
-#endif
+
 			*rbuf = (char *) out;
 			break;
 		 default:

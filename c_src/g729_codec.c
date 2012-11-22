@@ -34,7 +34,6 @@
 #include "erl_driver.h"
 #include <bcg729/decoder.h>
 #include <bcg729/encoder.h>
-#include "endianness.h"
 
 typedef struct {
 	ErlDrvPort port;
@@ -89,9 +88,7 @@ static int codec_drv_control(
 
 			out = driver_alloc_binary(n*10); // n*80 bits
 			ret = n*10;
-#if !defined(__BIG_ENDIAN__)
-			htobe16_map((int16_t*)buf, len >> 1);
-#endif
+
 			for(i = 0; i<n; i++)
 				bcg729Encoder(d->estate, (int16_t*)buf+80*i, (uint8_t*)out->orig_bytes+10*i);
 
@@ -108,9 +105,7 @@ static int codec_drv_control(
 
 			for(i = 0; i<n; i++)
 				bcg729Decoder(d->dstate, ((uint8_t*)buf)+10*i, 0, (int16_t*)out->orig_bytes+80*i);
-#if !defined(__BIG_ENDIAN__)
-			htobe16_map((int16_t*)out->orig_bytes, n*80);
-#endif
+
 			*rbuf = (char *) out;
 			break;
 		 default:
