@@ -87,7 +87,7 @@ ilbc_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 endif
 
 if WITH_G729
-g729_codec_drv_la_SOURCES = g729_codec.c
+g729_codec_drv_la_SOURCES = g729_codec.c endianness.c endianness.h
 g729_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @G729_CFLAGS@
 g729_codec_drv_la_LIBADD = @G729_LIBS@ @ERLANG_LIBS@
 g729_codec_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
