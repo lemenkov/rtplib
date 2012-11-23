@@ -33,9 +33,9 @@
 -compile(export_all).
 
 codec_encode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
-	codec_encode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType).
+	codec_encode_pcmbe(FileIn, FileOut, FrameSize, CodecName, CodecType).
 codec_decode(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
-	codec_decode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType).
+	codec_decode_pcmbe(FileIn, FileOut, FrameSize, CodecName, CodecType).
 
 codec_encode_pcmle(FileIn, FileOut, FrameSize, CodecName, CodecType) ->
 	{ok, PcmIn}  = file:read_file(FileIn),
