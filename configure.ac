@@ -4,7 +4,7 @@ AC_INIT([erlang-rtplib], [0.6.0], [lemenkov@gmail.com])
 
 AC_CANONICAL_TARGET
 
-AC_CONFIG_SRCDIR([c_src/endianness.h])
+AC_CONFIG_SRCDIR([c_src/resampler.c])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip tar-ustar foreign])
 
 # Checks for programs.
