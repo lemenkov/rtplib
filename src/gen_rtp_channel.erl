@@ -466,6 +466,8 @@ srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 
 transcode(Pkt, State = #state{encoder = false}) ->
 	{Pkt, State};
+transcode(#rtp{payload_type = PayloadType} = Rtp, State = #state{encoder = {PayloadType, _}}) ->
+	{Rtp, State};
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
 	Decoder = proplists:get_value(OldPayloadType, Decoders),
 	{ok, RawData} = codec:decode(Decoder, Payload),
