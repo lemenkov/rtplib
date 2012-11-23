@@ -1,4 +1,4 @@
-AC_INIT([erlang-rtplib], [0.6.0], [lemenkov@gmail.com])
+AC_INIT([erlang-rtplib], [0.6.1], [lemenkov@gmail.com])
 
 #AC_PREREQ([2.68])
 
