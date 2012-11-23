@@ -23,7 +23,6 @@ BuildRequires:	automake
 BuildRequires:	erlang >= R15B
 BuildRequires:	erlang-erlando
 buildrequires:	erlang-erlsha2
-BuildRequires:	erlang-eunit
 BuildRequires:	erlang-skerl
 BuildRequires:	erlang-rebar
 BuildRequires:	ilbc-devel
