@@ -471,7 +471,7 @@ transcode(#rtp{payload_type = PayloadType} = Rtp, State = #state{encoder = {Payl
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
 	case proplists:get_value(OldPayloadType, Decoders) of
 		undefined ->
-			{Pkt, State};
+			{Rtp, State};
 		Decoder ->
 			{ok, RawData} = codec:decode(Decoder, Payload),
 			{ok, NewPayload} = codec:encode(Encoder, RawData),
