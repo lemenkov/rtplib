@@ -44,6 +44,6 @@ crc32c_test_() ->
 			fun() -> ?assertEqual(<<16#4e, 16#79, 16#dd, 16#46>>, crc32c:crc32c(<< <<X:8>> || X <- lists:seq(0,31) >>)) end
 		},
 		{"32 bytes of consequently decrementing values (see RFC 3270 B.4).",
-			fun() -> ?assertEqual(<<16#5c, 16#db, 16#3f, 16#11>>, crc32c:crc32c(<< <<(31-X):8>> || X <- lists:seq(0,31) >>)) end
+			fun() -> ?assertEqual(<<16#5c, 16#db, 16#3f, 16#11>>, crc32c:crc32c(<< <<X:8>> || X <- lists:seq(31,0,-1) >>)) end
 		}
 	].
