@@ -469,10 +469,14 @@ transcode(Pkt, State = #state{encoder = false}) ->
 transcode(#rtp{payload_type = PayloadType} = Rtp, State = #state{encoder = {PayloadType, _}}) ->
 	{Rtp, State};
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
-	Decoder = proplists:get_value(OldPayloadType, Decoders),
-	{ok, RawData} = codec:decode(Decoder, Payload),
-	{ok, NewPayload} = codec:encode(Encoder, RawData),
-	{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State};
+	case proplists:get_value(OldPayloadType, Decoders) of
+		undefined ->
+			{Pkt, State};
+		Decoder ->
+			{ok, RawData} = codec:decode(Decoder, Payload),
+			{ok, NewPayload} = codec:encode(Encoder, RawData),
+			{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State}
+	end;
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
