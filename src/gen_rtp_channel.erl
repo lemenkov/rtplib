@@ -312,8 +312,10 @@ handle_info({init, Params}, State) ->
 	end,
 
 	{FunRebuild, OtherSSRC2} = case proplists:get_value(rebuildrtp, Params, false) of
-		false -> {[], OtherSSRC};
-		true -> {[fun rebuild_rtp/2], case OtherSSRC of null -> random:uniform(1 bsl 32); _ -> OtherSSRC end}
+		false ->
+			{[], OtherSSRC};
+		true ->
+			{[fun rebuild_rtp/2], case OtherSSRC of null -> {A1,A2,A3} = os:timestamp(), random:seed(A1, A2, A3), random:uniform(1 bsl 32); _ -> OtherSSRC end}
 	end,
 
 	% FIXME
