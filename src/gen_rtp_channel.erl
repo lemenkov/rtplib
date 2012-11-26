@@ -320,27 +320,17 @@ handle_info({init, Params}, State) ->
 
 	% FIXME
 	{Encoder, Decoders, FunTranscode} = case proplists:get_value(transcode, Params, false) of
-		false ->
-			{
-				false,
-				[],
-				[]
-			};
+		false -> {false, [], []};
 		EncoderDesc ->
-			{
-				begin
-					{ok, C1} = codec:start_link(EncoderDesc),
-					{rtp_utils:get_payload_from_codec(EncoderDesc), C1}
-				end,
-				lists:map(
-					fun(CodecDesc) ->
-						{ok, C2} = codec:start_link(CodecDesc),
-						{rtp_utils:get_payload_from_codec(CodecDesc), C2}
-					end,
-					proplists:get_value(codecs, Params, codec:default_codecs())
-				),
-				[fun transcode/2]
-			}
+			case codec:start_link(EncoderDesc) of
+				{stop,unsupported} -> {false, [], []};
+				{ok, C1} ->
+					{
+						{rtp_utils:get_payload_from_codec(EncoderDesc), C1},
+						load_codecs(proplists:get_value(codecs, Params, codec:default_codecs())),
+						[fun transcode/2]
+					}
+			end
 	end,
 
 	{noreply, #state{
@@ -507,3 +497,13 @@ send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
 	gen_udp:send(Fd, Ip, Port, Pkt);
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 	gen_tcp:send(Fd, Pkt).
+
+load_codecs([]) ->
+	[];
+load_codecs([CodecDesc|Rest]) ->
+	case codec:start_link(CodecDesc) of
+		{stop,unsupported} ->
+			load_codecs(Rest);
+		{ok, C} ->
+			[{rtp_utils:get_payload_from_codec(CodecDesc), C}|load_codecs(Rest)]
+	end.
