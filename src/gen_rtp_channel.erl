@@ -345,7 +345,7 @@ handle_info({init, Params}, State) ->
 			other_ssrc = OtherSSRC2,
 			% FIXME - properly set transport
 			tmod = TMod,
-			process_chain_up = FunDecode ++ FunTranscode ++ FunRebuild,
+			process_chain_up = FunDecode ++ FunRebuild,
 			process_chain_down = FunRebuild ++ FunTranscode ++ FunEncode,
 			encoder = Encoder,
 			decoders = Decoders,
