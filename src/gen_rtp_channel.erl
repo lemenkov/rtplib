@@ -456,8 +456,6 @@ srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 	{ok, NewPkt, NewCtx} = srtp:decrypt(Pkt, Ctx),
 	{NewPkt, State#state{ctxI = NewCtx}}.
 
-transcode(Pkt, State = #state{encoder = false}) ->
-	{Pkt, State};
 transcode(#rtp{payload_type = PayloadType} = Rtp, State = #state{encoder = {PayloadType, _}}) ->
 	{Rtp, State};
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
