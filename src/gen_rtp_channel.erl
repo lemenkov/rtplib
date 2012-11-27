@@ -74,7 +74,7 @@
 		process_chain_up = [],
 		process_chain_down = [],
 		encoder = false,
-		decoders = [],
+		decoder = false,
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
 		alive = false,
@@ -192,7 +192,7 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encoder = Encoder, decoders = Decoders}) ->
+terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
 	timer:cancel(TRef),
 	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
@@ -201,7 +201,10 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 		false -> ok;
 		{_, E} -> codec:close(E)
 	end,
-	lists:foreach(fun({_, Codec}) -> codec:close(Codec) end, Decoders).
+	case Decoder of
+		false -> ok;
+		{_, D} -> codec:close(D)
+	end.
 
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
@@ -319,17 +322,14 @@ handle_info({init, Params}, State) ->
 	end,
 
 	% FIXME
-	{Encoder, Decoders, FunTranscode} = case proplists:get_value(transcode, Params, false) of
-		false -> {false, [], []};
+	{Encoder, FunTranscode} = case proplists:get_value(transcode, Params, false) of
+		false -> {false, []};
 		EncoderDesc ->
 			case codec:start_link(EncoderDesc) of
-				{stop,unsupported} -> {false, [], []};
-				{ok, C1} ->
-					{
-						{rtp_utils:get_payload_from_codec(EncoderDesc), C1},
-						load_codecs(proplists:get_value(codecs, Params, codec:default_codecs())),
-						[fun transcode/2]
-					}
+				{stop,unsupported} ->
+					{false, []};
+				{ok, C} ->
+					{{rtp_utils:get_payload_from_codec(EncoderDesc), C}, [fun transcode/2]}
 			end
 	end,
 
@@ -348,7 +348,6 @@ handle_info({init, Params}, State) ->
 			process_chain_up = FunDecode ++ FunRebuild,
 			process_chain_down = FunRebuild ++ FunTranscode ++ FunEncode,
 			encoder = Encoder,
-			decoders = Decoders,
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef
@@ -458,14 +457,22 @@ srtp_decode(Pkt, State = #state{ctxI = Ctx}) ->
 
 transcode(#rtp{payload_type = PayloadType} = Rtp, State = #state{encoder = {PayloadType, _}}) ->
 	{Rtp, State};
-transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoders = Decoders}) ->
-	case proplists:get_value(OldPayloadType, Decoders) of
-		undefined ->
+transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = {OldPayloadType, Decoder}}) ->
+	{ok, RawData} = codec:decode(Decoder, Payload),
+	{ok, NewPayload} = codec:encode(Encoder, RawData),
+	{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State};
+transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = {DifferentPayloadType, Decoder}}) ->
+	codec:close(Decoder),
+	transcode(Rtp, State#state{decoder = false});
+transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = false}) ->
+	case codec:start_link(rtp_utils:get_codec_from_payload(OldPayloadType)) of
+		{stop,unsupported} ->
+			% Cant' decode
 			{Rtp, State};
-		Decoder ->
+		{ok, Decoder} ->
 			{ok, RawData} = codec:decode(Decoder, Payload),
 			{ok, NewPayload} = codec:encode(Encoder, RawData),
-			{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State}
+			{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State#state{decoder = {OldPayloadType, Decoder}}}
 	end;
 transcode(Pkt, State) ->
 	{Pkt, State}.
@@ -495,13 +502,3 @@ send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
 	gen_udp:send(Fd, Ip, Port, Pkt);
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 	gen_tcp:send(Fd, Pkt).
-
-load_codecs([]) ->
-	[];
-load_codecs([CodecDesc|Rest]) ->
-	case codec:start_link(CodecDesc) of
-		{stop,unsupported} ->
-			load_codecs(Rest);
-		{ok, C} ->
-			[{rtp_utils:get_payload_from_codec(CodecDesc), C}|load_codecs(Rest)]
-	end.
