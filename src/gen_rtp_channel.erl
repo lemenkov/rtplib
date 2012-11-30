@@ -288,8 +288,13 @@ handle_info({init, Params}, State) ->
 	% 'auto' - the same as 'false' until we'll find muxed packet.
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 
-	Timeout = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
-	{ok, TRef} = timer:send_interval(Timeout, interim_update),
+	% Don't start timer if timeout value is set to zero
+	TRef = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
+		0 -> null;
+		Timeout ->
+			{ok, T} = timer:send_interval(Timeout, interim_update),
+			T
+	end,
 
 	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, SockParams}),
 
