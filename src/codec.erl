@@ -42,6 +42,7 @@
 -export([close/1]).
 
 -export([default_codecs/0]).
+-export([is_supported/1]).
 
 -export([start_link/1]).
 -export([init/1]).
@@ -63,36 +64,38 @@
 default_codecs() ->
 	[{'PCMU',8000,1},{'GSM', 8000,1},{'PCMA',8000,1},{'G722',8000,1},{'G729',8000,1}].
 
-start_link(Args) when
-	Args == {'PCMU',8000,1};
-	Args == {'GSM', 8000,1};
-	Args == {'DVI4',8000,1};
-	Args == {'DVI4',16000,1};
-	Args == {'PCMA',8000,1};
-	Args == {'G722',8000,1};
-	Args == {'G726',8000,1};
-	Args == {'G729',8000,1};
-	Args == {'LPC',8000,1};
-	Args == {'DVI4',11025,1};
-	Args == {'DVI4',22050,1};
-	Args == {'SPEEX',8000,1};
-	Args == {'SPEEX',16000,1};
-	Args == {'SPEEX',32000,1};
-	Args == {'ILBC',8000,1};
-	Args == {'OPUS',8000,1};
-	Args == {'OPUS',8000,2};
-	Args == {'OPUS',12000,1};
-	Args == {'OPUS',12000,2};
-	Args == {'OPUS',16000,1};
-	Args == {'OPUS',16000,2};
-	Args == {'OPUS',24000,1};
-	Args == {'OPUS',24000,2};
-	Args == {'OPUS',48000,1};
-	Args == {'OPUS',48000,2}
-	->
-	gen_server:start_link(?MODULE, Args, []);
-start_link(_) ->
-	{stop, unsupported}.
+is_supported({'PCMU',8000,1}) -> true;
+is_supported({'GSM', 8000,1}) -> true;
+is_supported({'DVI4',8000,1}) -> true;
+is_supported({'DVI4',16000,1}) -> true;
+is_supported({'PCMA',8000,1}) -> true;
+is_supported({'G722',8000,1}) -> true;
+is_supported({'G726',8000,1}) -> true;
+is_supported({'G729',8000,1}) -> true;
+is_supported({'LPC',8000,1}) -> true;
+is_supported({'DVI4',11025,1}) -> true;
+is_supported({'DVI4',22050,1}) -> true;
+is_supported({'SPEEX',8000,1}) -> true;
+is_supported({'SPEEX',16000,1}) -> true;
+is_supported({'SPEEX',32000,1}) -> true;
+is_supported({'ILBC',8000,1}) -> true;
+is_supported({'OPUS',8000,1}) -> true;
+is_supported({'OPUS',8000,2}) -> true;
+is_supported({'OPUS',12000,1}) -> true;
+is_supported({'OPUS',12000,2}) -> true;
+is_supported({'OPUS',16000,1}) -> true;
+is_supported({'OPUS',16000,2}) -> true;
+is_supported({'OPUS',24000,1}) -> true;
+is_supported({'OPUS',24000,2}) -> true;
+is_supported({'OPUS',48000,1}) -> true;
+is_supported({'OPUS',48000,2}) -> true;
+is_supported(_) -> false.
+
+start_link(Args)  ->
+	case is_supported(Args) of
+		true -> gen_server:start_link(?MODULE, Args, []);
+		false -> {stop, unsupported}
+	end.
 
 init({Format, SampleRate, Channels}) ->
 	DriverName = case Format of
