@@ -157,8 +157,8 @@ AC_CHECK_LIB([ilbc],
 	     [
 #	      ILBC_CFLAGS=`pkg-config --cflags webrtc`
 #	      ILBC_LIBS="-lwebrtc_codecs_ilbc"
-	      ILBC_CFLAGS=`pkg-config --cflags ilbc`
-	      ILBC_LIBS=`pkg-config --libs ilbc`
+	      ILBC_CFLAGS=`pkg-config --cflags libilbc`
+	      ILBC_LIBS=`pkg-config --libs libilbc`
 	      AC_SUBST([ILBC_CFLAGS])
 	      AC_SUBST([ILBC_LIBS])
 	     ],
