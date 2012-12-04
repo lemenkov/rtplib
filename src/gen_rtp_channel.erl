@@ -469,15 +469,13 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = {DifferentPayloadType, Decoder}}) ->
 	codec:close(Decoder),
 	transcode(Rtp, State#state{decoder = false});
-transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = false}) ->
+transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = false}) ->
 	case codec:start_link(rtp_utils:get_codec_from_payload(OldPayloadType)) of
 		{stop,unsupported} ->
-			% Cant' decode
+			% Can't decode
 			{Rtp, State};
 		{ok, Decoder} ->
-			{ok, RawData} = codec:decode(Decoder, Payload),
-			{ok, NewPayload} = codec:encode(Encoder, RawData),
-			{Rtp#rtp{payload_type = PayloadType, payload = NewPayload}, State#state{decoder = {OldPayloadType, Decoder}}}
+			transcode(Rtp, State#state{decoder = {OldPayloadType, Decoder}})
 	end;
 transcode(Pkt, State) ->
 	{Pkt, State}.
