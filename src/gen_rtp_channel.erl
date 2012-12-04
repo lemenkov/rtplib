@@ -469,15 +469,17 @@ transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = 
 transcode(#rtp{payload_type = OldPayloadType, payload = Payload} = Rtp, State = #state{encoder = {PayloadType, Encoder}, decoder = {DifferentPayloadType, Decoder}}) ->
 	case codec:is_supported(rtp_utils:get_codec_from_payload(OldPayloadType)) of
 		true ->
+			error_logger:warning_msg("New payload ~b found while transcoding (was ~b)~n", [OldPayloadType, DifferentPayloadType]),
 			codec:close(Decoder),
 			transcode(Rtp, State#state{decoder = false});
 		_ ->
+			error_logger:error_msg("Unsupported payload ~b found while transcoding~n", [OldPayloadType]),
 			{Rtp, State}
 	end;
 transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = false}) ->
 	case codec:start_link(rtp_utils:get_codec_from_payload(OldPayloadType)) of
 		{stop,unsupported} ->
-			% Can't decode
+			error_logger:error_msg("Cannot start decoder for payload ~b~n", [OldPayloadType]),
 			{Rtp, State};
 		{ok, Decoder} ->
 			transcode(Rtp, State#state{decoder = {OldPayloadType, Decoder}})
