@@ -48,3 +48,22 @@ codec_g729a_test_() ->
 					) end
 		}
 	].
+
+codec_g729b_payload_and_sid_test_() ->
+	Payload = <<192,143,182,224,138,90,129,73,128,86>>,
+	Sid = <<164,78>>,
+	{ok, Codec} = codec:start_link({'G729', 8000, 1}),
+	[
+		{"Test G.729 annex B Silence Insertion Descriptor frames",
+			fun() -> ?assertMatch({ok,{Binary,8000,1,16}}, codec:decode(Codec, <<Payload/binary, Sid/binary>>)) end
+		}
+	].
+
+codec_g729b_no_payload_sid_test_() ->
+	Sid = <<182,00>>,
+	{ok, Codec} = codec:start_link({'G729', 8000, 1}),
+	[
+		{"Test G.729 annex B Silence Insertion Descriptor frames",
+			fun() -> ?assertEqual({ok,{<<>>,8000,1,16}}, codec:decode(Codec, Sid)) end
+		}
+	].
