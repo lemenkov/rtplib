@@ -149,7 +149,22 @@ handle_call(
 handle_call(
 	{?CMD_DECODE, Binary},
 	_From,
-	#state{port = Port, samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
+	#state{port = Port, type = 'G729', samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
+) ->
+	% FIXME - drop G.729 annex B data for now
+	Size = 10 * (size(Binary) div 10),
+	<<RawBinary:Size/binary, _ComfortNoise/binary>> = Binary,
+
+	case port_control(Port, ?CMD_DECODE, RawBinary) of
+		NewBinary when is_binary(NewBinary) ->
+			{reply, {ok, {NewBinary, SampleRate, Channels, Resolution}}, State};
+		_ ->
+			{reply, {error, codec_error}, State}
+	end;
+handle_call(
+	{?CMD_DECODE, Binary},
+	_From,
+	#state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = Resolution} = State
 ) ->
 	case port_control(Port, ?CMD_DECODE, Binary) of
 		NewBinary when is_binary(NewBinary) ->
