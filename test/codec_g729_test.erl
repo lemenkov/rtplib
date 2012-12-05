@@ -33,7 +33,7 @@
 -include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-codec_g729_test_() ->
+codec_g729a_test_() ->
 	[
 		{"Test encoding from PCM to G.729",
 			fun() -> ?assertEqual(
