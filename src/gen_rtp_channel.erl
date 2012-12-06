@@ -63,7 +63,6 @@
 		tmod = null,
 		ssrc = null,
 		sn = 1,
-		starttime = null,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -125,7 +124,7 @@ handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
 handle_cast(
-	{{Type, Payload} = Pkt, Ip, Port},
+	{{Type, Payload, Timestamp} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
@@ -346,7 +345,6 @@ handle_info({init, Params}, State) ->
 			ctxI = CtxI,
 			ctxO = CtxO,
 			ssrc = SSRC,
-			starttime = begin {MegaSecs, Secs, MicroSecs} = os:timestamp(), MegaSecs*1000000000 + Secs*1000  end,
 			other_ssrc = OtherSSRC2,
 			% FIXME - properly set transport
 			tmod = TMod,
@@ -487,8 +485,7 @@ transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = fa
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-rebuild_rtp({Type, Payload}, #state{sn = SN, starttime = ST, other_ssrc = OtherSSRC} = State) ->
-	Timestamp = rtp_utils:mktimestamp(Type, ST),
+rebuild_rtp({Type, Payload, Timestamp}, #state{sn = SN, other_ssrc = OtherSSRC} = State) ->
 	Pkt = #rtp{
 		padding = 0,
 		marker = case SN of 1 -> 1; _ -> 0 end,
@@ -502,7 +499,7 @@ rebuild_rtp({Type, Payload}, #state{sn = SN, starttime = ST, other_ssrc = OtherS
 	},
 	{Pkt, State#state{sn = SN + 1}};
 rebuild_rtp(#rtp{} = Pkt, State) ->
-	{{Pkt#rtp.payload_type, Pkt#rtp.payload}, State};
+	{{Pkt#rtp.payload_type, Pkt#rtp.payload, Pkt#rtp.timestamp}, State};
 rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
 

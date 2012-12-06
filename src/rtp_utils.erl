@@ -331,11 +331,7 @@ get_payload_from_codec({'H263',90000,0}) -> 34;
 get_payload_from_codec(C) when is_integer(C) -> C.
 
 mktimestamp(PayloadType, InitialTime) ->
-	% FIXME get rid of this completely
-	Clock = case get_codec_from_payload(PayloadType) of
-		{_, C, _} -> C;
-		_ -> 8000
-	end,
+	{_, Clock, _} = get_codec_from_payload(PayloadType),
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Millisecs = MegaSecs*1000000000 + Secs*1000 + (MicroSecs div 1000) - InitialTime,
 	round(Millisecs * (Clock  / 1000)).
