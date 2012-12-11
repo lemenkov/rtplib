@@ -206,6 +206,7 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 		{_, D} -> codec:close(D)
 	end.
 
+%% Handle incoming RTP message
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
 	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
@@ -219,6 +220,7 @@ handle_info(
 		false ->
 			{noreply, State}
 	end;
+%% Handle incoming RTCP message
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
 	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
@@ -233,6 +235,7 @@ handle_info(
 		false ->
 			{noreply, State}
 	end;
+%% Handle incoming ZRTP message
 handle_info(
 	{udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg},
 	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
@@ -252,6 +255,7 @@ handle_info(
 		false ->
 			{noreply, State}
 	end;
+%% Handle incoming STUN message
 handle_info(
 	{udp, Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg},
 	State
