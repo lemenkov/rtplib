@@ -151,20 +151,20 @@ handle_cast(
 	{noreply, NewState#state{other_ssrc = OtherSSRC}};
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, mux = true} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
 ) ->
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
 	% then send RTCP muxed within RTP stream
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	NewPkt = rtcp:encode(Pkt),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState};
+	{noreply, State};
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
+	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod} = State
 ) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	NewPkt = rtcp:encode(Pkt),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState};
+	{noreply, State};
 handle_cast(
 	{#zrtp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
@@ -223,22 +223,22 @@ handle_info(
 %% Handle incoming RTCP message
 handle_info(
 	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
-	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
+	#state{parent = Parent, sendrecv = SendRecv} = State
 ) when 64 =< PType, PType =< 82 ->
 	inet:setopts(Fd, [{active, once}]),
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{NewMsg, NewState} = process_chain(Chain, Msg, State),
+			{ok, NewMsg} = rtcp:decode(Msg),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, NewState#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+			{noreply, State#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
 %% Handle incoming ZRTP message
 handle_info(
 	{udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg},
-	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
+	#state{parent = Parent, sendrecv = SendRecv} = State
 ) ->
 	inet:setopts(Fd, [{active, once}]),
 	% Treat ZRTP in the same way as RTP
