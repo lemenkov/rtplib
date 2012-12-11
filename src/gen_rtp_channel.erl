@@ -127,7 +127,7 @@ handle_call(Request, From, State) ->
 handle_cast(
 	{{Type, Payload, Timestamp} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
-) ->
+) when is_binary(Payload) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	% FIXME initial setup of a ZRTP
