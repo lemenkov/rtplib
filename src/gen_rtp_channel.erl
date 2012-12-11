@@ -260,18 +260,18 @@ handle_info(
 	% FIXME this is a STUN message - we should reply at this level
 	{noreply, State};
 
-handle_info(interim_update, #state{parent = Parent, alive = true, tref = TRef, timeout = Timeout} = State) ->
-	Parent ! interim_update,
+handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) ->
 	timer:cancel(TRef),
 	{ok, T} = timer:send_interval(Timeout, interim_update),
-	{noreply, State#state{alive=false, tref = T}};
+	handle_info(interim_update, State);
+handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
+	Parent ! interim_update,
+	{noreply, State#state{alive=false}};
 handle_info(interim_update, #state{alive = false, keepalive = true} = State) ->
 	{stop, timeout, State};
-handle_info(interim_update, #state{alive = false, keepalive = false, tref = TRef, timeout = Timeout} = State) ->
+handle_info(interim_update, #state{alive = false, keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp ignore timeout"),
-	timer:cancel(TRef),
-	{ok, T} = timer:send_interval(Timeout, interim_update),
-	{noreply, State#state{tref = T}};
+	{noreply, State};
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
@@ -297,7 +297,7 @@ handle_info({init, Params}, State) ->
 		0 -> {0, null};
 		TimeoutMain ->
 			{ok, TimeoutEarly} = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
-			{ok, T} = timer:send_interval(TimeoutEarly, interim_update),
+			{ok, T} = timer:send_interval(TimeoutEarly, pre_interim_update),
 			{TimeoutMain, T}
 	end,
 
