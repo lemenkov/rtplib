@@ -296,7 +296,7 @@ handle_info({init, Params}, State) ->
 	{Timeout, TRef} = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
 		0 -> {0, null};
 		TimeoutMain ->
-			{ok, TimeoutEarly} = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
+			TimeoutEarly = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
 			{ok, T} = timer:send_interval(TimeoutEarly, pre_interim_update),
 			{TimeoutMain, T}
 	end,
