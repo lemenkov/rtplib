@@ -78,6 +78,7 @@
 		% interval to wait for initial data
 		alive = false,
 		keepalive = true,
+		timeout = ?INTERIM_UPDATE,
 		tref
 	}
 ).
@@ -259,14 +260,18 @@ handle_info(
 	% FIXME this is a STUN message - we should reply at this level
 	{noreply, State};
 
-handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
+handle_info(interim_update, #state{parent = Parent, alive = true, tref = TRef, timeout = Timeout} = State) ->
 	Parent ! interim_update,
-	{noreply, State#state{alive=false}};
+	timer:cancel(TRef),
+	{ok, T} = timer:send_interval(Timeout, interim_update),
+	{noreply, State#state{alive=false, tref = T}};
 handle_info(interim_update, #state{alive = false, keepalive = true} = State) ->
 	{stop, timeout, State};
-handle_info(interim_update, #state{alive = false, keepalive = false} = State) ->
+handle_info(interim_update, #state{alive = false, keepalive = false, tref = TRef, timeout = Timeout} = State) ->
 	error_logger:error_msg("gen_rtp ignore timeout"),
-	{noreply, State};
+	timer:cancel(TRef),
+	{ok, T} = timer:send_interval(Timeout, interim_update),
+	{noreply, State#state{tref = T}};
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
@@ -288,11 +293,12 @@ handle_info({init, Params}, State) ->
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 
 	% Don't start timer if timeout value is set to zero
-	TRef = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
-		0 -> null;
-		Timeout ->
-			{ok, T} = timer:send_interval(Timeout, interim_update),
-			T
+	{Timeout, TRef} = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
+		0 -> {0, null};
+		TimeoutMain ->
+			{ok, TimeoutEarly} = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
+			{ok, T} = timer:send_interval(TimeoutEarly, interim_update),
+			{TimeoutMain, T}
 	end,
 
 	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, SockParams}),
@@ -353,7 +359,8 @@ handle_info({init, Params}, State) ->
 			encoder = Encoder,
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
-			tref = TRef
+			tref = TRef,
+			timeout = Timeout
 		}
 	};
 
