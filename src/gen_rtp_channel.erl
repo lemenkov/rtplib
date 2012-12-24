@@ -354,9 +354,12 @@ handle_info({init, Params}, State) ->
 			end
 	end,
 
-	% Set codec mapping
+	% Set DTMF ID mapping
 	Dtmf = proplists:get_value(dtmf, Params, null),
 	Dtmf /= null andalso put(Dtmf, dtmf),
+
+	% Set codec ID mapping
+	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
 
 	{noreply, #state{
 			parent = Parent,
