@@ -107,7 +107,10 @@ decode_extension(<<Type:16, Length:16, Payload:Length/binary, Data/binary>>, 1) 
 decode_dtmf(<<Event:8, 0:1, _Mbz:1, Volume:6, Duration:16>>) ->
 	{ok, #dtmf{event = Event, eof = false, volume = Volume, duration = Duration}};
 decode_dtmf(<<Event:8, 1:1, _Mbz:1, Volume:6, Duration:16>>) ->
-	{ok, #dtmf{event = Event, eof = true, volume = Volume, duration = Duration}}.
+	{ok, #dtmf{event = Event, eof = true, volume = Volume, duration = Duration}};
+decode_dtmf(<<Dtmf:4/binary, _Rest/binary>>) ->
+	error_logger:warning_msg("Broken DTMF generator (Jitsi?)~n"),
+	decode_dtmf(Dtmf).
 
 % FIXME Tone with zero duration SHOULD be ignored (just drop it?)
 decode_tone(<<Modulation:9, Divider:1, Volume:6, Duration:16, Rest/binary>>) ->
