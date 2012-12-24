@@ -306,7 +306,11 @@ get_codec_from_payload(18) -> {'G729',8000,1};
 get_codec_from_payload(31) -> {'H261',90000,0};
 get_codec_from_payload(34) -> {'H263',90000,0};
 
-get_codec_from_payload(C) when is_integer(C) -> C.
+get_codec_from_payload(C) when is_integer(C) ->
+	case get(C) of
+		undefined -> C;
+		{Name, Clock, Channels} = Desc -> Desc
+	end.
 
 get_payload_from_codec({'PCMU',8000,1}) -> 0;
 get_payload_from_codec({'GSM',8000,1}) -> 3;
@@ -327,6 +331,10 @@ get_payload_from_codec({'DVI4',22050,1}) -> 17;
 get_payload_from_codec({'G729',8000,1}) -> 18;
 get_payload_from_codec({'H261',90000,0}) -> 31;
 get_payload_from_codec({'H263',90000,0}) -> 34;
+
+get_payload_from_codec({Name, Clock, Channels} = Desc) ->
+	[C | _ ] = get_keys(Desc),
+	C;
 
 get_payload_from_codec(C) when is_integer(C) -> C.
 
