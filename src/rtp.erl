@@ -48,7 +48,7 @@
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when PayloadType =< 34; 96 =< PayloadType ->
+decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when PayloadType =< 34 ->
 	Size = CC*4,
 	<<CSRCs:Size/binary, Data/binary>> = Rest,
 	{ok, Payload, Extension} = decode_extension(Data, ExtensionFlag),
@@ -62,6 +62,21 @@ decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType
 		csrcs = [ CSRC || <<CSRC:32>> <= CSRCs],
 		extension = Extension,
 		payload = Payload
+	}};
+decode(<<?RTP_VERSION:2, Padding:1, ExtensionFlag:1, CC:4, Marker:1, PayloadType:7, SequenceNumber:16, Timestamp:32, SSRC:32, Rest/binary>>) when 96 =< PayloadType ->
+	Size = CC*4,
+	<<CSRCs:Size/binary, Data/binary>> = Rest,
+	{ok, Payload, Extension} = decode_extension(Data, ExtensionFlag),
+	{ok, #rtp{
+		padding = Padding,
+		marker = Marker,
+		payload_type = PayloadType,
+		sequence_number = SequenceNumber,
+		timestamp = Timestamp,
+		ssrc = SSRC,
+		csrcs = [ CSRC || <<CSRC:32>> <= CSRCs],
+		extension = Extension,
+		payload = case get(PayloadType) of undefined -> Payload; dtmf -> {ok, Dtmf} = decode_dtmf(Payload), Dtmf; _ -> Payload end
 	}};
 
 decode(<<?RTCP_VERSION:2, _:7, PayloadType:7, Rest/binary>> =  Binary) when 64 =< PayloadType, PayloadType =< 82 ->

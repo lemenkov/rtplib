@@ -133,6 +133,13 @@ handle_cast(
 	% FIXME initial setup of a ZRTP
 	%(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
 	{noreply, NewState};
+handle_cast(
+	{{Type, #dtmf{} = Payload, Timestamp} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	{noreply, NewState};
 
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
@@ -346,6 +353,10 @@ handle_info({init, Params}, State) ->
 					{{rtp_utils:get_payload_from_codec(EncoderDesc), C}, [fun transcode/2]}
 			end
 	end,
+
+	% Set codec mapping
+	Dtmf = proplists:get_value(dtmf, Params, null),
+	Dtmf /= null andalso put(Dtmf, dtmf),
 
 	{noreply, #state{
 			parent = Parent,
