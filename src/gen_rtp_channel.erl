@@ -342,6 +342,13 @@ handle_info({init, Params}, State) ->
 			{[fun rebuild_rtp/2], case OtherSSRC of null -> {A1,A2,A3} = os:timestamp(), random:seed(A1, A2, A3), random:uniform(1 bsl 32); _ -> OtherSSRC end}
 	end,
 
+	% Set DTMF ID mapping
+	Dtmf = proplists:get_value(dtmf, Params, null),
+	Dtmf /= null andalso put(Dtmf, dtmf),
+
+	% Set codec ID mapping
+	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
+
 	% FIXME
 	{Encoder, FunTranscode} = case proplists:get_value(transcode, Params, false) of
 		false -> {false, []};
@@ -353,13 +360,6 @@ handle_info({init, Params}, State) ->
 					{{rtp_utils:get_payload_from_codec(EncoderDesc), C}, [fun transcode/2]}
 			end
 	end,
-
-	% Set DTMF ID mapping
-	Dtmf = proplists:get_value(dtmf, Params, null),
-	Dtmf /= null andalso put(Dtmf, dtmf),
-
-	% Set codec ID mapping
-	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
 
 	{noreply, #state{
 			parent = Parent,
