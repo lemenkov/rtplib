@@ -89,13 +89,13 @@ is_supported({'OPUS',24000,1}) -> true;
 is_supported({'OPUS',24000,2}) -> true;
 is_supported({'OPUS',48000,1}) -> true;
 is_supported({'OPUS',48000,2}) -> true;
-is_supported(C) when is_integer(C) ->
-	case get(C) of
-		undefined -> false;
-		{Name, Clock, Channels} = Desc -> is_supported(Desc)
-	end;
 is_supported(_) -> false.
 
+start_link(C) when is_integer(C) ->
+	case get(C) of
+		undefined -> {stop, unsupported};
+		{Name, Clock, Channels} = Desc -> start_link(Desc)
+	end;
 start_link(Args)  ->
 	case is_supported(Args) of
 		true -> gen_server:start_link(?MODULE, Args, []);
@@ -129,10 +129,6 @@ init({Format, SampleRate, Channels}) ->
 			{ok, #state{port = Port, type = Format, samplerate = SampleRate, channels = Channels, resolution = 16, resampler = PortResampler}};
 		{error, Error} ->
 			{stop, Error}
-	end;
-init(C) when is_integer(C) ->
-	case get(C) of
-		{Name, Clock, Channels} = Desc -> init(Desc)
 	end.
 
 % Encoding doesn't require resampling
