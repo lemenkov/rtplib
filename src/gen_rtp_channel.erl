@@ -182,7 +182,8 @@ handle_cast(
 handle_cast({update, Params}, State) ->
 	% FIXME consider changing another params as well
 	SendRecvStrategy = get_send_recv_strategy(Params),
-	{noreply, State#state{sendrecv = SendRecvStrategy}};
+	% Re-set parameters
+	{noreply, State#state{sendrecv = SendRecvStrategy, ip = null, rtpport = null}};
 
 handle_cast({keepalive, enable}, State) ->
 	{noreply, State#state{keepalive = true}};
