@@ -213,6 +213,8 @@ decode_rblocks(Data, RC) ->
 
 % If no data was left, then we ignore the RC value and return what we already
 % decoded
+decode_rblocks(<<>>, 0, Rblocks) ->
+	Rblocks;
 decode_rblocks(<<>>, _RC, Rblocks) ->
 	error_logger:warning_msg("ReportBlocks wrong RC count~n"),
 	Rblocks;
