@@ -76,9 +76,9 @@
 		decoder = false,
 		% If set to true then we'll have another one INTERIM_UPDATE
 		% interval to wait for initial data
-		alive = false,
 		keepalive = true,
 		timeout = ?INTERIM_UPDATE,
+		counter = ?INTERIM_UPDATE div 1000,
 		tref
 	}
 ).
@@ -224,7 +224,7 @@ handle_info(
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, NewState#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{noreply, NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -239,7 +239,7 @@ handle_info(
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{ok, NewMsg} = rtcp:decode(Msg),
 			Parent ! {NewMsg, Ip, Port},
-			{noreply, State#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
+			{noreply, State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -259,7 +259,7 @@ handle_info(
 				null -> Parent ! {Zrtp, Ip, Port};
 				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
 			end,
-			{noreply, State#state{lastseen = os:timestamp(), alive = true, ip = Ip, rtpport = Port, ssrc = SSRC}};
+			{noreply, State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC}};
 		false ->
 			{noreply, State}
 	end;
@@ -274,16 +274,18 @@ handle_info(
 
 handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) ->
 	timer:cancel(TRef),
-	{ok, T} = timer:send_interval(Timeout, interim_update),
+	{ok, T} = timer:send_interval(1000, interim_update),
 	handle_info(interim_update, State);
-handle_info(interim_update, #state{parent = Parent, alive = true} = State) ->
-	Parent ! interim_update,
-	{noreply, State#state{alive=false}};
-handle_info(interim_update, #state{alive = false, keepalive = true} = State) ->
-	{stop, timeout, State};
-handle_info(interim_update, #state{alive = false, keepalive = false} = State) ->
+handle_info(interim_update, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp ignore timeout"),
 	{noreply, State};
+handle_info(interim_update, #state{parent = Parent, timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
+	Now = os:timestamp(),
+	C == 0 andalso Parent ! interim_update,
+	case timer:now_diff(Now, LS) div 1000 < Timeout of
+		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
+		false -> {stop, timeout, State}
+	end;
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
@@ -379,7 +381,8 @@ handle_info({init, Params}, State) ->
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef,
-			timeout = Timeout
+			timeout = Timeout,
+			counter = Timeout div 1000
 		}
 	};
 
