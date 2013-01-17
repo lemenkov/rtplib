@@ -277,7 +277,7 @@ handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) 
 	{ok, T} = timer:send_interval(1000, interim_update),
 	handle_info(interim_update, State#state{tref = T});
 handle_info(interim_update, #state{keepalive = false} = State) ->
-	error_logger:error_msg("gen_rtp ignore timeout"),
+	error_logger:error_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
 handle_info(interim_update, #state{parent = Parent, timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
 	Now = os:timestamp(),
