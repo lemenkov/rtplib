@@ -69,7 +69,7 @@
 		ctxI = passthru,
 		ctxO = passthru,
 		other_ssrc = null,
-		lastseen = null,
+		lastseen = {0,0,0},
 		process_chain_up = [],
 		process_chain_down = [],
 		encoder = false,
