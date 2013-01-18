@@ -78,7 +78,7 @@
 		% interval to wait for initial data
 		keepalive = true,
 		timeout = ?INTERIM_UPDATE,
-		counter = ?INTERIM_UPDATE div 1000,
+		counter = 0,
 		tref
 	}
 ).
@@ -381,8 +381,7 @@ handle_info({init, Params}, State) ->
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef,
-			timeout = Timeout,
-			counter = Timeout div 1000
+			timeout = Timeout
 		}
 	};
 
