@@ -180,10 +180,10 @@ handle_cast(
 	{noreply, State};
 
 handle_cast({update, Params}, State) ->
-	% FIXME consider changing another params as well
 	SendRecvStrategy = get_send_recv_strategy(Params),
+	{PreIp, PrePort} = proplists:get_value(prefill, Params, {null, null}),
 	% Re-set parameters
-	{noreply, State#state{sendrecv = SendRecvStrategy, ip = null, rtpport = null}};
+	{noreply, State#state{sendrecv = SendRecvStrategy, ip = PreIp, rtpport = PrePort}};
 
 handle_cast({keepalive, enable}, State) ->
 	{noreply, State#state{keepalive = true}};
