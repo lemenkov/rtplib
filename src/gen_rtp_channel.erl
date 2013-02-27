@@ -390,6 +390,7 @@ handle_info({init, Params}, State) ->
 	};
 
 handle_info(Info, State) ->
+	error_logger:error_msg("gen_rtp unmatched info [~p]", [Info]),
 	{noreply, State}.
 
 %%
