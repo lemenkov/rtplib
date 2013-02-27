@@ -458,6 +458,7 @@ send_recv_simple(_, _, _, _, _, _) -> true.
 send_recv_roaming(Ip, Port, _, Ip, Port, _) -> true;
 % First RTP/RTCP packet
 send_recv_roaming(Ip, Port, SSRC, _, null, _) -> true;
+send_recv_roaming(Ip, Port, SSRC, _, _, null) -> true;
 % Changed address - roaming
 send_recv_roaming(Ip, Port, SSRC, _, _, SSRC) -> true;
 % Different IP and SSRC - drop
