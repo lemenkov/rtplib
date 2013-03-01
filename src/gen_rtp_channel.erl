@@ -397,6 +397,10 @@ handle_info(Info, State) ->
 %% Private functions
 %%
 
+-define(SOL_SOCKET, 1).
+-define(SO_NO_CHECK, 11).
+-define(ON, <<1:32/native>>).
+
 %% Open a pair of UDP ports - N and N+1 (for RTP and RTCP consequently)
 get_fd_pair({TMod, {I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
 	is_integer(I0), 0 =< I0, I0 < 65536,
@@ -419,14 +423,14 @@ get_fd_pair(_, I, P, SockParams, 0) ->
 	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
 	error;
 get_fd_pair(gen_udp, I, P, SockParams, NTry) ->
-	case gen_udp:open(P, [binary, {ip, I}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
+	case gen_udp:open(P, [binary, {ip, I}, {active, once}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON}] ++ SockParams) of
 		{ok, Fd} ->
 			{ok, {Ip,Port}} = inet:sockname(Fd),
 			Port2 = case Port rem 2 of
 				0 -> Port + 1;
 				1 -> Port - 1
 			end,
-			case gen_udp:open(Port2, [binary, {ip, Ip}, {active, once}, {raw,1,11,<<1:32/native>>}] ++ SockParams) of
+			case gen_udp:open(Port2, [binary, {ip, Ip}, {active, once}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON}] ++ SockParams) of
 				{ok, Fd2} ->
 					if
 						Port > Port2 -> {Fd2, Fd};
