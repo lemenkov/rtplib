@@ -61,6 +61,7 @@
 		rtpport = null,
 		rtcpport = null,
 		tmod = null,
+		active = null,
 		ssrc = null,
 		sn = 1,
 		sendrecv,
@@ -215,62 +216,14 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 	end.
 
 %% Handle incoming RTP message
-handle_info(
-	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
-	#state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State
-) when PType =< 34; 96 =< PType ->
+handle_info({udp, Fd, Ip, Port, Msg}, #state{active = true} = State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+handle_info({udp, Fd, Ip, Port, Msg}, #state{active = once} = State) ->
+	% FIXME should we move it 1 line below?
 	inet:setopts(Fd, [{active, once}]),
-	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
-		true ->
-			{NewMsg, NewState} = process_chain(Chain, Msg, State),
-			Parent ! {NewMsg, Ip, Port},
-			{noreply, NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC}};
-		false ->
-			{noreply, State}
-	end;
-%% Handle incoming RTCP message
-handle_info(
-	{udp, Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg},
-	#state{parent = Parent, sendrecv = SendRecv} = State
-) when 64 =< PType, PType =< 82 ->
-	inet:setopts(Fd, [{active, once}]),
-	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
-		true ->
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{ok, NewMsg} = rtcp:decode(Msg),
-			Parent ! {NewMsg, Ip, Port},
-			{noreply, State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC}};
-		false ->
-			{noreply, State}
-	end;
-%% Handle incoming ZRTP message
-handle_info(
-	{udp, Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg},
-	#state{parent = Parent, sendrecv = SendRecv} = State
-) ->
-	inet:setopts(Fd, [{active, once}]),
-	% Treat ZRTP in the same way as RTP
-	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
-		true ->
-			{ok, Zrtp} = zrtp:decode(Msg),
-			case State#state.zrtp of
-				% If we didn't setup ZRTP FSM then we are acting
-				% as pass-thru ZRTP proxy
-				null -> Parent ! {Zrtp, Ip, Port};
-				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
-			end,
-			{noreply, State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC}};
-		false ->
-			{noreply, State}
-	end;
-%% Handle incoming STUN message
-handle_info(
-	{udp, Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg},
-	State
-) ->
-	inet:setopts(Fd, [{active, once}]),
-	% FIXME this is a STUN message - we should reply at this level
-	{noreply, State};
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
 
 handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) ->
 	timer:cancel(TRef),
@@ -291,6 +244,7 @@ handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
 	TMod = proplists:get_value(transport, Params, gen_udp),
 	SockParams = proplists:get_value(sockparams, Params, []),
+	ActiveStrategy = proplists:get_value(active, Params, once),
 	% Either specify IPv4 or IPv6 explicitly or provide two special
 	% values - "::" for any available IPv6 or "0.0.0.0" or "0" for
 	% any available IPv4.
@@ -315,7 +269,7 @@ handle_info({init, Params}, State) ->
 			{TimeoutMain, T}
 	end,
 
-	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, SockParams}),
+	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, [{active, ActiveStrategy} | SockParams]}),
 
 	Parent = proplists:get_value(parent, Params),
 
@@ -379,6 +333,7 @@ handle_info({init, Params}, State) ->
 			other_ssrc = OtherSSRC2,
 			% FIXME - properly set transport
 			tmod = TMod,
+			active = ActiveStrategy,
 			process_chain_up = FunDecode ++ FunRebuild,
 			process_chain_down = FunRebuild ++ FunTranscode ++ FunEncode,
 			encoder = Encoder,
@@ -396,6 +351,51 @@ handle_info(Info, State) ->
 %%
 %% Private functions
 %%
+
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State) when PType =< 34; 96 =< PType ->
+	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
+		true ->
+			{NewMsg, NewState} = process_chain(Chain, Msg, State),
+			Parent ! {NewMsg, Ip, Port},
+			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+		false ->
+			State
+	end;
+%% Handle incoming RTCP message
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv} = State) when 64 =< PType, PType =< 82 ->
+	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
+		true ->
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
+			{ok, NewMsg} = rtcp:decode(Msg),
+			Parent ! {NewMsg, Ip, Port},
+			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC};
+		false ->
+			State
+	end;
+%% Handle incoming ZRTP message
+process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv} = State) ->
+	% Treat ZRTP in the same way as RTP
+	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
+		true ->
+			{ok, Zrtp} = zrtp:decode(Msg),
+			case State#state.zrtp of
+				% If we didn't setup ZRTP FSM then we are acting
+				% as pass-thru ZRTP proxy
+				null -> Parent ! {Zrtp, Ip, Port};
+				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
+			end,
+			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+		false ->
+			State
+	end;
+%% Handle incoming STUN message
+process_data(Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/binary>> = Msg, State) ->
+	% FIXME this is a STUN message - we should reply at this level
+	State;
+%% Handle incoming UKNOWN message
+process_data(_, _, _, _, State) ->
+	% FIXME this is a STUN message - we should reply at this level
+	State.
 
 -define(SOL_SOCKET, 1).
 -define(SO_NO_CHECK, 11).
@@ -423,14 +423,14 @@ get_fd_pair(_, I, P, SockParams, 0) ->
 	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
 	error;
 get_fd_pair(gen_udp, I, P, SockParams, NTry) ->
-	case gen_udp:open(P, [binary, {ip, I}, {active, once}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON}] ++ SockParams) of
+	case gen_udp:open(P, [binary, {ip, I}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
 		{ok, Fd} ->
 			{ok, {Ip,Port}} = inet:sockname(Fd),
 			Port2 = case Port rem 2 of
 				0 -> Port + 1;
 				1 -> Port - 1
 			end,
-			case gen_udp:open(Port2, [binary, {ip, Ip}, {active, once}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON}] ++ SockParams) of
+			case gen_udp:open(Port2, [binary, {ip, Ip}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
 				{ok, Fd2} ->
 					if
 						Port > Port2 -> {Fd2, Fd};
