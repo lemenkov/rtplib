@@ -134,7 +134,14 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_IJ:8, Length:16, Rest/binar
 % Source DEScription
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SDES:8, Length:16, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4,
-	<<Payload:ByteLength/binary, Tail/binary>> = Rest,
+	Remainder = case ByteLength =< size(Rest) of
+		true -> <<>>;
+		_ ->
+			RemSize = ByteLength - size(Rest),
+			error_logger:warning_msg("RTCP SDES missing padding [~p]~n", [<<0:(8*RemSize)>>]),
+			<<0:(8*RemSize)>>
+	end,
+	<<Payload:ByteLength/binary, Tail/binary>> = <<Rest/binary, Remainder/binary>>,
 	% There may be RC number of chunks (we call them Chunks), containing of
 	% their own SSRC 32-bit identificator and arbitrary number of SDES-items
 	decode(Tail, DecodedRtcps ++ [#sdes{list=decode_sdes_items(Payload, [])}]);

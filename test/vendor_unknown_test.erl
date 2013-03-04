@@ -79,3 +79,34 @@ vendor_unknown_test_() ->
 			fun() -> ?assertEqual(SrSdesBye2Bin, rtcp:encode(SrSdesBye2)) end
 		}
 	].
+
+vendor_unknown_broken_sdes_test_() ->
+	% Missing <<0,0,0>> at the end.
+	SrSdesBin = <<129,200,0,12,119,207,144,112,212,223,6,131,195,149,225,116,60,24,148,16,0,0,0,6,0,0,1,254,50,254,42,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,129,202,0,7,119,207,144,112,1,19,49,50,57,51,48,64,49,48,46,49,55,50,46,49,55,50,46,53,50>>,
+	SrSdesBinFixed = <<SrSdesBin/binary, 0,0,0>>,
+
+	Sr = #sr{
+		ssrc = 2010091632,
+		ntp = 15338986018839060852,
+		timestamp = 1008243728,
+		packets = 6,
+		octets = 510,
+		rblocks = [{rblock,855517696,0,0,0,0,0,0}]
+	},
+	Sdes = #sdes{list=[
+			[
+				{ssrc,2010091632},
+				{cname,"12930@10.172.172.52"},
+				{eof,true}
+			]
+		]
+	},
+	SrSdes = #rtcp{payloads = [Sr, Sdes]},
+	[
+		{"Encode the entire broken SR+SDES packet",
+			fun() -> ?assertEqual({ok, SrSdes}, rtcp:decode(SrSdesBin)) end
+		},
+		{"Check what we could reproduce fixed packet from SR+SDES",
+			fun() -> ?assertEqual(SrSdesBinFixed, rtcp:encode(SrSdes)) end
+		}
+	].
