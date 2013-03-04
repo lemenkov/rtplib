@@ -158,6 +158,15 @@ handle_cast(
 	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
 	{noreply, NewState#state{other_ssrc = OtherSSRC}};
 handle_cast(
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC2} = State
+) ->
+	% Changed SSRC on the other side
+	error_logger:error_msg("gen_rtp SSRC changed from [~p] to [~p] (initial setup/call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	{noreply, NewState#state{other_ssrc = OtherSSRC}};
+handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
 ) ->
