@@ -162,7 +162,7 @@ handle_cast(
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC2} = State
 ) ->
 	% Changed SSRC on the other side
-	error_logger:error_msg("gen_rtp SSRC changed from [~p] to [~p] (initial setup/call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
+	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (initial setup/call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState#state{other_ssrc = OtherSSRC}};
