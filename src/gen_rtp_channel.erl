@@ -195,7 +195,7 @@ handle_cast(stop, State) ->
 	{stop, normal, State};
 
 handle_cast(Request, State) ->
-	error_logger:error_msg("gen_rtp unmatched cast [~p]", [Request]),
+	error_logger:error_msg("gen_rtp unmatched cast [~p] STATE[~p]", [Request, State]),
 	{noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
