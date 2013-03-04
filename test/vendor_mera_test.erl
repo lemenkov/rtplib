@@ -63,7 +63,8 @@ vendor_mera_test_() ->
 
 	[
 		{"Check that we won't fail on parsing broken RTCP",
-			fun() -> ?assertEqual({ok, #rtcp{payloads = [Sr], encrypted = RtcpBroken}},rtcp:decode(RtcpBroken)) end
+%			fun() -> ?assertEqual({ok, #rtcp{payloads = [Sr], encrypted = RtcpBroken}},rtcp:decode(RtcpBroken)) end
+			fun() -> ?assertEqual({ok, #rtcp{payloads = [Sr, Sdes]}},rtcp:decode(RtcpBroken)) end
 		},
 		{"Check that we can parse fixed RTCP",
 			fun() -> ?assertEqual({ok, #rtcp{payloads = [Sr, Sdes]}}, rtcp:decode(RtcpProper)) end

@@ -53,7 +53,7 @@ rtcp_RR_test_() ->
 			fun() -> ?assertEqual(RBlock2Bin, rtcp:encode_rblock(100024, 2, 100026, 100027, 100028, 100029, 100030)) end
 		},
 		{"Decode both binary RBLocks",
-			fun() -> ?assertEqual([RBlock1, RBlock2], rtcp:decode_rblocks(RBlocksBin, 2)) end
+			fun() -> ?assertEqual({[RBlock1, RBlock2], <<>>}, rtcp:decode_rblocks(RBlocksBin, 2)) end
 		},
 		{"Check correct Report Blocks processing",
 			fun() -> ?assertEqual(RBlocksBin, rtcp:encode_rblocks([RBlock1, RBlock2])) end

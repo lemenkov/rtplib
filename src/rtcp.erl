@@ -112,13 +112,15 @@ decode(<<?RTCP_VERSION:2, PaddingFlag:1, _Mbz:5, ?RTCP_SMPTETC:8, 4:16, SSRC:32,
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_SR:8, Length:16, SSRC:32, NTP:64, TimeStamp:32, Packets:32, Octets:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length * 4 - (4 * 6),
 	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
-	decode(Tail, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=NTP, timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = decode_rblocks(ReportBlocks, RC)}]);
+	{Rblocks, Padding} = decode_rblocks(ReportBlocks, RC),
+	decode(<<Padding/binary, Tail/binary>>, DecodedRtcps ++ [#sr{ssrc=SSRC, ntp=NTP, timestamp=TimeStamp, packets=Packets, octets=Octets, rblocks = Rblocks}]);
 
 % Receiver Report
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_RR:8, Length:16, SSRC:32, Rest/binary>>, DecodedRtcps) ->
 	ByteLength = Length*4 - 4,
 	<<ReportBlocks:ByteLength/binary, Tail/binary>> = Rest,
-	decode(Tail, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = decode_rblocks(ReportBlocks, RC)}]);
+	{Rblocks, Padding} = decode_rblocks(ReportBlocks, RC),
+	decode(<<Padding/binary, Tail/binary>>, DecodedRtcps ++ [#rr{ssrc=SSRC, rblocks = Rblocks}]);
 
 % Inter-arrival Jitter (must be placed after a receiver report and MUST have the same value for RC)
 decode(<<?RTCP_VERSION:2, PaddingFlag:1, RC:5, ?RTCP_IJ:8, Length:16, Rest/binary>>, DecodedRtcps) ->
@@ -221,18 +223,18 @@ decode_rblocks(Data, RC) ->
 % If no data was left, then we ignore the RC value and return what we already
 % decoded
 decode_rblocks(<<>>, 0, Rblocks) ->
-	Rblocks;
+	{Rblocks, <<>>};
 decode_rblocks(<<>>, _RC, Rblocks) ->
 	error_logger:warning_msg("ReportBlocks wrong RC count~n"),
-	Rblocks;
+	{Rblocks, <<>>};
 
 % The packets can contain padding filling space up to 32-bit boundaries
 % If RC value (number of ReportBlocks left) = 0, then we return what we already
 % decoded
-decode_rblocks(Padding, 0, Result) ->
+decode_rblocks(Padding, 0, Rblocks) ->
 	% We should report about padding since it may be also malformed RTCP packet
 	error_logger:warning_msg("ReportBlocks padding [~p]~n", [Padding]),
-	Result;
+	{Rblocks, Padding};
 
 % Create and fill with values new #rblocks{...} structure and proceed with next
 % one (decreasing ReportBlocks counted (RC) by 1)
@@ -246,10 +248,10 @@ decode_rblocks(Padding, 0, Result) ->
 decode_rblocks(<<SSRC:32, FL:8, CNPL:24/signed, EHSNR:32, IJ:32, LSR:32, DLSR:32, Rest/binary>>, RC, Result) ->
 	decode_rblocks(Rest, RC-1, Result ++ [#rblock{ssrc=SSRC, fraction=FL, lost=CNPL, last_seq=EHSNR, jitter=IJ, lsr=LSR, dlsr=DLSR}]);
 
-decode_rblocks(Padding, _RC, Result) when size(Padding) < 24 ->
+decode_rblocks(Padding, _RC, Rblocks) when size(Padding) < 24 ->
 	% We should report about padding since it may be also malformed RTCP packet
 	error_logger:warning_msg("ReportBlocks padding [~p]~n", [Padding]),
-	Result.
+	{Rblocks, Padding}.
 
 decode_xrblocks(Data, Length) ->
 	decode_xrblocks(Data, Length, []).

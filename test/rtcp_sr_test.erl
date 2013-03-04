@@ -68,15 +68,17 @@ rtcp_SR_test_() ->
 			fun() -> ?assertEqual(RBlock2Bin, rtcp:encode_rblock(100024, 2, 100026, 100027, 100028, 100029, 100030)) end
 		},
 		{"Decode both binary RBLocks",
-			fun() -> ?assertEqual([RBlock1, RBlock2], rtcp:decode_rblocks(RBlocksBin, 2)) end
+			fun() -> ?assertEqual({[RBlock1, RBlock2], <<>>}, rtcp:decode_rblocks(RBlocksBin, 2)) end
 		},
 		{"Check correct Report Blocks processing",
 			fun() -> ?assertEqual(RBlocksBin,rtcp:encode_rblocks([RBlock1, RBlock2])) end
 		},
 		{"Simple encoding of SR RTCP data stream",
-			fun() -> ?assertEqual(
+			fun() ->
+					{Rblocks, _} = rtcp:decode_rblocks(RBlocksBin, 2),
+					?assertEqual(
 						SRBin,
-						rtcp:encode_sr(4096, NTP, 4098, 65535, 65536, rtcp:decode_rblocks(RBlocksBin, 2))
+						rtcp:encode_sr(4096, NTP, 4098, 65535, 65536, Rblocks)
 					) end
 		},
 		{"Simple decoding SR RTCP data stream and returning a list with only member - record",

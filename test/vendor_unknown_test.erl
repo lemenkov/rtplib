@@ -91,7 +91,7 @@ vendor_unknown_broken_sdes_test_() ->
 		timestamp = 1008243728,
 		packets = 6,
 		octets = 510,
-		rblocks = [{rblock,855517696,0,0,0,0,0,0}]
+		rblocks = [#rblock{ssrc=855517696,fraction=0,lost=0,last_seq=0,jitter=0,lsr=0,dlsr=0}]
 	},
 	Sdes = #sdes{list=[
 			[
