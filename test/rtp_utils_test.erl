@@ -61,3 +61,62 @@ rtp_utils_take_test_() ->
 			fun() -> ?assertEqual(false, rtp_utils:take([Sdes, Sdes, Rr, Sdes], sr)) end
 		}
 	].
+
+rtp_utils_to_proplist_test_() ->
+	RBlock1 = #rblock{ssrc=1024, fraction=2, lost=1026, last_seq=1027, jitter=1028, lsr=1029, dlsr=1030},
+	RBlock2 = #rblock{ssrc=100024, fraction=2, lost=100026, last_seq=100027, jitter=100028, lsr=100029, dlsr=100030},
+
+	Sr = #sr{
+		ssrc=4096,
+		ntp=15154578768523253214,
+		timestamp=4098,
+		packets=65535,
+		octets=65536,
+		rblocks=[RBlock1, RBlock2]
+	},
+
+	Rr =  #rr{ssrc=4096, rblocks=[RBlock1, RBlock2]},
+
+	RrPl = [{rr,[{ssrc,4096},{rblocks,[{rblock,[{ssrc,1024},
+                         {fraction,2},
+                         {lost,1026},
+                         {last_seq,1027},
+                         {jitter,1028},
+                         {lsr,1029},
+                         {dlsr,1030}]},
+                {rblock,[{ssrc,100024},
+                         {fraction,2},
+                         {lost,100026},
+                         {last_seq,100027},
+                         {jitter,100028},
+                         {lsr,100029},
+                         {dlsr,100030}]}]}]}],
+
+	SrPl = [{sr,[{ssrc,4096},
+	      {ntp,15154578768523253214},
+	      {timestamp,4098},
+	      {packets,65535},
+	      {octets,65536},
+	      {rblocks,[{rblock,[{ssrc,1024},
+				 {fraction,2},
+				 {lost,1026},
+				 {last_seq,1027},
+				 {jitter,1028},
+				 {lsr,1029},
+				 {dlsr,1030}]},
+			{rblock,[{ssrc,100024},
+				 {fraction,2},
+				 {lost,100026},
+				 {last_seq,100027},
+				 {jitter,100028},
+				 {lsr,100029},
+				 {dlsr,100030}]}]}]}],
+
+	[
+		{"Transform Rr to proplist",
+			fun() -> ?assertEqual(RrPl, rtp_utils:to_proplist(Rr)) end
+		},
+		{"Transform Sr to proplist",
+			fun() -> ?assertEqual(SrPl, rtp_utils:to_proplist(Sr)) end
+		}
+	].

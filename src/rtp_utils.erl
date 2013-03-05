@@ -33,6 +33,8 @@
 
 -export([take/2]).
 
+-export([to_proplist/1]).
+
 -export([dump_packet/3]).
 -export([get_type/1]).
 -export([get_codec_from_payload/1]).
@@ -73,6 +75,39 @@ take([Rtcp | Rest], Type) ->
 		Type -> Rtcp;
 		_ -> take(Rest, Type)
 	end.
+
+rblocks_to_proplist(Rblocks) ->
+	rblocks_to_proplist(Rblocks, []).
+rblocks_to_proplist([], Ret) ->
+	Ret;
+rblocks_to_proplist([#rblock{ssrc = SSRC, fraction = Fraction, lost = Lost, last_seq = LastSeq, jitter = Jitter, lsr = LSR, dlsr = DLSR} | Rest], Ret) ->
+	RblockList = {rblock, [{ssrc, SSRC}, {fraction, Fraction}, {lost, Lost}, {last_seq, LastSeq}, {jitter, Jitter}, {lsr, LSR}, {dlsr, DLSR}]},
+	rblocks_to_proplist(Rest, Ret ++ [RblockList]).
+
+to_proplist(#sr{ssrc = SSRC, ntp = NTP, timestamp = TS, packets = Packets, octets = Octets, rblocks = Rblocks}) ->
+	[
+		{sr,
+			[
+				{ssrc, SSRC},
+				{ntp, NTP},
+				{timestamp, TS},
+				{packets, Packets},
+				{octets, Octets},
+				{rblocks, rblocks_to_proplist(Rblocks)}
+			]
+		}
+	];
+to_proplist(#rr{ssrc = SSRC, rblocks= Rblocks, ijs = IJs}) ->
+	[
+		{rr,
+			[
+				{ssrc, SSRC},
+				{rblocks, rblocks_to_proplist(Rblocks)}
+%				{ijs, []} FIXME
+			]
+		}
+	];
+to_proplist(_) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
