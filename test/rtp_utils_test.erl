@@ -34,7 +34,7 @@
 -include("rtp.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-rtcp_utils_test_() ->
+rtp_utils_pp_test_() ->
 	Rr = #rr{ssrc = 3300681489},
 	Sdes = #sdes{list=[[{ssrc,3300681489},{cname,"sa@localhost.localdomain"},{eof,true}]]},
 	Rtcp = #rtcp{
@@ -47,3 +47,17 @@ rtcp_utils_test_() ->
 		}
 	].
 
+rtp_utils_take_test_() ->
+	Rr = #rr{ssrc = 3300681489},
+	Sdes = #sdes{list=[[{ssrc,3300681489},{cname,"sa@localhost.localdomain"},{eof,true}]]},
+	[
+		{"Take Rr",
+			fun() -> ?assertEqual(Rr, rtp_utils:take([Sdes, Sdes, Rr, Sdes], rr)) end
+		},
+		{"Take Sdes",
+			fun() -> ?assertEqual(Sdes, rtp_utils:take([Sdes, Sdes, Rr, Sdes], sdes)) end
+		},
+		{"Take nothing",
+			fun() -> ?assertEqual(false, rtp_utils:take([Sdes, Sdes, Rr, Sdes], sr)) end
+		}
+	].

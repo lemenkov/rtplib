@@ -31,6 +31,8 @@
 -module(rtp_utils).
 -author('lemenkov@gmail.com').
 
+-export([take/2]).
+
 -export([dump_packet/3]).
 -export([get_type/1]).
 -export([get_codec_from_payload/1]).
@@ -63,6 +65,14 @@ get_type(#bye{}) -> bye;
 get_type(#app{}) -> app;
 get_type(#xr{}) -> xr;
 get_type(_) -> unknown.
+
+take([], _) ->
+	false;
+take([Rtcp | Rest], Type) ->
+	case get_type(Rtcp) of
+		Type -> Rtcp;
+		_ -> take(Rest, Type)
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
