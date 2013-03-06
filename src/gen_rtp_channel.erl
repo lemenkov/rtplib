@@ -403,7 +403,6 @@ process_data(Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/bina
 	State;
 %% Handle incoming UKNOWN message
 process_data(_, _, _, _, State) ->
-	% FIXME this is a STUN message - we should reply at this level
 	State.
 
 -define(SOL_SOCKET, 1).
