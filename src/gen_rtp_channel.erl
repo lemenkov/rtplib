@@ -125,23 +125,12 @@ handle_call({
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
-handle_cast(
-	{{Type, Payload, Timestamp} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
-) when is_binary(Payload) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	% FIXME initial setup of a ZRTP
-	%(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	{noreply, NewState};
-handle_cast(
-	{{Type, #dtmf{} = Payload, Timestamp} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain} = State
-) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState};
-
+handle_cast({Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
+) when is_binary(Pkt) ->
+	% If it's binary then treat it like RTP
+	send(TMod, Fd, Pkt, DefIp, DefPort, Ip, Port),
+	{noreply, State};
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
@@ -164,6 +153,7 @@ handle_cast(
 	% Changed SSRC on the other side
 	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	% FIXME needs ZRTP reset here
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState#state{other_ssrc = OtherSSRC}};
 handle_cast(
@@ -288,24 +278,35 @@ handle_info({init, Params}, State) ->
 	% Notify parent
 	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
 
-	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
-	{Zrtp, CtxI, CtxO, SSRC, OtherSSRC, FunEncode, FunDecode} = case proplists:get_value(ctx, Params, none) of
-		none ->
-			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
-		zrtp ->
-			{ok, ZrtpFsm} = zrtp_fsm:start_link([self()]),
-			{ZrtpFsm, passthru, passthru, null, null, [fun srtp_encode/2], [fun srtp_decode/2]};
-		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
-			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
-			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
-			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
-	end,
+	% Select crypto scheme (none, srtp, zrtp)
+	Ctx = proplists:get_value(ctx, Params, none),
 
-	{FunRebuild, OtherSSRC2} = case proplists:get_value(rebuildrtp, Params, false) of
+	% Enable/disable transcoding
+	Transcoding = proplists:get_value(transcode, Params, none),
+
+	% Either get explicit SRTP params or rely on ZRTP (which needs SSRC and ZID at least)
+	% FIXME FIXME FIXME
+%	{Zrtp, CtxI, CtxO, SSRC, OtherSSRC, FunEncode, FunDecode} = case Ctx of
+%		none ->
+%			{null, null, null, null, null, [fun rtp_encode/2], [fun rtp_decode/2]};
+%		zrtp ->
+%			{ok, ZrtpFsm} = zrtp_fsm:start_link([self()]),
+%			{ZrtpFsm, passthru, passthru, null, null, [fun srtp_encode/2], [fun srtp_decode/2]};
+%		{{SI, CipherI, AuthI, AuthLenI, KeyI, SaltI}, {SR, CipherR, AuthR, AuthLenR, KeyR, SaltR}} ->
+%			CI = srtp:new_ctx(SI, CipherI, AuthI, KeyI, SaltI, AuthLenI),
+%			CR = srtp:new_ctx(SR, CipherR, AuthR, KeyR, SaltR, AuthLenR),
+%			{null, CI, CR, SI, SR, [fun srtp_encode/2], [fun srtp_decode/2]}
+%	end,
+
+	% Shall we entirely parse Rtp?
+	% In case of re-packetization or transcoding or crypto we require it anyway
+	RebuildRtp = proplists:get_value(rebuildrtp, Params, false),
+
+	{FunDecode, FunEncode} = case RebuildRtp or (Ctx /= none) or (Transcoding /= none)  of
 		false ->
-			{[], OtherSSRC};
+			{[], []};
 		true ->
-			{[fun rebuild_rtp/2], case OtherSSRC of null -> {A1,A2,A3} = os:timestamp(), random:seed(A1, A2, A3), random:uniform(1 bsl 32); _ -> OtherSSRC end}
+			{[fun rtp_encode/2], [fun rtp_decode/2]}
 	end,
 
 	{PreIp, PrePort} = proplists:get_value(prefill, Params, {null, null}),
@@ -318,8 +319,8 @@ handle_info({init, Params}, State) ->
 	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
 
 	% FIXME
-	{Encoder, FunTranscode} = case proplists:get_value(transcode, Params, false) of
-		false -> {false, []};
+	{Encoder, FunTranscode} = case Transcoding of
+		none -> {false, []};
 		EncoderDesc ->
 			case codec:start_link(EncoderDesc) of
 				{stop,unsupported} ->
@@ -335,16 +336,16 @@ handle_info({init, Params}, State) ->
 			rtcp = Fd1,
 			ip = PreIp,
 			rtpport = PrePort,
-			zrtp = Zrtp,
-			ctxI = CtxI,
-			ctxO = CtxO,
-			ssrc = SSRC,
-			other_ssrc = OtherSSRC2,
+%			zrtp = Zrtp,
+%			ctxI = CtxI,
+%			ctxO = CtxO,
+%			ssrc = SSRC,
+%			other_ssrc = OtherSSRC,
 			% FIXME - properly set transport
 			tmod = TMod,
 			active = ActiveStrategy,
-			process_chain_up = FunDecode ++ FunRebuild,
-			process_chain_down = FunRebuild ++ FunTranscode ++ FunEncode,
+			process_chain_up = FunDecode,
+			process_chain_down = FunTranscode ++ FunEncode,
 			encoder = Encoder,
 			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
@@ -361,6 +362,14 @@ handle_info(Info, State) ->
 %% Private functions
 %%
 
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = []} = State) when PType =< 34; 96 =< PType ->
+	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
+		true ->
+			Parent ! {Msg, Ip, Port},
+			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+		false ->
+			State
+	end;
 process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
@@ -529,24 +538,6 @@ transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = fa
 			transcode(Rtp, State#state{decoder = {OldPayloadType, Decoder}})
 	end;
 transcode(Pkt, State) ->
-	{Pkt, State}.
-
-rebuild_rtp({Type, Payload, Timestamp}, #state{sn = SN, other_ssrc = OtherSSRC} = State) ->
-	Pkt = #rtp{
-		padding = 0,
-		marker = case SN of 1 -> 1; _ -> 0 end,
-		payload_type = Type,
-		sequence_number = SN,
-		timestamp = Timestamp,
-		ssrc = OtherSSRC,
-		csrcs = [],
-		extension = null,
-		payload = Payload
-	},
-	{Pkt, State#state{sn = SN + 1}};
-rebuild_rtp(#rtp{} = Pkt, State) ->
-	{{Pkt#rtp.payload_type, Pkt#rtp.payload, Pkt#rtp.timestamp}, State};
-rebuild_rtp(Pkt, State) ->
 	{Pkt, State}.
 
 send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
