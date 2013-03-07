@@ -77,7 +77,7 @@ rtp_utils_to_proplist_test_() ->
 
 	Rr =  #rr{ssrc=4096, rblocks=[RBlock1, RBlock2]},
 
-	RrPl = [{rr,[{ssrc,4096},{rblocks,[{rblock,[{ssrc,1024},
+	RrPl = {rr,[{ssrc,4096},{rblocks,[[{rblock,[{ssrc,1024},
                          {fraction,2},
                          {lost,1026},
                          {last_seq,1027},
@@ -90,14 +90,14 @@ rtp_utils_to_proplist_test_() ->
                          {last_seq,100027},
                          {jitter,100028},
                          {lsr,100029},
-                         {dlsr,100030}]}]}]}],
+                         {dlsr,100030}]}]]}]},
 
-	SrPl = [{sr,[{ssrc,4096},
+	SrPl = {sr,[{ssrc,4096},
 	      {ntp,15154578768523253214},
 	      {timestamp,4098},
 	      {packets,65535},
 	      {octets,65536},
-	      {rblocks,[{rblock,[{ssrc,1024},
+	      {rblocks,[[{rblock,[{ssrc,1024},
 				 {fraction,2},
 				 {lost,1026},
 				 {last_seq,1027},
@@ -110,7 +110,7 @@ rtp_utils_to_proplist_test_() ->
 				 {last_seq,100027},
 				 {jitter,100028},
 				 {lsr,100029},
-				 {dlsr,100030}]}]}]}],
+				 {dlsr,100030}]}]]}]},
 
 	[
 		{"Transform Rr to proplist",
