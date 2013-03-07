@@ -85,28 +85,24 @@ rblocks_to_proplist([#rblock{ssrc = SSRC, fraction = Fraction, lost = Lost, last
 	rblocks_to_proplist(Rest, Ret ++ [RblockList]).
 
 to_proplist(#sr{ssrc = SSRC, ntp = NTP, timestamp = TS, packets = Packets, octets = Octets, rblocks = Rblocks}) ->
-	[
-		{sr,
-			[
-				{ssrc, SSRC},
-				{ntp, NTP},
-				{timestamp, TS},
-				{packets, Packets},
-				{octets, Octets},
-				{rblocks, rblocks_to_proplist(Rblocks)}
-			]
-		}
-	];
+	{sr,
+		[
+			{ssrc, SSRC},
+			{ntp, NTP},
+			{timestamp, TS},
+			{packets, Packets},
+			{octets, Octets},
+			{rblocks, [rblocks_to_proplist(Rblocks)]}
+		]
+	};
 to_proplist(#rr{ssrc = SSRC, rblocks= Rblocks, ijs = IJs}) ->
-	[
-		{rr,
-			[
-				{ssrc, SSRC},
-				{rblocks, rblocks_to_proplist(Rblocks)}
-%				{ijs, []} FIXME
-			]
-		}
-	];
+	{rr,
+		[
+			{ssrc, SSRC},
+			{rblocks, [rblocks_to_proplist(Rblocks)]}
+%			{ijs, []} FIXME
+		]
+	};
 to_proplist(_) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
