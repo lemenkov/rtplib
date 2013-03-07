@@ -306,7 +306,7 @@ handle_info({init, Params}, State) ->
 		false ->
 			{[], []};
 		true ->
-			{[fun rtp_encode/2], [fun rtp_decode/2]}
+			{[fun rtp_decode/2], [fun rtp_encode/2]}
 	end,
 
 	{PreIp, PrePort} = proplists:get_value(prefill, Params, {null, null}),
