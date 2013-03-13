@@ -55,6 +55,7 @@
 
 -record(state, {
 		parent = null,
+		rtp_subscriber = null,
 		rtp,
 		rtcp,
 		ip = null,
@@ -128,6 +129,9 @@ handle_call({
 
 handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets} = State) ->
 	{reply, {Ip, RtpPort, RtcpPort, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets}, State#state{rxbytes = 0, rxpackets = 0, txbytes = 0, txpackets = 0}};
+
+handle_call({rtp_subscriber, Subscriber}, _, State) ->
+	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
@@ -220,6 +224,10 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 		false -> ok;
 		{_, D} -> codec:close(D)
 	end.
+
+%% Handle short-circuit RTP message
+handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
+	handle_cast({Msg, Ip, Port}, State);
 
 %% Handle incoming RTP message
 handle_info({udp, Fd, Ip, Port, Msg}, #state{active = true} = State) ->
@@ -339,6 +347,7 @@ handle_info({init, Params}, State) ->
 
 	{noreply, #state{
 			parent = Parent,
+			rtp_subscriber = Parent,
 			rtp = Fd0,
 			rtcp = Fd1,
 			ip = PreIp,
@@ -369,19 +378,21 @@ handle_info(Info, State) ->
 %% Private functions
 %%
 
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			Parent ! {Msg, Ip, Port},
+%			Subscriber ! {Msg, Ip, Port},
+			Subscriber ! {Msg, null, null},
 			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
-			Parent ! {NewMsg, Ip, Port},
+%			Subscriber ! {NewMsg, Ip, Port},
+			Subscriber ! {NewMsg, null, null},
 			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
