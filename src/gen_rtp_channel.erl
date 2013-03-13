@@ -63,7 +63,6 @@
 		tmod = null,
 		active = null,
 		ssrc = null,
-		sn = 1,
 		sendrecv,
 		mux,
 		zrtp = null,
