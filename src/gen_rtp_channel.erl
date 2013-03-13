@@ -63,6 +63,11 @@
 		tmod = null,
 		active = null,
 		ssrc = null,
+		type,
+		rxbytes = 0,
+		rxpackets = 0,
+		txbytes = 0,
+		txpackets = 0,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -121,40 +126,45 @@ handle_call({
 	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
 	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
+handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets} = State) ->
+	{reply,
+		[{ip, Ip}, {rtpport, RtpPort}, {rtcpport, RtcpPort}, {ssrc, SSRC}, {type, Type}, {rxbytes, RxBytes}, {rxpackets, RxPackets}, {txbytes, TxBytes}, {txpackets, TxPackets}],
+	State#state{rxbytes = 0, rxpackets = 0, txbytes = 0, txpackets = 0}};
+
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
 handle_cast({Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State
 ) when is_binary(Pkt) ->
 	% If it's binary then treat it like RTP
 	send(TMod, Fd, Pkt, DefIp, DefPort, Ip, Port),
-	{noreply, State};
+	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState};
+	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	{noreply, NewState#state{other_ssrc = OtherSSRC}};
+	{noreply, NewState#state{other_ssrc = OtherSSRC, txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC2} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC2, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	% Changed SSRC on the other side
 	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	% FIXME needs ZRTP reset here
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState#state{other_ssrc = OtherSSRC}};
+	{noreply, NewState#state{other_ssrc = OtherSSRC, txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
@@ -361,20 +371,20 @@ handle_info(Info, State) ->
 %% Private functions
 %%
 
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = []} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			Parent ! {Msg, Ip, Port},
-			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			Parent ! {NewMsg, Ip, Port},
-			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
