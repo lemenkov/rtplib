@@ -136,9 +136,7 @@ handle_call({rtp_subscriber, Subscriber}, _, State) ->
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
-handle_cast({Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State
-) when is_binary(Pkt) ->
+handle_cast({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
 	% If it's binary then treat it like RTP
 	send(TMod, Fd, Pkt, DefIp, DefPort, Ip, Port),
 	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
@@ -149,24 +147,16 @@ handle_cast(
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = null, zrtp = ZrtpFsm, txbytes = TxBytes, txpackets = TxPackets} = State
-) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
+	% Initial other party SSRC setup
 	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	{noreply, NewState#state{other_ssrc = OtherSSRC, txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC2, txbytes = TxBytes, txpackets = TxPackets} = State
-) ->
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
 	% Changed SSRC on the other side
 	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	% FIXME needs ZRTP reset here
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, NewState#state{other_ssrc = OtherSSRC, txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
