@@ -128,7 +128,7 @@ handle_call({
 	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
 handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets} = State) ->
-	{reply, {Ip, RtpPort, RtcpPort, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets}, State#state{rxbytes = 0, rxpackets = 0, txbytes = 0, txpackets = 0}};
+	{reply, {Ip, RtpPort, RtcpPort, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets}, State};
 
 handle_call({rtp_subscriber, Subscriber}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
