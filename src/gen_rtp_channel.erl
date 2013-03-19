@@ -136,6 +136,10 @@ handle_call({rtp_subscriber, Subscriber}, _, State) ->
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
+%%
+%% Other side's RTP handling - we should send it downstream
+%%
+
 handle_cast({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
 	% If it's binary then treat it like RTP
 	send(TMod, Fd, Pkt, DefIp, DefPort, Ip, Port),
@@ -157,6 +161,10 @@ handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherS
 	% FIXME needs ZRTP reset here
 	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
 
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
@@ -173,6 +181,11 @@ handle_cast(
 	NewPkt = rtcp:encode(Pkt),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, State};
+
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
 handle_cast(
 	{#zrtp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
