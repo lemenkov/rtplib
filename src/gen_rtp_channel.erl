@@ -133,6 +133,9 @@ handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort
 handle_call({rtp_subscriber, Subscriber}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 
+handle_call(get_rtp_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = Port} = State) ->
+	{reply, {TMod, Fd, Ip, Port}, State};
+
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
@@ -381,21 +384,19 @@ handle_info(Info, State) ->
 %% Private functions
 %%
 
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-%			Subscriber ! {Msg, Ip, Port},
-			Subscriber ! {Msg, null, null},
+			send_subscriber(Parent, Subscriber, Msg, Ip, Port),
 			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
-%			Subscriber ! {NewMsg, Ip, Port},
-			Subscriber ! {NewMsg, null, null},
+			send_subscriber(Parent, Subscriber, NewMsg, Ip, Port),
 			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
@@ -569,3 +570,12 @@ send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
 	prim_inet:sendto(Fd, Ip, Port, Pkt);
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 	prim_inet:send(Fd, Pkt, []).
+
+send_subscriber(Subscriber, Subscriber, Data, Ip, Port) ->
+		Subscriber ! {Data, Ip, Port};
+send_subscriber(_, {gen_udp, Fd, Ip, Port}, Data, _, _) ->
+		prim_inet:sendto(Fd, Ip, Port, Data);
+send_subscriber(_, {gen_tcp, Fd, _, _}, Data, _, _) ->
+		prim_inet:send(Fd, Data);
+send_subscriber(_, Subscriber, Data, _, _) ->
+		Subscriber ! {Data, null, null}.
