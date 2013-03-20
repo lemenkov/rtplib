@@ -561,9 +561,11 @@ transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = fa
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
+send(gen_udp, _, _, _, null, _, null) ->
+	ok;
 send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
-	gen_udp:send(Fd, Ip, Port, Pkt);
+	prim_inet:sendto(Fd, Ip, Port, Pkt);
 send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
-	gen_udp:send(Fd, Ip, Port, Pkt);
+	prim_inet:sendto(Fd, Ip, Port, Pkt);
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
-	gen_tcp:send(Fd, Pkt).
+	prim_inet:send(Fd, Pkt, []).
