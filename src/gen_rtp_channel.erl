@@ -575,9 +575,7 @@ send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 
 send_subscriber(Subscriber, Subscriber, Data, Ip, Port) ->
 		Subscriber ! {Data, Ip, Port};
-send_subscriber(_, {gen_udp, Fd, Ip, Port}, Data, _, _) ->
-		prim_inet:sendto(Fd, Ip, Port, Data);
-send_subscriber(_, {gen_tcp, Fd, _, _}, Data, _, _) ->
-		prim_inet:send(Fd, Data);
+send_subscriber(_, {Type, Fd, Ip, Port}, Data, _, _) ->
+		send(Type, Fd, Data, Ip, Port, null, null);
 send_subscriber(_, Subscriber, Data, _, _) ->
 		Subscriber ! {Data, null, null}.
