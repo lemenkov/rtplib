@@ -220,6 +220,7 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
+	{memory, Bytes} = erlang:process_info(self(), memory),
 	timer:cancel(TRef),
 	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
@@ -231,7 +232,8 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 	case Decoder of
 		false -> ok;
 		{_, D} -> codec:close(D)
-	end.
+	end,
+	error_logger:error_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
 
 %% Handle short-circuit RTP message
 handle_info({#rtp{} = Msg, Ip, Port}, State) ->
