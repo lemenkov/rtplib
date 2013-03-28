@@ -98,6 +98,8 @@ close(Pid) ->
 	gen_server:cast(Pid, stop).
 
 init([Params]) ->
+	process_flag(trap_exit, true),
+
 	% Deferred init
 	self() ! {init, Params},
 
