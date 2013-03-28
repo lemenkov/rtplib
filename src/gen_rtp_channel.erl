@@ -301,7 +301,7 @@ handle_info({init, Params}, State) ->
 	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
 
 	% Notify parent
-	Parent ! {phy, {Ip, PortRtp, PortRtcp}},
+	Parent ! {phy, {Ip, PortRtp, PortRtcp, self()}},
 
 	% Select crypto scheme (none, srtp, zrtp)
 	Ctx = proplists:get_value(ctx, Params, none),
