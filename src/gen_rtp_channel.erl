@@ -591,5 +591,6 @@ send_subscriber(_, Subscriber, Data, _, _) ->
 		Subscriber ! {Data, null, null}.
 
 append_subscriber(null, Subscriber) -> Subscriber;
-append_subscriber(Subscribers, Subscriber) when is_list(Subscribers) -> Subscribers ++ [Subscriber];
+append_subscriber(Subscribers, Subscriber) when is_list(Subscribers) -> [S || S <- Subscribers, S /= Subscriber] ++ [Subscriber];
+append_subscriber(Subscriber, Subscriber) -> Subscriber;
 append_subscriber(OldSubscriber, Subscriber) -> [OldSubscriber, Subscriber].
