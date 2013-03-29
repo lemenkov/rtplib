@@ -579,6 +579,8 @@ send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 
 send_subscriber(_, null, _, _, _) ->
 		ok;
+send_subscriber(Parent, Subscribers, Data, Ip, Port) when is_list(Subscribers) ->
+		lists:foreach(fun(X) -> send_subscriber(Parent, X, Data, Ip, Port) end, Subscribers);
 send_subscriber(Subscriber, Subscriber, Data, Ip, Port) ->
 		Subscriber ! {Data, Ip, Port};
 send_subscriber(_, {Type, Fd, Ip, Port}, Data, _, _) ->
