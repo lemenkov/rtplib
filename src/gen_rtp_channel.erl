@@ -262,7 +262,6 @@ handle_info(interim_update, #state{keepalive = false} = State) ->
 	{noreply, State};
 handle_info(interim_update, #state{parent = Parent, timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
 	Now = os:timestamp(),
-	C == 0 andalso (Parent ! interim_update),
 	case timer:now_diff(Now, LS) div 1000 < Timeout of
 		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
 		false -> {stop, timeout, State}
