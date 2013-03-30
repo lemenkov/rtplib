@@ -69,6 +69,8 @@
 		rxpackets = 0,
 		txbytes = 0,
 		txpackets = 0,
+		sr = null,
+		rr = null,
 		sendrecv,
 		mux,
 		zrtp = null,
@@ -410,13 +412,18 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 			State
 	end;
 %% Handle incoming RTCP message
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv} = State) when 64 =< PType, PType =< 82 ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, rr = Rr0, sr = Sr0} = State) when 64 =< PType, PType =< 82 ->
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
-			{ok, NewMsg} = rtcp:decode(Msg),
-			Parent ! {NewMsg, Ip, Port},
-			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC};
+			{ok, #rtcp{payloads = Rtcps} = NewMsg} = rtcp:decode(Msg),
+			% FIXME use send_subscriber here
+%			Parent ! {NewMsg, Ip, Port},
+			Subscriber ! {NewMsg, null, null},
+			% FIXME make a ring buffer
+			Sr = rtp_utils:take(Rtcps, sr),
+			Rr = rtp_utils:take(Rtcps, rr),
+			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
 		false ->
 			State
 	end;
