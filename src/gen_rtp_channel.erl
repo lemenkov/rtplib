@@ -54,13 +54,13 @@
 -define(INTERIM_UPDATE, 30000).
 
 -record(state, {
-		parent = null,
 		rtp_subscriber = null,
 		rtp,
 		rtcp,
 		ip = null,
 		rtpport = null,
 		rtcpport = null,
+		local,
 		tmod = null,
 		active = null,
 		ssrc = null,
@@ -94,8 +94,7 @@
 open(Port) ->
 	open(Port, []).
 open(Port, Params) ->
-	PPid = self(),
-	gen_server:start_link(?MODULE, [Params ++ [{parent, PPid}, {port, Port}]], []).
+	gen_server:start_link(?MODULE, [Params ++ [{port, Port}]], []).
 close(Pid) ->
 	gen_server:cast(Pid, stop).
 
@@ -262,7 +261,7 @@ handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) 
 handle_info(interim_update, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
-handle_info(interim_update, #state{parent = Parent, timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
+handle_info(interim_update, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
 	Now = os:timestamp(),
 	case timer:now_diff(Now, LS) div 1000 < Timeout of
 		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
@@ -300,13 +299,9 @@ handle_info({init, Params}, State) ->
 
 	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, [{active, ActiveStrategy} | SockParams]}),
 
-	Parent = proplists:get_value(parent, Params),
-
 	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
 	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
 
-	% Notify parent
-	Parent ! {phy, {Ip, PortRtp, PortRtcp, self()}},
 
 	% Select crypto scheme (none, srtp, zrtp)
 	Ctx = proplists:get_value(ctx, Params, none),
@@ -361,12 +356,12 @@ handle_info({init, Params}, State) ->
 	end,
 
 	{noreply, #state{
-			parent = Parent,
-			rtp_subscriber = Parent,
+			rtp_subscriber = null,
 			rtp = Fd0,
 			rtcp = Fd1,
 			ip = PreIp,
 			rtpport = PrePort,
+			local = {Ip, PortRtp, PortRtcp},
 %			zrtp = Zrtp,
 %			ctxI = CtxI,
 %			ctxO = CtxO,
@@ -394,32 +389,30 @@ handle_info(Info, State) ->
 %%
 
 %% Handle incoming RTP message
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			send_subscriber(Parent, Subscriber, Msg, Ip, Port),
+			send_subscriber(Subscriber, Msg, Ip, Port),
 			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
-			send_subscriber(Parent, Subscriber, NewMsg, Ip, Port),
+			send_subscriber(Subscriber, NewMsg, Ip, Port),
 			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
 %% Handle incoming RTCP message
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{parent = Parent, rtp_subscriber = Subscriber, sendrecv = SendRecv, rr = Rr0, sr = Sr0} = State) when 64 =< PType, PType =< 82 ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, rr = Rr0, sr = Sr0} = State) when 64 =< PType, PType =< 82 ->
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
 			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{ok, #rtcp{payloads = Rtcps} = NewMsg} = rtcp:decode(Msg),
-			% FIXME use send_subscriber here
-%			Parent ! {NewMsg, Ip, Port},
-			Subscriber ! {NewMsg, null, null},
+			send_subscriber(Subscriber, NewMsg, Ip, Port),
 			% FIXME make a ring buffer
 			Sr = rtp_utils:take(Rtcps, sr),
 			Rr = rtp_utils:take(Rtcps, rr),
@@ -428,7 +421,7 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 			State
 	end;
 %% Handle incoming ZRTP message
-process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, #state{parent = Parent, sendrecv = SendRecv} = State) ->
+process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv} = State) ->
 	% Treat ZRTP in the same way as RTP
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
@@ -436,7 +429,7 @@ process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:
 			case State#state.zrtp of
 				% If we didn't setup ZRTP FSM then we are acting
 				% as pass-thru ZRTP proxy
-				null -> Parent ! {Zrtp, Ip, Port};
+				null -> send_subscriber(Subscriber, Zrtp, Ip, Port);
 				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
 			end,
 			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
@@ -586,15 +579,15 @@ send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
 	prim_inet:send(Fd, Pkt, []).
 
-send_subscriber(_, null, _, _, _) ->
+send_subscriber(null, _, _, _) ->
 		ok;
-send_subscriber(Parent, Subscribers, Data, Ip, Port) when is_list(Subscribers) ->
-		lists:foreach(fun(X) -> send_subscriber(Parent, X, Data, Ip, Port) end, Subscribers);
-send_subscriber(Subscriber, Subscriber, Data, Ip, Port) ->
-		Subscriber ! {Data, Ip, Port};
-send_subscriber(_, {Type, Fd, Ip, Port}, Data, _, _) ->
+send_subscriber(Subscribers, Data, Ip, Port) when is_list(Subscribers) ->
+		lists:foreach(fun(X) -> send_subscriber(X, Data, Ip, Port) end, Subscribers);
+%send_subscriber(Subscriber, Data, Ip, Port) ->
+%		Subscriber ! {Data, Ip, Port};
+send_subscriber({Type, Fd, Ip, Port}, Data, _, _) ->
 		send(Type, Fd, Data, Ip, Port, null, null);
-send_subscriber(_, Subscriber, Data, _, _) ->
+send_subscriber(Subscriber, Data, _, _) ->
 		Subscriber ! {Data, null, null}.
 
 append_subscriber(null, Subscriber) -> Subscriber;
