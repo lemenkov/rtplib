@@ -130,16 +130,16 @@ handle_call({
 	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
 	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
-handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets} = State) ->
-	{reply, {Ip, RtpPort, RtcpPort, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets}, State};
+handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets} = State) ->
+	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets}, State};
 
 handle_call({rtp_subscriber, {set, Subscriber}}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
 
-handle_call(get_rtp_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = Port} = State) ->
-	{reply, {TMod, Fd, Ip, Port}, State};
+handle_call(get_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
+	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
