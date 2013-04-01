@@ -241,6 +241,10 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encode
 %% Handle short-circuit RTP message
 handle_info({#rtp{} = Msg, Ip, Port}, State) ->
 	handle_cast({Msg, Ip, Port}, State);
+handle_info({#rtcp{} = Msg, Ip, Port}, State) ->
+	handle_cast({Msg, Ip, Port}, State);
+handle_info({#zrtp{} = Msg, Ip, Port}, State) ->
+	handle_cast({Msg, Ip, Port}, State);
 handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
 	handle_cast({Msg, Ip, Port}, State);
 
