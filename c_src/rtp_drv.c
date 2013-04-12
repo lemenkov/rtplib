@@ -67,6 +67,7 @@ int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
 	int flags;
 	struct sockaddr_in si;
 	int reuse = 1;
+	int n = 0;
 
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if( setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0 ){
@@ -83,8 +84,12 @@ int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
 		return 0;
 	}
 
-	int n = size;
+	n = size;
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) == -1) {
+		// FIXME
+	}
+	n = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_NO_CHECK, &n, sizeof(n)) == -1) {
 		// FIXME
 	}
 
