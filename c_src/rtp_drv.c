@@ -84,10 +84,10 @@ int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
 		return 0;
 	}
 
-	n = size;
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) == -1) {
+//	n = size;
+//	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) == -1) {
 		// FIXME
-	}
+//	}
 	n = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_NO_CHECK, &n, sizeof(n)) == -1) {
 		// FIXME
