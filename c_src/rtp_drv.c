@@ -226,6 +226,12 @@ static void rtp_drv_output(ErlDrvData handle, char *buf, int len)
 		}
 	}
 }
+
+static void rtp_drv_ready_output(ErlDrvData handle, ErlDrvEvent event)
+{
+	rtp_data *d = (rtp_data *) handle;
+}
+
 static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 {
 	rtp_data *d = (rtp_data *) handle;
@@ -353,7 +359,7 @@ ErlDrvEntry rtp_driver_entry = {
 	rtp_drv_stop,	/* F_PTR stop, called when port is closed */
 	rtp_drv_output,			/* F_PTR output, called when erlang has sent */
 	rtp_drv_input,			/* F_PTR ready_input, called when input descriptor ready */
-	NULL,			/* F_PTR ready_output, called when output descriptor ready */
+	rtp_drv_ready_output,			/* F_PTR ready_output, called when output descriptor ready */
 	"rtp_drv",	/* char *driver_name, the argument to open_port */
 	NULL,			/* F_PTR finish, called when unloaded */
 	NULL,			/* handle */
