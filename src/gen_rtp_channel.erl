@@ -56,13 +56,11 @@
 -record(state, {
 		rtp_subscriber = null,
 		rtp,
-		rtcp,
 		ip = null,
 		rtpport = null,
 		rtcpport = null,
 		local,
 		tmod = null,
-		active = null,
 		ssrc = null,
 		type,
 		rxbytes = 0,
@@ -72,7 +70,6 @@
 		sr = null,
 		rr = null,
 		sendrecv,
-		mux,
 		zrtp = null,
 		ctxI = passthru,
 		ctxO = passthru,
@@ -175,23 +172,14 @@ handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherS
 
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
-) ->
-	% If muxing is enabled (either explicitly or with a 'auto' parameter
-	% then send RTCP muxed within RTP stream
-	NewPkt = rtcp:encode(Pkt),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
-	{noreply, State};
-handle_cast(
-	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
 ) ->
 	NewPkt = rtcp:encode(Pkt),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, State};
 
 %%
-%% Other side's RTCP handling - we should send it downstream
+%% Other side's ZRTP handling - we should send it downstream
 %%
 
 handle_cast(
@@ -222,12 +210,11 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
+terminate(Reason, #state{rtp = Port, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
 	timer:cancel(TRef),
-	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
-	TMod:close(Fd1),
+	port_close(Port),
 	case Encoder of
 		false -> ok;
 		{_, E} -> codec:close(E)
@@ -249,12 +236,13 @@ handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
 	handle_cast({Msg, Ip, Port}, State);
 
 %% Handle incoming RTP message
-handle_info({udp, Fd, Ip, Port, Msg}, #state{active = true} = State) ->
+handle_info({rtp, Fd, Ip, Port, Msg}, State) ->
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
-handle_info({udp, Fd, Ip, Port, Msg}, #state{active = once} = State) ->
-	% FIXME should we move it 1 line below?
-	inet:setopts(Fd, [{active, once}]),
+handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+handle_info({udp, Fd, Ip, Port, Msg}, State) ->
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
 
@@ -301,11 +289,12 @@ handle_info({init, Params}, State) ->
 			{TimeoutMain, T}
 	end,
 
-	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, [{active, ActiveStrategy} | SockParams]}),
-
-	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
-	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
-
+	load_library(rtp_drv),
+	Port = open_port({spawn, rtp_drv}, [binary]),
+	{I0, I1, I2, I3} = IpAddr,
+	erlang:port_control(Port, 1, <<IpPort:16, I0:8, I1:8, I2:8, I3:8>>),
+	<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>),
+	erlang:port_set_data(Port, inet_udp),
 
 	% Select crypto scheme (none, srtp, zrtp)
 	Ctx = proplists:get_value(ctx, Params, none),
@@ -361,11 +350,10 @@ handle_info({init, Params}, State) ->
 
 	{noreply, #state{
 			rtp_subscriber = null,
-			rtp = Fd0,
-			rtcp = Fd1,
+			rtp = Port,
 			ip = PreIp,
 			rtpport = PrePort,
-			local = {Ip, PortRtp, PortRtcp},
+			local = {{I0, I1, I2, I3}, RtpPort, RtcpPort},
 %			zrtp = Zrtp,
 %			ctxI = CtxI,
 %			ctxO = CtxO,
@@ -373,11 +361,9 @@ handle_info({init, Params}, State) ->
 %			other_ssrc = OtherSSRC,
 			% FIXME - properly set transport
 			tmod = TMod,
-			active = ActiveStrategy,
 			process_chain_up = FunDecode,
 			process_chain_down = FunTranscode ++ FunEncode,
 			encoder = Encoder,
-			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
 			tref = TRef,
 			timeout = Timeout
@@ -414,13 +400,12 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, rr = Rr0, sr = Sr0} = State) when 64 =< PType, PType =< 82 ->
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
-			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{ok, #rtcp{payloads = Rtcps} = NewMsg} = rtcp:decode(Msg),
 			send_subscriber(Subscriber, NewMsg, Ip, Port),
 			% FIXME make a ring buffer
 			Sr = rtp_utils:take(Rtcps, sr),
 			Rr = rtp_utils:take(Rtcps, rr),
-			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
+			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
 		false ->
 			State
 	end;
@@ -577,11 +562,11 @@ transcode(Pkt, State) ->
 send(gen_udp, _, _, _, null, _, null) ->
 	ok;
 send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
-	prim_inet:sendto(Fd, Ip, Port, Pkt);
+	Fd ! {self(), {command, Pkt}};
 send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
-	prim_inet:sendto(Fd, Ip, Port, Pkt);
+	Fd ! {self(), {command, Pkt}};
 send(gen_tcp, Fd, Pkt, _, _, _, _) ->
-	prim_inet:send(Fd, Pkt, []).
+	Fd ! {self(), {command, Pkt}}.
 
 send_subscriber(null, _, _, _) ->
 		ok;
@@ -598,3 +583,19 @@ append_subscriber(null, Subscriber) -> Subscriber;
 append_subscriber(Subscribers, Subscriber) when is_list(Subscribers) -> [S || S <- Subscribers, S /= Subscriber] ++ [Subscriber];
 append_subscriber(Subscriber, Subscriber) -> Subscriber;
 append_subscriber(OldSubscriber, Subscriber) -> [OldSubscriber, Subscriber].
+
+load_library(Name) ->
+        case erl_ddll:load_driver(get_priv(), Name) of
+                ok -> ok;
+                {error, already_loaded} -> ok;
+                {error, permanent} -> ok;
+                {error, Error} ->
+                        error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
+                        {error, Error}
+        end.
+
+-ifdef(TEST).
+get_priv() -> "../priv". % Probably eunit session
+-else.
+get_priv() -> code:lib_dir(rtplib, priv).
+-endif.

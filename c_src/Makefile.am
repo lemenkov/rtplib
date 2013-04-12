@@ -28,7 +28,8 @@ lib_LTLIBRARIES = \
 		  $(G729_CODEC_DRV) \
 		  crc32c_nif.la \
 		  sas_nif.la \
-		  resampler_drv.la
+		  resampler_drv.la \
+		  rtp_drv.la
 
 dvi4_codec_drv_la_SOURCES = dvi4_codec.c
 dvi4_codec_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SPANDSP_CFLAGS@
@@ -107,6 +108,11 @@ resampler_drv_la_SOURCES = resampler.c
 resampler_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@ @SAMPLERATE_CFLAGS@
 resampler_drv_la_LIBADD = @SAMPLERATE_LIBS@ @ERLANG_LIBS@
 resampler_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
+
+rtp_drv_la_SOURCES = rtp_drv.c
+rtp_drv_la_CFLAGS = $(AM_CFLAGS) @ERLANG_CFLAGS@
+rtp_drv_la_LIBADD = @ERLANG_LIBS@
+rtp_drv_la_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version
 
 install:
 	$(mkdir_p) $(DESTDIR)@ERLANG_DIR@/lib/rtplib-@PACKAGE_VERSION@/priv/
