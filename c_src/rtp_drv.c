@@ -234,6 +234,7 @@ static void rtp_drv_output(ErlDrvData handle, char *buf, int len)
 static void rtp_drv_ready_output(ErlDrvData handle, ErlDrvEvent event)
 {
 	rtp_data *d = (rtp_data *) handle;
+	driver_select(d->port, event, ERL_DRV_WRITE, 0);
 }
 
 static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
