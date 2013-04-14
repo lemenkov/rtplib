@@ -47,18 +47,23 @@ typedef struct {
 	ErlDrvTermData owner;
 	uint8_t *buf;
 	ssize_t size;
-	int rtp_socket;
-	int rtcp_socket;
 	struct sockaddr_in peer;
 	socklen_t peer_len;
+	int rtp_socket;
+	int rtcp_socket;
+	int other_rtp_socket;
+	struct sockaddr_in other_peer;
+	socklen_t other_peer_len;
 	uint16_t rtp_port; // Network-order
 	uint16_t rtcp_port; // Network-order
 	bool mux;
+	unsigned long tval;
 } rtp_data;
 
 ErlDrvTermData atom_rtp;
 ErlDrvTermData atom_rtcp;
 ErlDrvTermData atom_udp;
+ErlDrvTermData atom_interim_update;
 
 /* Private functions*/
 int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
@@ -165,6 +170,7 @@ static int rtp_drv_init(void)
 	atom_rtp = driver_mk_atom("rtp");
 	atom_rtcp = driver_mk_atom("rtcp");
 	atom_udp = driver_mk_atom("udp");
+	atom_interim_update = driver_mk_atom("interim_update");
 	return 0;
 }
 
@@ -179,9 +185,12 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	memset(d->buf, 0, d->size);
 	d->rtp_socket = -1;
 	d->rtcp_socket = -1;
+	d->other_rtp_socket = 0;
 	d->rtp_port = 0;
 	d->rtcp_port = 0;
 	d->mux = false;
+	d->tval = 30000; // default value it 30 seconds
+	driver_set_timer(d->port, d->tval);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -199,6 +208,7 @@ static void rtp_drv_stop(ErlDrvData handle)
 	}
 	d->rtp_socket = -1;
 	d->rtcp_socket = -1;
+	driver_cancel_timer(d->port);
 	driver_free(d->buf);
 	driver_free((char*)handle);
 }
@@ -235,6 +245,19 @@ static void rtp_drv_ready_output(ErlDrvData handle, ErlDrvEvent event)
 {
 	rtp_data *d = (rtp_data *) handle;
 	driver_select(d->port, event, ERL_DRV_WRITE, 0);
+}
+
+static void rtp_drv_timeout(ErlDrvData handle)
+{
+	rtp_data *d = (rtp_data *) handle;
+	ErlDrvTermData reply[] = {
+		ERL_DRV_ATOM, atom_interim_update,
+		ERL_DRV_PORT, driver_mk_port(d->port),
+		ERL_DRV_TUPLE, 2
+	};
+	driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+	driver_cancel_timer(d->port); // FIXME is it really needed
+	driver_set_timer(d->port, d->tval);
 }
 
 static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
@@ -274,19 +297,24 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 		if((d->rtcp_port == 0) && (type == atom_rtcp))
 			d->rtcp_port = peer.sin_port;
 
-		ErlDrvTermData reply[] = {
-			ERL_DRV_ATOM, type,
-			ERL_DRV_PORT, driver_mk_port(d->port),
-			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
-			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
-			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[2],
-			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[3],
-			ERL_DRV_TUPLE, 4,
-			ERL_DRV_UINT, ntohs(peer.sin_port),
-			ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s2,
-			ERL_DRV_TUPLE, 5
-		};
-		driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+		if((d->other_rtp_socket)&&((type == atom_rtp)||(type == atom_udp))){
+			sendto(d->other_rtp_socket, d->buf, s2, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
+		}
+		else{
+			ErlDrvTermData reply[] = {
+				ERL_DRV_ATOM, type,
+				ERL_DRV_PORT, driver_mk_port(d->port),
+				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
+				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
+				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[2],
+				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[3],
+				ERL_DRV_TUPLE, 4,
+				ERL_DRV_UINT, ntohs(peer.sin_port),
+				ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s2,
+				ERL_DRV_TUPLE, 5
+			};
+			driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+		}
 	}
 	else{
 		ErlDrvTermData reply[] = {
@@ -351,6 +379,28 @@ static int rtp_drv_control(
 			ret = 8;
 			}
 			break;
+		case 3:
+			{
+			int id = htonl(d->rtp_socket); // Network-order
+			uint32_t ip = d->peer.sin_addr.s_addr; // Network-order
+			memcpy(*rbuf, &id, 4);
+			memcpy(*rbuf+4, &(d->rtp_port), 2); // Network-order
+			memcpy(*rbuf+6, &ip, 4);
+			ret = 10;
+			}
+			break;
+		case 4:
+			{
+			d->other_rtp_socket = ntohl(*(int*)buf); // Network-order to host-order
+			uint16_t port =  ntohs(*(uint16_t*)(buf+4)); // Network-order
+			uint32_t ip = *(uint32_t*)(buf+6); // Network-order
+			bzero(&(d->other_peer), sizeof(d->other_peer));
+			d->other_peer.sin_family = AF_INET;
+			d->other_peer.sin_port = port;
+			d->other_peer.sin_addr.s_addr = ip;
+			d->other_peer_len = sizeof(d->other_peer);
+			}
+			break;
 		default:
 			break;
 	}
@@ -369,7 +419,7 @@ ErlDrvEntry rtp_driver_entry = {
 	NULL,			/* F_PTR finish, called when unloaded */
 	NULL,			/* handle */
 	rtp_drv_control,	/* F_PTR control, port_command callback */
-	NULL,			/* F_PTR timeout, reserved */
+	rtp_drv_timeout,			/* F_PTR timeout, reserved */
 	NULL,			/* F_PTR outputv, reserved */
 	NULL,
 	NULL,

@@ -83,8 +83,7 @@
 		% interval to wait for initial data
 		keepalive = true,
 		timeout = ?INTERIM_UPDATE,
-		counter = 0,
-		tref
+		counter = 0
 	}
 ).
 
@@ -137,6 +136,14 @@ handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldS
 
 handle_call(get_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
 	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
+
+handle_call(get_fd, _, #state{rtp = Fd} = State) ->
+	Bin = port_control(Fd, 3, <<>>),
+	{reply, {ok, Bin}, State};
+
+handle_call({set_fd, Bin}, _, #state{rtp = Fd} = State) ->
+	port_control(Fd, 4, Bin),
+	{reply, ok, State};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
@@ -210,9 +217,8 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Port, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
+terminate(Reason, #state{rtp = Port, tmod = TMod, encoder = Encoder, decoder = Decoder}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
-	timer:cancel(TRef),
 	% FIXME We must send RTCP bye here
 	port_close(Port),
 	case Encoder of
@@ -236,7 +242,9 @@ handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
 	handle_cast({Msg, Ip, Port}, State);
 
 %% Handle incoming RTP message
-handle_info({rtp, Fd, Ip, Port, Msg}, State) ->
+handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
+	Bin = port_control(Fd, 3, <<>>),
+	safe_call(Subscriber, {set_fd, Bin}),
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
 handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
@@ -246,18 +254,14 @@ handle_info({udp, Fd, Ip, Port, Msg}, State) ->
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
 
-handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) ->
-	timer:cancel(TRef),
-	{ok, T} = timer:send_interval(1000, interim_update),
-	handle_info(interim_update, State#state{tref = T});
-handle_info(interim_update, #state{keepalive = false} = State) ->
+handle_info({interim_update, _Port}, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
-handle_info(interim_update, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
+handle_info({interim_update, _Port}, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
 	Now = os:timestamp(),
 	case timer:now_diff(Now, LS) div 1000 < Timeout of
-		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
-		false -> {stop, timeout, State}
+		_ -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}}
+%		false -> {stop, timeout, State}
 	end;
 
 handle_info({init, Params}, State) ->
@@ -365,8 +369,7 @@ handle_info({init, Params}, State) ->
 			process_chain_down = FunTranscode ++ FunEncode,
 			encoder = Encoder,
 			sendrecv = SendRecvStrategy,
-			tref = TRef,
-			timeout = Timeout
+			timeout = ?INTERIM_UPDATE
 		}
 	};
 
@@ -593,6 +596,9 @@ load_library(Name) ->
                         error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
                         {error, Error}
         end.
+
+safe_call(null, Message) -> ok;
+safe_call(Pid, Message) -> gen_server:call(Pid, Message).
 
 -ifdef(TEST).
 get_priv() -> "../priv". % Probably eunit session
