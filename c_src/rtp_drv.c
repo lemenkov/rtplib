@@ -274,19 +274,14 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 	ErlDrvTermData type;
 
 	ssize_t s = 0;
-	ssize_t s2 = 0;
 
 	// FIXME use it for bufer adjustment
 	ioctl((int)event, FIONREAD, &s);
-	s = 0;
-	do{
-		s2 += s;
-		s = recvfrom((int)event, d->buf+s2, d->size-s2, 0, (struct sockaddr *)&peer, &peer_len);
-	} while (s>0);
+	s = recvfrom((int)event, d->buf, d->size, 0, (struct sockaddr *)&peer, &peer_len);
 
-	if(s2>0){
+	if(s>0){
 		/* Check for type */
-		type = get_type(s2, d->buf);
+		type = get_type(s, d->buf);
 		if(d->rtp_port == 0){
 			if((type == atom_rtp)||(type == atom_udp)){
 				bzero(&(d->peer), sizeof(d->peer));
@@ -313,7 +308,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 			d->rtcp_port = peer.sin_port;
 
 		if((d->other_rtp_socket)&&((type == atom_rtp)||(type == atom_udp))){
-			sendto(d->other_rtp_socket, d->buf, s2, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
+			sendto(d->other_rtp_socket, d->buf, s, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
 		}
 		else{
 			ErlDrvTermData reply[] = {
@@ -325,7 +320,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[3],
 				ERL_DRV_TUPLE, 4,
 				ERL_DRV_UINT, ntohs(peer.sin_port),
-				ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s2,
+				ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s,
 				ERL_DRV_TUPLE, 5
 			};
 			driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
