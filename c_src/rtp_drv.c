@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/ioctl.h>
+#include <time.h>
 
 typedef struct {
 	ErlDrvPort port;
@@ -58,13 +59,15 @@ typedef struct {
 	uint16_t rtcp_port; // Network-order
 	bool mux;
 	unsigned long tval;
+	time_t lastseen;
 } rtp_data;
 
 ErlDrvTermData atom_rtp;
 ErlDrvTermData atom_rtcp;
 ErlDrvTermData atom_udp;
 ErlDrvTermData atom_peer;
-ErlDrvTermData atom_interim_update;
+
+ErlDrvTermData atom_timeout;
 
 /* Private functions*/
 int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
@@ -172,7 +175,8 @@ static int rtp_drv_init(void)
 	atom_rtcp = driver_mk_atom("rtcp");
 	atom_udp = driver_mk_atom("udp");
 	atom_peer = driver_mk_atom("peer");
-	atom_interim_update = driver_mk_atom("interim_update");
+
+	atom_timeout = driver_mk_atom("timeout");
 	return 0;
 }
 
@@ -191,6 +195,7 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	d->rtcp_port = 0;
 	d->mux = false;
 	d->tval = 30000; // default value it 30 seconds
+	d->lastseen = NULL;
 	driver_set_timer(d->port, d->tval);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
@@ -251,13 +256,15 @@ static void rtp_drv_ready_output(ErlDrvData handle, ErlDrvEvent event)
 static void rtp_drv_timeout(ErlDrvData handle)
 {
 	rtp_data *d = (rtp_data *) handle;
-	ErlDrvTermData reply[] = {
-		ERL_DRV_ATOM, atom_interim_update,
-		ERL_DRV_PORT, driver_mk_port(d->port),
-		ERL_DRV_TUPLE, 2
-	};
-	driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
-	driver_cancel_timer(d->port); // FIXME is it really needed
+
+	if(difftime(time(NULL), d->lastseen)*1000 >= d->tval){
+		ErlDrvTermData reply[] = {
+			ERL_DRV_ATOM, atom_timeout,
+			ERL_DRV_PORT, driver_mk_port(d->port),
+			ERL_DRV_TUPLE, 2
+		};
+		driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+	}
 	driver_set_timer(d->port, d->tval);
 }
 
@@ -284,6 +291,9 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 	s = recvfrom((int)event, d->buf, d->size, 0, (struct sockaddr *)&peer, &peer_len);
 
 	if(s>0){
+		/* reset timer */
+		d->lastseen = time(NULL);
+
 		/* Check for type */
 		type = get_type(s, d->buf);
 		if(d->rtp_port == 0){

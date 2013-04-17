@@ -262,15 +262,11 @@ handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber 
 	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 
-handle_info({interim_update, _Port}, #state{keepalive = false} = State) ->
+handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
-handle_info({interim_update, _Port}, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
-	Now = os:timestamp(),
-	case timer:now_diff(Now, LS) div 1000 < Timeout of
-		_ -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}}
-%		false -> {stop, timeout, State}
-	end;
+handle_info({timeout, _Port}, State) ->
+	{stop, timeout, State};
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
