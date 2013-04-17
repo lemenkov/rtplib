@@ -181,8 +181,7 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	rtp_data* d = (rtp_data*)driver_alloc(sizeof(rtp_data));
 	d->port = port;
 	d->owner = driver_caller(port);
-	// FIXME why 1024?
-	d->size = 1024;
+	d->size = 256;
 	d->buf = (uint8_t *)driver_alloc(d->size);
 	memset(d->buf, 0, d->size);
 	d->rtp_socket = -1;
@@ -277,6 +276,11 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 	// FIXME use it for bufer adjustment
 	ioctl((int)event, FIONREAD, &s);
+	if(s > d->size){
+		driver_free(d->buf);
+		d->size = s;
+		d->buf = (uint8_t *)driver_alloc(d->size);
+	}
 	s = recvfrom((int)event, d->buf, d->size, 0, (struct sockaddr *)&peer, &peer_len);
 
 	if(s>0){
