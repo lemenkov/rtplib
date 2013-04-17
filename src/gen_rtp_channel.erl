@@ -444,53 +444,6 @@ process_data(Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/bina
 process_data(_, _, _, _, State) ->
 	State.
 
--define(SOL_SOCKET, 1).
--define(SO_NO_CHECK, 11).
--define(ON, <<1:32/native>>).
-
-%% Open a pair of UDP ports - N and N+1 (for RTP and RTCP consequently)
-get_fd_pair({TMod, {I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
-	is_integer(I0), 0 =< I0, I0 < 65536,
-	is_integer(I1), 0 =< I1, I1 < 65536,
-	is_integer(I2), 0 =< I2, I2 < 65536,
-	is_integer(I3), 0 =< I3, I3 < 65536,
-	is_integer(I4), 0 =< I4, I4 < 65536,
-	is_integer(I5), 0 =< I5, I5 < 65536,
-	is_integer(I6), 0 =< I6, I6 < 65536,
-	is_integer(I7), 0 =< I7, I7 < 65536 ->
-	get_fd_pair(TMod, IPv6, Port, proplists:delete(ipv6, SockParams) ++ [inet6], 10);
-get_fd_pair({TMod, {I0,I1,I2,I3} = IPv4, Port, SockParams}) when
-	is_integer(I0), 0 =< I0, I0 < 256,
-	is_integer(I1), 0 =< I1, I1 < 256,
-	is_integer(I2), 0 =< I2, I2 < 256,
-	is_integer(I3), 0 =< I3, I3 < 256 ->
-	get_fd_pair(TMod, IPv4, Port, proplists:delete(ipv6, SockParams), 10).
-
-get_fd_pair(_, I, P, SockParams, 0) ->
-	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
-	error;
-get_fd_pair(gen_udp, I, P, SockParams, NTry) ->
-	case gen_udp:open(P, [binary, {ip, I}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
-		{ok, Fd} ->
-			{ok, {Ip,Port}} = inet:sockname(Fd),
-			Port2 = case Port rem 2 of
-				0 -> Port + 1;
-				1 -> Port - 1
-			end,
-			case gen_udp:open(Port2, [binary, {ip, Ip}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
-				{ok, Fd2} ->
-					if
-						Port > Port2 -> {Fd2, Fd};
-						Port < Port2 -> {Fd, Fd2}
-					end;
-				{error, _} ->
-					gen_udp:close(Fd),
-					get_fd_pair(gen_udp, I, P, SockParams, NTry - 1)
-			end;
-		{error, _} ->
-			get_fd_pair(gen_udp, I, P, SockParams, NTry - 1)
-	end.
-
 get_send_recv_strategy(Params) ->
 	case proplists:get_value(sendrecv, Params, roaming) of
 		weak -> fun send_recv_simple/6;
