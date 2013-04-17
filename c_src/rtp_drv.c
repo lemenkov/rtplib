@@ -63,6 +63,7 @@ typedef struct {
 ErlDrvTermData atom_rtp;
 ErlDrvTermData atom_rtcp;
 ErlDrvTermData atom_udp;
+ErlDrvTermData atom_peer;
 ErlDrvTermData atom_interim_update;
 
 /* Private functions*/
@@ -170,6 +171,7 @@ static int rtp_drv_init(void)
 	atom_rtp = driver_mk_atom("rtp");
 	atom_rtcp = driver_mk_atom("rtcp");
 	atom_udp = driver_mk_atom("udp");
+	atom_peer = driver_mk_atom("peer");
 	atom_interim_update = driver_mk_atom("interim_update");
 	return 0;
 }
@@ -291,6 +293,19 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 				d->peer_len = sizeof(struct sockaddr_in);
 				memcpy(&(d->peer), &peer, d->peer_len);
 				d->rtp_port = peer.sin_port;
+
+				ErlDrvTermData reply[] = {
+					ERL_DRV_ATOM, atom_peer,
+					ERL_DRV_UINT, (int)event,
+					ERL_DRV_UINT, ((unsigned char*)&(d->peer.sin_addr.s_addr))[0],
+					ERL_DRV_UINT, ((unsigned char*)&(d->peer.sin_addr.s_addr))[1],
+					ERL_DRV_UINT, ((unsigned char*)&(d->peer.sin_addr.s_addr))[2],
+					ERL_DRV_UINT, ((unsigned char*)&(d->peer.sin_addr.s_addr))[3],
+					ERL_DRV_TUPLE, 4,
+					ERL_DRV_UINT, ntohs(d->peer.sin_port),
+					ERL_DRV_TUPLE, 4
+				};
+				driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
 			}
 		}
 		/* FIXME consider removing this - just use d->rtp_port+1 */

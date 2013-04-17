@@ -60,6 +60,7 @@
 		rtpport = null,
 		rtcpport = null,
 		local,
+		peer = null,
 		tmod = null,
 		ssrc = null,
 		type,
@@ -129,7 +130,10 @@ handle_call({
 handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets, sr = Sr, rr = Rr} = State) ->
 	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets, Sr, Rr}, State};
 
-handle_call({rtp_subscriber, {set, Subscriber}}, _, State) ->
+handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State) ->
+	{reply, ok, State#state{rtp_subscriber = Subscriber}};
+handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3} = Ip, Port}} = State) ->
+	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
@@ -243,8 +247,6 @@ handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
 
 %% Handle incoming RTP message
 handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
-	Bin = port_control(Fd, 3, <<>>),
-	safe_call(Subscriber, {set_fd, Bin}),
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
 handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
@@ -253,6 +255,12 @@ handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
 handle_info({udp, Fd, Ip, Port, Msg}, State) ->
 	NewState = process_data(Fd, Ip, Port, Msg, State),
 	{noreply, NewState};
+
+handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
+handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
+	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 
 handle_info({interim_update, _Port}, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp_channel ignore timeout"),
@@ -596,9 +604,6 @@ load_library(Name) ->
                         error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
                         {error, Error}
         end.
-
-safe_call(null, Message) -> ok;
-safe_call(Pid, Message) -> gen_server:call(Pid, Message).
 
 -ifdef(TEST).
 get_priv() -> "../priv". % Probably eunit session
