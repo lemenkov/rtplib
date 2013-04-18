@@ -74,7 +74,6 @@
 		ctxI = passthru,
 		ctxO = passthru,
 		other_ssrc = null,
-		lastseen = {0,0,0},
 		process_chain_up = [],
 		process_chain_down = [],
 		encoder = false,
@@ -383,7 +382,7 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			send_subscriber(Subscriber, Msg, Ip, Port),
-			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
+			State#state{ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
@@ -392,7 +391,7 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
 			send_subscriber(Subscriber, NewMsg, Ip, Port),
-			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
+			NewState#state{ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
@@ -405,7 +404,7 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 			% FIXME make a ring buffer
 			Sr = rtp_utils:take(Rtcps, sr),
 			Rr = rtp_utils:take(Rtcps, rr),
-			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
+			State#state{ip = Ip, rtcpport = Port, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
 		false ->
 			State
 	end;
@@ -421,7 +420,7 @@ process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:
 				null -> send_subscriber(Subscriber, Zrtp, Ip, Port);
 				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
 			end,
-			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
+			State#state{ip = Ip, rtpport = Port, ssrc = SSRC};
 		false ->
 			State
 	end;
