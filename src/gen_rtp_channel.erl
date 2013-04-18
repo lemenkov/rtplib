@@ -61,7 +61,6 @@
 		rtcpport = null,
 		local,
 		peer = null,
-		tmod = null,
 		ssrc = null,
 		type,
 		rxbytes = 0,
@@ -138,7 +137,7 @@ handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0,
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
 
-handle_call(get_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
+handle_call(get_phy, _, #state{rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
 	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
 
 handle_call({set_fd, Bin}, _, #state{rtp = Fd} = State) ->
@@ -152,16 +151,16 @@ handle_call(Request, From, State) ->
 %% Other side's RTP handling - we should send it downstream
 %%
 
-handle_cast({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
+handle_cast({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
 	% If it's binary then treat it like RTP
-	send(TMod, Fd, Pkt, DefIp, DefPort, Ip, Port),
+	Fd ! {self(), {command, Pkt}},
 	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
 	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	Fd ! {self(), {command, Pkt}},
 	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
 handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
 	% Initial other party SSRC setup
@@ -179,10 +178,10 @@ handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherS
 
 handle_cast(
 	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
 ) ->
 	NewPkt = rtcp:encode(Pkt),
-	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	Fd ! {self(), {command, Pkt}},
 	{noreply, State};
 
 %%
@@ -191,9 +190,9 @@ handle_cast(
 
 handle_cast(
 	{#zrtp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
 ) ->
-	send(TMod, Fd, zrtp:encode(Pkt), DefIp, DefPort, Ip, Port),
+	Fd ! {self(), {command, Pkt}},
 	{noreply, State};
 
 handle_cast({update, Params}, State) ->
@@ -217,7 +216,7 @@ handle_cast(Request, State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Port, tmod = TMod, encoder = Encoder, decoder = Decoder}) ->
+terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
 	% FIXME We must send RTCP bye here
 	port_close(Port),
@@ -363,8 +362,6 @@ handle_info({init, Params}, State) ->
 %			ctxO = CtxO,
 %			ssrc = SSRC,
 %			other_ssrc = OtherSSRC,
-			% FIXME - properly set transport
-			tmod = TMod,
 			process_chain_up = FunDecode,
 			process_chain_down = FunTranscode ++ FunEncode,
 			encoder = Encoder,
@@ -515,25 +512,16 @@ transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = fa
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-send(gen_udp, _, _, _, null, _, null) ->
-	ok;
-send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
-	Fd ! {self(), {command, Pkt}};
-send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
-	Fd ! {self(), {command, Pkt}};
-send(gen_tcp, Fd, Pkt, _, _, _, _) ->
-	Fd ! {self(), {command, Pkt}}.
-
 send_subscriber(null, _, _, _) ->
 		ok;
 send_subscriber(Subscribers, Data, Ip, Port) when is_list(Subscribers) ->
 		lists:foreach(fun(X) -> send_subscriber(X, Data, Ip, Port) end, Subscribers);
 %send_subscriber(Subscriber, Data, Ip, Port) ->
 %		Subscriber ! {Data, Ip, Port};
-send_subscriber({Type, Fd, Ip, Port}, Data, _, _) ->
-		send(Type, Fd, Data, Ip, Port, null, null);
-send_subscriber(Subscriber, Data, _, _) ->
-		Subscriber ! {Data, null, null}.
+send_subscriber({Type, Fd, Ip, Port}, Pkt, _, _) ->
+		Fd ! {self(), {command, Pkt}};
+send_subscriber(Subscriber, Pkt, _, _) ->
+		Subscriber ! {Pkt, null, null}.
 
 append_subscriber(null, Subscriber) -> Subscriber;
 append_subscriber(Subscribers, Subscriber) when is_list(Subscribers) -> [S || S <- Subscribers, S /= Subscriber] ++ [Subscriber];
