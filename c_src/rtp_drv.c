@@ -281,7 +281,6 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 	ssize_t s = 0;
 
-	// FIXME use it for bufer adjustment
 	ioctl((int)event, FIONREAD, &s);
 	if(s > d->size){
 		driver_free(d->buf);
