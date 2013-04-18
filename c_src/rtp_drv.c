@@ -403,16 +403,6 @@ static int rtp_drv_control(
 			ret = 8;
 			}
 			break;
-		case 3:
-			{
-			int id = htonl(d->rtp_socket); // Network-order
-			uint32_t ip = d->peer.sin_addr.s_addr; // Network-order
-			memcpy(*rbuf, &id, 4);
-			memcpy(*rbuf+4, &(d->rtp_port), 2); // Network-order
-			memcpy(*rbuf+6, &ip, 4);
-			ret = 10;
-			}
-			break;
 		case 4:
 			{
 			d->other_rtp_socket = ntohl(*(int*)buf); // Network-order to host-order

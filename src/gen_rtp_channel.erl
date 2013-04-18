@@ -141,10 +141,6 @@ handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldS
 handle_call(get_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
 	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
 
-handle_call(get_fd, _, #state{rtp = Fd} = State) ->
-	Bin = port_control(Fd, 3, <<>>),
-	{reply, {ok, Bin}, State};
-
 handle_call({set_fd, Bin}, _, #state{rtp = Fd} = State) ->
 	port_control(Fd, 4, Bin),
 	{reply, ok, State};
