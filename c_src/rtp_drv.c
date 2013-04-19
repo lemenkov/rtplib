@@ -108,7 +108,7 @@ int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
 
 	flags = fcntl(sock, F_GETFL);
 	assert(flags >= 0);
-	assert(!fcntl(sock, F_SETFL, flags | O_NONBLOCK));
+	assert(!fcntl(sock, F_SETFL, flags | O_NONBLOCK | O_NDELAY));
 	return sock;
 }
 
