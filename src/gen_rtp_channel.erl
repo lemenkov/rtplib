@@ -131,6 +131,8 @@ handle_call(get_stats, _, #state{rtp = Port, ip = Ip, rtpport = RtpPort, rtcppor
 
 handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
+handle_call({rtp_subscriber, {set, null}}, _, State) ->
+	{reply, ok, State#state{rtp_subscriber = null}};
 handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3} = Ip, Port}} = State) ->
 	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
