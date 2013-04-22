@@ -221,7 +221,7 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
 	% FIXME We must send RTCP bye here
-	port_close(Port),
+	Port == undefined orelse port_close(Port),
 	case Encoder of
 		false -> ok;
 		{_, E} -> codec:close(E)
