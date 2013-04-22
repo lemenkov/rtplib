@@ -60,6 +60,15 @@ typedef struct {
 	bool mux;
 	unsigned long tval;
 	time_t lastseen;
+	ssize_t rxbytes;
+	ssize_t rxpackets;
+	ssize_t txbytes;
+	ssize_t txpackets;
+	// This is a counter for a fast-sent packets
+	ssize_t txbytes2;
+	ssize_t txpackets2;
+	unsigned long ssrc;
+	int8_t type;
 } rtp_data;
 
 ErlDrvTermData atom_rtp;
@@ -195,6 +204,14 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	d->mux = false;
 	d->tval = 30000; // default value it 30 seconds
 	d->lastseen = NULL;
+	d->rxbytes = 0;
+	d->rxpackets = 0;
+	d->txbytes = 0;
+	d->txpackets = 0;
+	d->txbytes2 = 0;
+	d->txpackets2 = 0;
+	d->ssrc = 0;
+	d->type = -1;
 	driver_set_timer(d->port, d->tval);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
@@ -228,8 +245,13 @@ static void rtp_drv_output(ErlDrvData handle, char *buf, int len)
 		return; // outgoing address isn't set yet
 
 	ErlDrvTermData type = get_type(len, buf);
-	if ((type == atom_rtp) || (type == atom_udp))
+	if ((type == atom_rtp) || (type == atom_udp)){
+		if (type == atom_rtp){
+			d->txpackets++;
+			d->txbytes += len - 12;
+		}
 		sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
+	}
 	else{
 		if(d->mux)
 			sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
@@ -319,8 +341,17 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 		if((d->rtcp_port == 0) && (type == atom_rtcp))
 			d->rtcp_port = peer.sin_port;
 
+		if(type == atom_rtp){
+			d->type = d->buf[1];
+			d->ssrc = ((uint32_t*)d->buf)[2];
+			d->rxpackets++;
+			d->rxbytes += s - 12;
+		}
+
 		if((d->other_rtp_socket)&&((type == atom_rtp)||(type == atom_udp))){
 			sendto(d->other_rtp_socket, d->buf, s, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
+			d->txpackets2++;
+			d->txbytes2 += s - 12;
 		}
 		else{
 			ErlDrvTermData reply[] = {
@@ -360,7 +391,7 @@ static int rtp_drv_control(
 	int ret = 0;
 	ErlDrvBinary *out;
 	switch(command) {
-		case 1:{
+		case 1:	{
 			int sock0 = 0;
 			int sock1 = 0;
 			uint16_t port = 0;
@@ -391,7 +422,7 @@ static int rtp_drv_control(
 			ret = 2;
 			}
 			break;
-		case 2:{
+		case 2: {
 			uint32_t ip = htonl(get_ip(d->rtp_socket));
 			uint16_t p0 = htons(get_port(d->rtp_socket));
 			uint16_t p1 = htons(get_port(d->rtcp_socket));
@@ -401,8 +432,7 @@ static int rtp_drv_control(
 			ret = 8;
 			}
 			break;
-		case 4:
-			{
+		case 4: {
 			d->other_rtp_socket = ntohl(*(int*)buf); // Network-order to host-order
 			uint16_t port =  ntohs(*(uint16_t*)(buf+4)); // Network-order
 			uint32_t ip = *(uint32_t*)(buf+6); // Network-order
@@ -411,6 +441,25 @@ static int rtp_drv_control(
 			d->other_peer.sin_port = port;
 			d->other_peer.sin_addr.s_addr = ip;
 			d->other_peer_len = sizeof(d->other_peer);
+			}
+			break;
+		case 5: {
+			uint32_t rxbytes = htonl(d->rxbytes);
+			uint32_t rxpackets = htonl(d->rxpackets);
+			uint32_t txbytes = htonl(d->txbytes);
+			uint32_t txpackets = htonl(d->txpackets);
+			uint32_t txbytes2 = htonl(d->txbytes2);
+			uint32_t txpackets2 = htonl(d->txpackets2);
+			uint32_t ssrc = htonl(d->ssrc);
+			memcpy(*rbuf, &ssrc, 4);
+			memcpy(*rbuf+4, &(d->type), 1);
+			memcpy(*rbuf+5, &rxbytes, 4);
+			memcpy(*rbuf+9, &rxpackets, 4);
+			memcpy(*rbuf+13, &txbytes, 4);
+			memcpy(*rbuf+17, &txpackets, 4);
+			memcpy(*rbuf+21, &txbytes2, 4);
+			memcpy(*rbuf+25, &txpackets2, 4);
+			ret = 29;
 			}
 			break;
 		default:

@@ -125,8 +125,9 @@ handle_call({
 	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
 	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
-handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets, sr = Sr, rr = Rr} = State) ->
-	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets, Sr, Rr}, State};
+handle_call(get_stats, _, #state{rtp = Port, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, sr = Sr, rr = Rr} = State) ->
+	<<SSRC:32, Type:8, RxBytes:32, RxPackets:32, TxBytes:32, TxPackets:32, TxBytes2:32, TxPackets2:32>> = port_control(Port, 5, <<>>),
+	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets, TxBytes2, TxPackets2, Sr, Rr}, State};
 
 handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
