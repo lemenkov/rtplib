@@ -185,9 +185,8 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	rtp_data* d = (rtp_data*)driver_alloc(sizeof(rtp_data));
 	d->port = port;
 	d->owner = driver_caller(port);
-	d->size = 256;
-	d->buf = (uint8_t *)driver_alloc(d->size);
-	memset(d->buf, 0, d->size);
+	d->size = 0;
+	d->buf = NULL;
 	d->rtp_socket = -1;
 	d->rtcp_socket = -1;
 	d->other_rtp_socket = 0;
