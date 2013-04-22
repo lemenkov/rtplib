@@ -295,7 +295,7 @@ handle_info({init, Params}, State) ->
 	load_library(rtp_drv),
 	Port = open_port({spawn, rtp_drv}, [binary]),
 	{I0, I1, I2, I3} = IpAddr,
-	erlang:port_control(Port, 1, <<IpPort:16, I0:8, I1:8, I2:8, I3:8>>),
+	erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8>>),
 	<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>),
 	erlang:port_set_data(Port, inet_udp),
 

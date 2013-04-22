@@ -395,9 +395,15 @@ static int rtp_drv_control(
 			int sock0 = 0;
 			int sock1 = 0;
 			uint16_t port = 0;
+			uint8_t sockfamily = 4;
 			uint32_t ip = 0;
 			memcpy(&port, buf, 2);
-			memcpy(&ip, buf+2, 4);
+			memcpy(&sockfamily, buf+2, 1);
+			if(sockfamily == 4)
+				memcpy(&ip, buf+3, 4);
+			else{
+				// IPv6
+			}
 			sock0 = prepare_socket(ip, port, d->size);
 			if(sock0 <= 0){
 				driver_failure_posix(d->port, errno);
