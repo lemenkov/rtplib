@@ -202,7 +202,7 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	d->rtp_port = 0;
 	d->rtcp_port = 0;
 	d->mux = false;
-	d->tval = 30000; // default value it 30 seconds
+	d->tval = 0;
 	d->lastseen = NULL;
 	d->rxbytes = 0;
 	d->rxpackets = 0;
@@ -212,7 +212,6 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	d->txpackets2 = 0;
 	d->ssrc = 0;
 	d->type = -1;
-	driver_set_timer(d->port, d->tval);
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
 }
@@ -397,6 +396,8 @@ static int rtp_drv_control(
 			uint16_t port = 0;
 			uint8_t sockfamily = 4;
 			uint32_t ip = 0;
+			uint32_t tval_early = 0;
+			uint32_t tval = 0;
 			memcpy(&port, buf, 2);
 			memcpy(&sockfamily, buf+2, 1);
 			if(sockfamily == 4)
@@ -404,6 +405,9 @@ static int rtp_drv_control(
 			else{
 				// IPv6
 			}
+			memcpy(&tval_early, buf+7, 4);
+			memcpy(&tval, buf+11, 4);
+			d->tval = ntohl(tval);
 			sock0 = prepare_socket(ip, port, d->size);
 			if(sock0 <= 0){
 				driver_failure_posix(d->port, errno);
@@ -422,6 +426,7 @@ static int rtp_drv_control(
 				d->rtp_socket = sock1;
 				d->rtcp_socket = sock0;
 			}
+			driver_set_timer(d->port, ntohl(tval_early));
 			driver_select(d->port, (ErlDrvEvent)d->rtp_socket, ERL_DRV_READ | ERL_DRV_WRITE, 1);
 			driver_select(d->port, (ErlDrvEvent)d->rtcp_socket, ERL_DRV_READ | ERL_DRV_WRITE, 1);
 			memcpy(*rbuf, "ok", 2);

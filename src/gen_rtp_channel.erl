@@ -284,18 +284,13 @@ handle_info({init, Params}, State) ->
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 
 	% Don't start timer if timeout value is set to zero
-	{Timeout, TRef} = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
-		0 -> {0, null};
-		TimeoutMain ->
-			TimeoutEarly = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
-			{ok, T} = timer:send_interval(TimeoutEarly, pre_interim_update),
-			{TimeoutMain, T}
-	end,
+	TimeoutMain = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
+	TimeoutEarly = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
 
 	load_library(rtp_drv),
 	Port = open_port({spawn, rtp_drv}, [binary]),
 	{I0, I1, I2, I3} = IpAddr,
-	erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8>>),
+	erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8, TimeoutEarly:32, TimeoutMain:32>>),
 	<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>),
 	erlang:port_set_data(Port, inet_udp),
 
