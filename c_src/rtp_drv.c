@@ -342,7 +342,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 		if(type == atom_rtp){
 			d->type = d->buf[1];
-			d->ssrc = ((uint32_t*)d->buf)[2];
+			d->ssrc = ntohl(((uint32_t*)d->buf)[2]);
 			d->rxpackets++;
 			d->rxbytes += s - 12;
 		}
