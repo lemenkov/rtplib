@@ -318,9 +318,7 @@ handle_info({init, Params}, State) ->
 
 	% Shall we entirely parse Rtp?
 	% In case of re-packetization or transcoding or crypto we require it anyway
-	RebuildRtp = proplists:get_value(rebuildrtp, Params, false),
-
-	{FunDecode, FunEncode} = case RebuildRtp or (Ctx /= none) or (Transcoding /= none)  of
+	{FunDecode, FunEncode} = case (Ctx /= none) or (Transcoding /= none)  of
 		false ->
 			{[], []};
 		true ->
