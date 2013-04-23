@@ -134,17 +134,13 @@ handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State)
 handle_call({rtp_subscriber, {set, null}}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = null}};
 handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3} = Ip, Port}} = State) ->
-	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
 
 handle_call(get_phy, _, #state{rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
 	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
-
-handle_call({set_fd, Bin}, _, #state{rtp = Fd} = State) ->
-	port_control(Fd, 4, Bin),
-	{reply, ok, State};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
@@ -208,6 +204,10 @@ handle_cast({keepalive, enable}, State) ->
 handle_cast({keepalive, disable}, State) ->
 	{noreply, State#state{keepalive = false}};
 
+handle_cast({set_fd, Bin}, #state{rtp = Fd} = State) ->
+	port_control(Fd, 4, Bin),
+	{noreply, State};
+
 handle_cast(stop, State) ->
 	{stop, normal, State};
 
@@ -256,7 +256,7 @@ handle_info({udp, Fd, Ip, Port, Msg}, State) ->
 handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:call(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 
 handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
