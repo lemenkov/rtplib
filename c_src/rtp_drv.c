@@ -79,7 +79,7 @@ ErlDrvTermData atom_peer;
 ErlDrvTermData atom_timeout;
 
 /* Private functions*/
-int prepare_socket(uint32_t ip, uint16_t port, uint16_t size)
+int prepare_socket(uint32_t ip, uint16_t port)
 {
 	int sock = 0;
 	int flags;
@@ -410,12 +410,12 @@ static int rtp_drv_control(
 			memcpy(&tval_early, buf+7, 4);
 			memcpy(&tval, buf+11, 4);
 			d->tval = ntohl(tval);
-			sock0 = prepare_socket(ip, port, d->size);
+			sock0 = prepare_socket(ip, port);
 			if(sock0 <= 0){
 				driver_failure_posix(d->port, errno);
 				return 0;
 			}
-			sock1 = prepare_socket(ip, htons(get_sibling_port(sock0)), d->size);
+			sock1 = prepare_socket(ip, htons(get_sibling_port(sock0)));
 			if(sock1 <= 0){
 				driver_failure_posix(d->port, errno);
 				return 0;
