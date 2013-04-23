@@ -447,7 +447,7 @@ static int rtp_drv_control(
 			break;
 		case 4: {
 			d->other_rtp_socket = ntohl(*(int*)buf); // Network-order to host-order
-			uint16_t port =  *(uint16_t*)(buf+4); // Network-order
+			uint16_t port = *(uint16_t*)(buf+4); // Network-order
 			uint32_t ip = *(uint32_t*)(buf+6); // Network-order
 			bzero(&(d->other_peer), sizeof(d->other_peer));
 			d->other_peer.sin_family = AF_INET;
