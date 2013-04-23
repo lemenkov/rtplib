@@ -315,8 +315,8 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 		/* Check for type */
 		type = get_type(s, d->buf);
-		if(d->rtp_port == 0){
-			if((type == atom_rtp)||(type == atom_udp)){
+		if(type == atom_rtp){
+			if(d->rtp_port == 0){
 				bzero(&(d->peer), sizeof(d->peer));
 				d->peer_len = sizeof(struct sockaddr_in);
 				memcpy(&(d->peer), &peer, d->peer_len);
@@ -335,38 +335,40 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 				};
 				driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
 			}
-		}
-		/* FIXME consider removing this - just use d->rtp_port+1 */
-		if((d->rtcp_port == 0) && (type == atom_rtcp))
-			d->rtcp_port = peer.sin_port;
 
-		if(type == atom_rtp){
 			d->type = d->buf[1];
 			d->ssrc = ntohl(((uint32_t*)d->buf)[2]);
 			d->rxpackets++;
 			d->rxbytes += s - 12;
-		}
 
-		if((d->other_rtp_socket)&&((type == atom_rtp)||(type == atom_udp))){
-			sendto(d->other_rtp_socket, d->buf, s, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
-			d->txpackets2++;
-			d->txbytes2 += s - 12;
+			if(d->other_rtp_socket){
+				sendto(d->other_rtp_socket, d->buf, s, 0, (struct sockaddr *)&(d->other_peer), d->other_peer_len);
+				d->txpackets2++;
+				d->txbytes2 += s - 12;
+				return;
+			}
 		}
 		else{
-			ErlDrvTermData reply[] = {
-				ERL_DRV_ATOM, type,
-				ERL_DRV_PORT, driver_mk_port(d->port),
-				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
-				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
-				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[2],
-				ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[3],
-				ERL_DRV_TUPLE, 4,
-				ERL_DRV_UINT, ntohs(peer.sin_port),
-				ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s,
-				ERL_DRV_TUPLE, 5
-			};
-			driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+			/* FIXME consider removing this - just use d->rtp_port+1 */
+			if((d->rtcp_port == 0) && (type == atom_rtcp))
+				d->rtcp_port = peer.sin_port;
 		}
+
+		ErlDrvTermData reply[] = {
+			ERL_DRV_ATOM, type,
+			ERL_DRV_PORT, driver_mk_port(d->port),
+			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
+			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
+			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[2],
+			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[3],
+			ERL_DRV_TUPLE, 4,
+			ERL_DRV_UINT, ntohs(peer.sin_port),
+			ERL_DRV_BUF2BINARY, (ErlDrvTermData)d->buf, (ErlDrvTermData)s,
+			ERL_DRV_TUPLE, 5
+		};
+		driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
+
+
 	}
 	else{
 		ErlDrvTermData reply[] = {
