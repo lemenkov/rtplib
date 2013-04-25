@@ -158,7 +158,7 @@ handle_cast(
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	Fd ! {self(), {command, Pkt}},
+	Fd ! {self(), {command, NewPkt}},
 	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
 handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
 	% Initial other party SSRC setup
@@ -179,7 +179,7 @@ handle_cast(
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
 ) ->
 	NewPkt = rtcp:encode(Pkt),
-	Fd ! {self(), {command, Pkt}},
+	Fd ! {self(), {command, NewPkt}},
 	{noreply, State};
 
 %%
@@ -190,7 +190,8 @@ handle_cast(
 	{#zrtp{} = Pkt, Ip, Port},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
 ) ->
-	Fd ! {self(), {command, Pkt}},
+	% FIXME don't rely ZRTP
+%	Fd ! {self(), {command, Pkt}},
 	{noreply, State};
 
 handle_cast({update, Params}, State) ->
