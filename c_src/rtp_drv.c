@@ -336,7 +336,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 				driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
 			}
 
-			d->type = d->buf[1];
+			d->type = d->buf[1] & 127;
 			d->ssrc = ntohl(((uint32_t*)d->buf)[2]);
 			d->rxpackets++;
 			d->rxbytes += s - 12;
