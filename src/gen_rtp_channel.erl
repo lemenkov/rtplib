@@ -134,7 +134,10 @@ handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State)
 handle_call({rtp_subscriber, {set, null}}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = null}};
 handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3} = Ip, Port}} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
+	{reply, ok, State#state{rtp_subscriber = Subscriber}};
+handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}} = State) ->
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
@@ -257,7 +260,10 @@ handle_info({udp, Fd, Ip, Port, Msg}, State) ->
 handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, I0:8, I1:8, I2:8, I3:8>>}),
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
+handle_info({peer, PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 
 handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
@@ -292,9 +298,14 @@ handle_info({init, Params}, State) ->
 
 	load_library(rtp_drv),
 	Port = open_port({spawn, rtp_drv}, [binary]),
-	{I0, I1, I2, I3} = IpAddr,
-	erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8, TimeoutEarly:32, TimeoutMain:32>>),
-	<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>),
+	case IpAddr of
+		{I0, I1, I2, I3} ->
+			erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8, TimeoutEarly:32, TimeoutMain:32>>),
+			<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>);
+		{I0, I1, I2, I3, I4, I5, I6, I7} ->
+			erlang:port_control(Port, 1, <<IpPort:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16, TimeoutEarly:32, TimeoutMain:32>>),
+			<<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>)
+	end,
 	erlang:port_set_data(Port, inet_udp),
 
 	% Select crypto scheme (none, srtp, zrtp)
@@ -352,7 +363,7 @@ handle_info({init, Params}, State) ->
 			rtp = Port,
 			ip = PreIp,
 			rtpport = PrePort,
-			local = {{I0, I1, I2, I3}, RtpPort, RtcpPort},
+			local = {IpAddr, RtpPort, RtcpPort},
 %			zrtp = Zrtp,
 %			ctxI = CtxI,
 %			ctxO = CtxO,

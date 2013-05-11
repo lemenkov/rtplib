@@ -79,25 +79,41 @@ ErlDrvTermData atom_peer;
 ErlDrvTermData atom_timeout;
 
 /* Private functions*/
-int prepare_socket(uint32_t ip, uint16_t port)
+int prepare_socket(uint8_t sockfamily, uint32_t ip, uint16_t* ip6, uint16_t port)
 {
 	int sock = 0;
 	int flags;
-	struct sockaddr_in si;
-	int reuse = 1;
+	union {
+		struct sockaddr_in si;
+		struct sockaddr_in6 si6;
+	} sa;
+
 	int n = 0;
 
-	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if( setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0 ){
+	if(sockfamily == 4)
+		sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	else
+		sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+
+	n = 1;
+	if( setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0 ){
 		close(sock);
 		return 0;
 	}
 
-	bzero(&si, sizeof(si));
-	si.sin_family = AF_INET;
-	si.sin_port = port;
-	si.sin_addr.s_addr = ip;
-	if(bind(sock, (struct sockaddr *)&si, sizeof(si)) == -1) {
+	bzero(&sa, sizeof(sa));
+	if(sockfamily == 4){
+		sa.si.sin_family = AF_INET;
+		sa.si.sin_addr.s_addr = ip;
+		sa.si.sin_port = port;
+	}
+	else{
+		sa.si6.sin6_family = AF_INET6;
+		memcpy(&(sa.si6.sin6_addr), ip6, sizeof(uint16_t) * 8);
+		sa.si6.sin6_port = port;
+	}
+
+	if(bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
 		close(sock);
 		return 0;
 	}
@@ -124,25 +140,19 @@ int prepare_socket(uint32_t ip, uint16_t port)
 // Returns in host-order
 uint16_t get_port(int sock)
 {
-	struct sockaddr_in sin;
-	socklen_t addrlen = sizeof(sin);
-	int port = -1;
+	union {
+		struct sockaddr_in si;
+		struct sockaddr_in6 si6;
+	} sa;
+	socklen_t addrlen = 0;
 
-	if(getsockname(sock, (struct sockaddr *)&sin, &addrlen) == 0)
-		port = ntohs(sin.sin_port);
-	return port;
-}
-
-// Returns in host-order
-uint32_t get_ip(int sock)
-{
-	struct sockaddr_in sin;
-	socklen_t addrlen = sizeof(sin);
-	int ip = -1;
-
-	if(getsockname(sock, (struct sockaddr *)&sin, &addrlen) == 0)
-		ip = ntohl(sin.sin_addr.s_addr);
-	return ip;
+	if(getsockname(sock, (struct sockaddr *)&sa, &addrlen) == 0){
+		if (sa.si.sin_family == AF_INET)
+			return ntohs(sa.si.sin_port);
+		else
+			return ntohs(sa.si6.sin6_port);
+	}
+	return -1;
 }
 
 uint16_t get_sibling_port(int sock)
@@ -397,24 +407,28 @@ static int rtp_drv_control(
 			uint16_t port = 0;
 			uint8_t sockfamily = 4;
 			uint32_t ip = 0;
+			uint16_t ip6[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 			uint32_t tval_early = 0;
 			uint32_t tval = 0;
 			memcpy(&port, buf, 2);
 			memcpy(&sockfamily, buf+2, 1);
-			if(sockfamily == 4)
+			if(sockfamily == 4){
 				memcpy(&ip, buf+3, 4);
-			else{
-				// IPv6
+				memcpy(&tval_early, buf+7, 4);
+				memcpy(&tval, buf+11, 4);
 			}
-			memcpy(&tval_early, buf+7, 4);
-			memcpy(&tval, buf+11, 4);
+			else{
+				memcpy(&ip6, buf+3, 16);
+				memcpy(&tval_early, buf+19, 4);
+				memcpy(&tval, buf+23, 4);
+			}
 			d->tval = ntohl(tval);
-			sock0 = prepare_socket(ip, port);
+			sock0 = prepare_socket(sockfamily, ip, ip6, port);
 			if(sock0 <= 0){
 				driver_failure_posix(d->port, errno);
 				return 0;
 			}
-			sock1 = prepare_socket(ip, htons(get_sibling_port(sock0)));
+			sock1 = prepare_socket(sockfamily, ip, ip6, htons(get_sibling_port(sock0)));
 			if(sock1 <= 0){
 				driver_failure_posix(d->port, errno);
 				return 0;
@@ -435,13 +449,30 @@ static int rtp_drv_control(
 			}
 			break;
 		case 2: {
-			uint32_t ip = htonl(get_ip(d->rtp_socket));
+			uint32_t ip = 0;
+			uint16_t ip6[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+			union {
+				struct sockaddr_in si;
+				struct sockaddr_in6 si6;
+			} sa;
+			socklen_t addrlen = 0;
+
 			uint16_t p0 = htons(get_port(d->rtp_socket));
 			uint16_t p1 = htons(get_port(d->rtcp_socket));
-			memcpy(*rbuf, &ip, 4);
-			memcpy(*rbuf+4, &p0, 2);
-			memcpy(*rbuf+6, &p1, 2);
-			ret = 8;
+			ssize_t ip_offset = 4;
+
+			if(getsockname(d->rtp_socket, (struct sockaddr *)&sa, &addrlen) == 0){
+				if (sa.si.sin_family == AF_INET)
+					memcpy(*rbuf, &(sa.si.sin_addr.s_addr), 4);
+				else{
+					memcpy(*rbuf, &(sa.si6.sin6_addr), sizeof(uint16_t) * 8);
+					ip_offset = 16;
+				}
+			}
+
+			memcpy(*rbuf+ip_offset, &p0, 2);
+			memcpy(*rbuf+ip_offset+2, &p1, 2);
+			ret = ip_offset+4;
 			}
 			break;
 		case 4: {
