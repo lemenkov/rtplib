@@ -260,27 +260,28 @@ static void rtp_drv_output(ErlDrvData handle, char *buf, int len)
 	if(d->rtp_port == 0)
 		return; // outgoing address isn't set yet
 
-	ErlDrvTermData type = get_type(len, buf);
-	if ((type == atom_rtp) || (type == atom_udp)){
-		if (type == atom_rtp){
+	switch(get_type(len, buf))
+	{
+		case payloadRtp:
 			d->txpackets++;
 			d->txbytes += len - 12;
-		}
-		sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
-	}
-	else{
-		if(d->mux)
+		case payloadUdp:
 			sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
-		else{
-			if(d->rtcp_socket == -1)
-				return; // RTCP socket isn't ready/closed
-			if(d->rtcp_port == 0)
-				return; // outgoing address isn't set yet
+			break;
+		case payloadRtcp:
+			if(d->mux)
+				sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
+			else{
+				if(d->rtcp_socket == -1)
+					return; // RTCP socket isn't ready/closed
+				if(d->rtcp_port == 0)
+					return; // outgoing address isn't set yet
 
-			d->peer.sin_port = d->rtcp_port;
-			sendto(d->rtcp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
-			d->peer.sin_port = d->rtp_port;
-		}
+				d->peer.sin_port = d->rtcp_port;
+				sendto(d->rtcp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
+				d->peer.sin_port = d->rtp_port;
+			}
+			break;
 	}
 }
 
