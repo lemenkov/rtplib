@@ -348,7 +348,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 			}
 
 			d->type = d->buf[1] & 127;
-			d->ssrc = ntohl(((uint32_t*)d->buf)[2]);
+			d->ssrc = ((uint32_t*)d->buf)[2]; // store it in network-order
 			d->rxpackets++;
 			d->rxbytes += s - 12;
 
@@ -495,7 +495,7 @@ static int rtp_drv_control(
 			uint32_t txpackets = htonl(d->txpackets);
 			uint32_t txbytes2 = htonl(d->txbytes2);
 			uint32_t txpackets2 = htonl(d->txpackets2);
-			uint32_t ssrc = htonl(d->ssrc);
+			uint32_t ssrc = d->ssrc;
 			memcpy(*rbuf, &ssrc, 4);
 			memcpy(*rbuf+4, &(d->type), 1);
 			memcpy(*rbuf+5, &rxbytes, 4);
