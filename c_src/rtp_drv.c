@@ -507,8 +507,7 @@ static int rtp_drv_control(
 			uint32_t txpackets = htonl(d->txpackets);
 			uint32_t txbytes2 = htonl(d->txbytes2);
 			uint32_t txpackets2 = htonl(d->txpackets2);
-			uint32_t ssrc = d->ssrc;
-			memcpy(*rbuf, &ssrc, 4);
+			memcpy(*rbuf, &(d->ssrc), 4);
 			memcpy(*rbuf+4, &(d->type), 1);
 			memcpy(*rbuf+5, &rxbytes, 4);
 			memcpy(*rbuf+9, &rxpackets, 4);
