@@ -150,10 +150,9 @@ uint16_t get_sibling_port(int sock)
 	uint16_t port = get_port(sock);
 	div_t n = div(port, 2);
 	if (n.rem == 0)
-		port++; // RTP, so the next port should be RTCP (RTP+1)
-	else
-		port--; // RTCP, so the next port should be RTP (RTCP-1)
-	return port;
+		return port++; // RTP, so the next port should be RTCP (RTP+1)
+
+	return port--; // RTCP, so the next port should be RTP (RTCP-1)
 }
 
 bool is_rtp(int sock)
@@ -162,8 +161,8 @@ bool is_rtp(int sock)
 	div_t n = div(port, 2);
 	if (n.rem == 0)
 		return true; // RTP
-	else
-		return false; // RTCP
+
+	return false; // RTCP
 }
 
 ErlDrvTermData get_type(ssize_t size, char* buf)
