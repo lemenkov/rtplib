@@ -79,6 +79,12 @@ ErlDrvTermData atom_peer;
 
 ErlDrvTermData atom_timeout;
 
+enum payloadType {
+	payloadRtp,
+	payloadRtcp,
+	payloadUdp
+};
+
 /* Private functions*/
 int prepare_socket(uint8_t sockfamily, uint32_t ip, uint16_t* ip6, uint16_t port)
 {
@@ -176,14 +182,14 @@ bool is_rtp(int sock)
 	return false; // RTCP
 }
 
-ErlDrvTermData get_type(ssize_t size, char* buf)
+inline enum payloadType get_type(ssize_t size, char* buf)
 {
 	if( (size>12) && ((buf[0] & 128) == 128) && (((buf[1] & 127) <= 34)||((96 <= buf[1]) & 127)))
-		return atom_rtp;
+		return payloadRtp;
 	else if( (size>8) && ((buf[0] & 128) == 128) && (((64 < buf[1]) & 127)||((buf[1] & 127) < 82)))
-		return atom_rtcp;
+		return payloadRtcp;
 	else
-		return atom_udp;
+		return payloadUdp;
 }
 
 /* Public functions*/
@@ -308,7 +314,8 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 	struct sockaddr_in peer;
 	socklen_t peer_len = sizeof(struct sockaddr_in);
-	ErlDrvTermData type;
+	ErlDrvTermData* type = &atom_rtp; // by default
+	enum payloadType ptype;
 
 	ssize_t s = 0;
 
@@ -325,8 +332,8 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 		d->lastseen = time(NULL);
 
 		/* Check for type */
-		type = get_type(s, d->buf);
-		if(type == atom_rtp){
+		ptype = get_type(s, d->buf);
+		if(ptype == payloadRtp){
 			if(d->rtp_port == 0){
 				bzero(&(d->peer), sizeof(d->peer));
 				d->peer_len = sizeof(struct sockaddr_in);
@@ -361,12 +368,17 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 		}
 		else{
 			/* FIXME consider removing this - just use d->rtp_port+1 */
-			if((d->rtcp_port == 0) && (type == atom_rtcp))
+			if((d->rtcp_port == 0) && (ptype == payloadRtcp))
 				d->rtcp_port = peer.sin_port;
+
+			if(ptype == payloadRtcp)
+				type = &atom_rtcp;
+			else
+				type = &atom_udp;
 		}
 
 		ErlDrvTermData reply[] = {
-			ERL_DRV_ATOM, type,
+			ERL_DRV_ATOM, *type,
 			ERL_DRV_PORT, d->dport,
 			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
 			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
