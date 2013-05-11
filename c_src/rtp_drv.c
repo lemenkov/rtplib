@@ -46,6 +46,7 @@
 typedef struct {
 	ErlDrvPort port;
 	ErlDrvTermData owner;
+	ErlDrvTermData dport;
 	uint8_t *buf;
 	ssize_t size;
 	struct sockaddr_in peer;
@@ -202,6 +203,7 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 {
 	rtp_data* d = (rtp_data*)driver_alloc(sizeof(rtp_data));
 	d->port = port;
+	d->dport = driver_mk_port(port);
 	d->owner = driver_caller(port);
 	d->size = 0;
 	d->buf = NULL;
@@ -289,7 +291,7 @@ static void rtp_drv_timeout(ErlDrvData handle)
 	if(difftime(time(NULL), d->lastseen)*1000 >= d->tval){
 		ErlDrvTermData reply[] = {
 			ERL_DRV_ATOM, atom_timeout,
-			ERL_DRV_PORT, driver_mk_port(d->port),
+			ERL_DRV_PORT, d->dport,
 			ERL_DRV_TUPLE, 2
 		};
 		driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
@@ -365,7 +367,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 		ErlDrvTermData reply[] = {
 			ERL_DRV_ATOM, type,
-			ERL_DRV_PORT, driver_mk_port(d->port),
+			ERL_DRV_PORT, d->dport,
 			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[0],
 			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[1],
 			ERL_DRV_UINT, ((unsigned char*)&(peer.sin_addr.s_addr))[2],
@@ -382,7 +384,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 	else{
 		ErlDrvTermData reply[] = {
 			ERL_DRV_ATOM, driver_mk_atom("error"),
-			ERL_DRV_PORT, driver_mk_port(d->port),
+			ERL_DRV_PORT, d->dport,
 			ERL_DRV_INT, errno,
 			ERL_DRV_TUPLE, 3
 		};
