@@ -309,9 +309,6 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 {
 	rtp_data *d = (rtp_data *) handle;
 
-	if ((d->rtp_socket != (int)event) && (d->rtcp_socket != (int)event))
-		return;
-
 	struct sockaddr_in peer;
 	socklen_t peer_len = sizeof(struct sockaddr_in);
 	ErlDrvTermData* type = &atom_rtp; // by default
