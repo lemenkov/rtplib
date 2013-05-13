@@ -151,7 +151,7 @@ uint16_t get_port(int sock)
 		struct sockaddr_in si;
 		struct sockaddr_in6 si6;
 	} sa;
-	socklen_t addrlen = 0;
+	socklen_t addrlen = sizeof(sa);
 
 	if(getsockname(sock, (struct sockaddr *)&sa, &addrlen) == 0){
 		if (sa.si.sin_family == AF_INET)
@@ -456,7 +456,7 @@ static int rtp_drv_control(
 				struct sockaddr_in si;
 				struct sockaddr_in6 si6;
 			} sa;
-			socklen_t addrlen = 0;
+			socklen_t addrlen = sizeof(sa);
 
 			uint16_t p0 = htons(get_port(d->rtp_socket));
 			uint16_t p1 = htons(get_port(d->rtcp_socket));
