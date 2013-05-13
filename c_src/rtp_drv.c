@@ -303,6 +303,7 @@ static void rtp_drv_timeout(ErlDrvData handle)
 		};
 		driver_output_term(d->port, reply, sizeof(reply) / sizeof(reply[0]));
 	}
+	// FIXME more precise timeouts
 	driver_set_timer(d->port, d->tval);
 }
 
