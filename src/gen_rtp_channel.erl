@@ -216,7 +216,7 @@ handle_cast(stop, State) ->
 	{stop, normal, State};
 
 handle_cast(Request, State) ->
-	error_logger:error_msg("gen_rtp unmatched cast [~p] STATE[~p]", [Request, State]),
+	error_logger:warning_msg("gen_rtp unmatched cast [~p] STATE[~p]", [Request, State]),
 	{noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -234,7 +234,7 @@ terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 		false -> ok;
 		{_, D} -> codec:close(D)
 	end,
-	error_logger:error_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
+	error_logger:warning_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
 
 %% Handle short-circuit RTP message
 handle_info({#rtp{} = Msg, Ip, Port}, State) ->
@@ -267,7 +267,7 @@ handle_info({peer, PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}, #state
 	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
 
 handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
-	error_logger:error_msg("gen_rtp_channel ignore timeout"),
+	error_logger:warning_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
 handle_info({timeout, _Port}, State) ->
 	{stop, timeout, State};
