@@ -594,10 +594,15 @@ static int b256(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	return enif_make_binary(env, &out);
 }
 
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
+{
+	return 0;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
 	{"b32", 1, b32},
 	{"b256", 1, b256}
 };
 
-ERL_NIF_INIT(sas,nif_funcs,NULL,NULL,NULL,NULL)
+ERL_NIF_INIT(sas,nif_funcs,NULL,NULL,upgrade,NULL)
