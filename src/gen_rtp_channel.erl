@@ -148,55 +148,6 @@ handle_call(get_phy, _, #state{rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
 
-%%
-%% Other side's RTP handling - we should send it downstream
-%%
-
-handle_cast({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
-	% If it's binary then treat it like RTP
-	Fd ! {self(), {command, Pkt}},
-	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
-handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
-) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
-	% Initial other party SSRC setup
-	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
-	% Changed SSRC on the other side
-	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
-	% FIXME needs ZRTP reset here
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-
-%%
-%% Other side's RTCP handling - we should send it downstream
-%%
-
-handle_cast(
-	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	NewPkt = rtcp:encode(Pkt),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, State};
-
-%%
-%% Other side's ZRTP handling - we should send it downstream
-%%
-
-handle_cast(
-	{#zrtp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	% FIXME don't rely ZRTP
-%	Fd ! {self(), {command, Pkt}},
-	{noreply, State};
-
 handle_cast({update, Params}, State) ->
 	SendRecvStrategy = get_send_recv_strategy(Params),
 	{PreIp, PrePort} = proplists:get_value(prefill, Params, {null, null}),
@@ -236,15 +187,55 @@ terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 	end,
 	error_logger:warning_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
 
-%% Handle short-circuit RTP message
-handle_info({#rtp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
-handle_info({#rtcp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
-handle_info({#zrtp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
-handle_info({Msg, Ip, Port}, State) when is_binary(Msg) ->
-	handle_cast({Msg, Ip, Port}, State);
+%%
+%% Other side's RTP handling - we should send it downstream
+%%
+
+handle_info({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
+	% If it's binary then treat it like RTP
+	Fd ! {self(), {command, Pkt}},
+	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
+handle_info(
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	Fd ! {self(), {command, NewPkt}},
+	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
+handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
+	% Initial other party SSRC setup
+	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
+	% Changed SSRC on the other side
+	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
+	% FIXME needs ZRTP reset here
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
+handle_info(
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
+) ->
+	NewPkt = rtcp:encode(Pkt),
+	Fd ! {self(), {command, NewPkt}},
+	{noreply, State};
+
+%%
+%% Other side's ZRTP handling - we should send it downstream
+%%
+
+handle_info(
+	{#zrtp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
+) ->
+	% FIXME don't rely ZRTP
+%	Fd ! {self(), {command, Pkt}},
+	{noreply, State};
+
 
 %% Handle incoming RTP message
 handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
