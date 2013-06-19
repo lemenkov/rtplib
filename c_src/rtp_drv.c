@@ -43,24 +43,23 @@
 #include <sys/ioctl.h>
 #include <time.h>
 
+typedef union {
+	struct sockaddr_in si;
+	struct sockaddr_in6 si6;
+} sock_peer;
+
 typedef struct {
 	ErlDrvPort port;
 	ErlDrvTermData owner;
 	ErlDrvTermData dport;
 	uint8_t *buf;
 	ssize_t size;
-	union {
-		struct sockaddr_in si;
-		struct sockaddr_in6 si6;
-	} peer;
+	sock_peer peer;
 	socklen_t peer_len;
 	int rtp_socket;
 	int rtcp_socket;
 	int other_rtp_socket;
-	union {
-		struct sockaddr_in si;
-		struct sockaddr_in6 si6;
-	} other_peer;
+	sock_peer other_peer;
 	socklen_t other_peer_len;
 	uint16_t rtp_port; // Network-order
 	uint16_t rtcp_port; // Network-order
@@ -96,10 +95,7 @@ int prepare_socket(uint8_t sockfamily, uint32_t ip, uint16_t* ip6, uint16_t port
 {
 	int sock = 0;
 	int flags;
-	union {
-		struct sockaddr_in si;
-		struct sockaddr_in6 si6;
-	} sa;
+	sock_peer sa;
 
 	int n = 0;
 
@@ -153,10 +149,7 @@ int prepare_socket(uint8_t sockfamily, uint32_t ip, uint16_t* ip6, uint16_t port
 // Returns in host-order
 uint16_t get_port(int sock)
 {
-	union {
-		struct sockaddr_in si;
-		struct sockaddr_in6 si6;
-	} sa;
+	sock_peer sa;
 	socklen_t addrlen = sizeof(sa);
 
 	if(getsockname(sock, (struct sockaddr *)&sa, &addrlen) == 0){
@@ -324,10 +317,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 {
 	rtp_data *d = (rtp_data *) handle;
 
-	union {
-		struct sockaddr_in si;
-		struct sockaddr_in6 si6;
-	} peer;
+	sock_peer peer;
 	socklen_t peer_len = sizeof(peer);
 	ErlDrvTermData* type = &atom_rtp; // by default
 	enum payloadType ptype;
