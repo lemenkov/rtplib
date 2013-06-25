@@ -187,82 +187,6 @@ terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 	end,
 	error_logger:warning_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
 
-%%
-%% Other side's RTP handling - we should send it downstream
-%%
-
-handle_info({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
-	% If it's binary then treat it like RTP
-	Fd ! {self(), {command, Pkt}},
-	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
-handle_info(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
-) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
-	% Initial other party SSRC setup
-	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
-	% Changed SSRC on the other side
-	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
-	% FIXME needs ZRTP reset here
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-
-%%
-%% Other side's RTCP handling - we should send it downstream
-%%
-
-handle_info(
-	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	NewPkt = rtcp:encode(Pkt),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, State};
-
-%%
-%% Other side's ZRTP handling - we should send it downstream
-%%
-
-handle_info(
-	{#zrtp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	% FIXME don't rely ZRTP
-%	Fd ! {self(), {command, Pkt}},
-	{noreply, State};
-
-
-%% Handle incoming RTP message
-handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-handle_info({udp, Fd, Ip, Port, Msg}, State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-
-handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-handle_info({peer, PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-
-handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
-	error_logger:warning_msg("gen_rtp_channel ignore timeout"),
-	{noreply, State};
-handle_info({timeout, _Port}, State) ->
-	{stop, timeout, State};
-
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
 	TMod = proplists:get_value(transport, Params, gen_udp),
@@ -367,6 +291,82 @@ handle_info({init, Params}, State) ->
 			timeout = ?INTERIM_UPDATE
 		}
 	};
+
+%%
+%% Other side's RTP handling - we should send it downstream
+%%
+
+handle_info({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
+	% If it's binary then treat it like RTP
+	Fd ! {self(), {command, Pkt}},
+	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
+handle_info(
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	Fd ! {self(), {command, NewPkt}},
+	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
+handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
+	% Initial other party SSRC setup
+	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
+	% Changed SSRC on the other side
+	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
+	% FIXME needs ZRTP reset here
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
+handle_info(
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
+) ->
+	NewPkt = rtcp:encode(Pkt),
+	Fd ! {self(), {command, NewPkt}},
+	{noreply, State};
+
+%%
+%% Other side's ZRTP handling - we should send it downstream
+%%
+
+handle_info(
+	{#zrtp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
+) ->
+	% FIXME don't rely ZRTP
+%	Fd ! {self(), {command, Pkt}},
+	{noreply, State};
+
+
+%% Handle incoming RTP message
+handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+handle_info({udp, Fd, Ip, Port, Msg}, State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+
+handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
+handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
+handle_info({peer, PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
+	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
+	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
+
+handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
+	error_logger:warning_msg("gen_rtp_channel ignore timeout"),
+	{noreply, State};
+handle_info({timeout, _Port}, State) ->
+	{stop, timeout, State};
 
 handle_info(Info, State) ->
 	error_logger:error_msg("gen_rtp unmatched info [~p]", [Info]),
