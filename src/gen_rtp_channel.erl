@@ -256,7 +256,7 @@ handle_info({init, Params}, State) ->
 
 	% Set DTMF ID mapping
 	Dtmf = proplists:get_value(dtmf, Params, null),
-	Dtmf /= null andalso put(Dtmf, dtmf),
+	Dtmf /= null andalso begin put(Dtmf, dtmf), port_control(Port, 6, <<Dtmf:8>>)  end,
 
 	% Set codec ID mapping
 	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
@@ -381,6 +381,7 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			send_subscriber(Subscriber, Msg, Ip, Port),
+			rtp_utils:get_codec_from_payload(PType) == dtmf andalso begin {ok, Rtp} = rtp:decode(Msg), error_logger:warning_msg("DTMF: ~p~n", [rtp_utils:pp(Rtp)]) end,
 			State#state{ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State

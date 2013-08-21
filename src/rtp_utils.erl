@@ -144,35 +144,6 @@ pp(#rtcp{payloads = Rtcps}) ->
 pp(#rtp{
 		padding = Padding,
 		marker = Marker,
-		% FIXME - this is just wrong
-		payload_type = 101,
-		sequence_number = SN,
-		timestamp = TS,
-		ssrc = SSRC,
-		csrcs = CSRCS,
-		extension = Extension,
-		payload = Payload}
-) ->
-	{ok, Dtmf} = rtp:decode_dtmf(Payload),
-	Event = Dtmf#dtmf.event,
-	Eof = Dtmf#dtmf.eof,
-	Volume = Dtmf#dtmf.volume,
-	Duration = Dtmf#dtmf.duration,
-	io_lib:format("
-		{	\"type\":\"rtp\",
-			\"padding\":~b,
-			\"marker\":~b,
-			\"payload_type\":\"rtpevent\",
-			\"sequence_number\":~b,
-			\"timestamp\":~b,
-			\"ssrc\":~b,
-			\"csrcs\":\"~p\",
-			\"extension\":\"~p\",
-			\"payload\":[event:~b,eof=~p,volume=~p,duration=~p]}", [Padding, Marker, SN, TS, SSRC, CSRCS, Extension, Event, Eof, Volume, Duration]);
-% RTP
-pp(#rtp{
-		padding = Padding,
-		marker = Marker,
 		payload_type = PT,
 		sequence_number = SN,
 		timestamp = TS,
@@ -191,7 +162,8 @@ pp(#rtp{
 			\"ssrc\":~b,
 			\"csrcs\":\"~p\",
 			\"extension\":\"~p\",
-			\"payload\":~p}", [Padding, Marker, print_rtp_payload_type(PT), SN, TS, SSRC, CSRCS, Extension, Payload]);
+			\"payload\":~s}", [Padding, Marker, print_rtp_payload_type(PT), SN, TS, SSRC, CSRCS, Extension, pp_payload(Payload)]);
+
 % RTCP
 
 pp(#fir{ssrc = SSRC}) ->
@@ -222,6 +194,9 @@ pp(#xr{ssrc = SSRC, xrblocks = Xrblocks}) ->
 		[SSRC, pp_xrblocks(Xrblocks)]);
 pp(Whatever) ->
 	io_lib:format("{\"type\":\"unknown\",\"rawdata\":\"~p\"}", [Whatever]).
+
+pp_payload(Payload) when is_binary(Payload) -> io_lib:format("~w", [Payload]);
+pp_payload(#dtmf{event = Event, eof = Eof, volume = Volume, duration = Duration} = Payload) -> io_lib:format("\"[event:~b,eof=~p,volume=~p,duration=~p]\"", [Event, Eof, Volume, Duration]).
 
 pp_rblocks([]) -> "{}";
 pp_rblocks([#rblock{} = R | []]) ->
@@ -350,6 +325,7 @@ get_codec_from_payload(34) -> {'H263',90000,0};
 get_codec_from_payload(C) when is_integer(C) ->
 	case get(C) of
 		undefined -> C;
+		dtmf -> dtmf;
 		{Name, Clock, Channels} = Desc -> Desc
 	end.
 

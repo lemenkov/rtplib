@@ -74,6 +74,7 @@ typedef struct {
 	ssize_t txbytes2;
 	ssize_t txpackets2;
 	unsigned long ssrc;
+	uint8_t dtmf_id;
 	int8_t type;
 	void (*raise_data)(ErlDrvPort *, ErlDrvTermData *, ErlDrvTermData *, sock_peer *, uint8_t *, ssize_t);
 } rtp_data;
@@ -87,6 +88,7 @@ ErlDrvTermData atom_timeout;
 
 enum payloadType {
 	payloadRtp,
+	payloadRtpDtmf, // A special type of RTP payload we'd like to handle n the higher level
 	payloadRtcp,
 	payloadUdp
 };
@@ -182,14 +184,19 @@ bool is_rtp(int sock)
 	return false; // RTCP
 }
 
-inline enum payloadType get_type(ssize_t size, char* buf)
+inline enum payloadType get_type(ssize_t size, char* buf, uint8_t dtmf_id)
 {
-	if( (size>12) && ((buf[0] & 128) == 128) && (((buf[1] & 127) <= 34)||((96 <= buf[1]) & 127)))
-		return payloadRtp;
-	else if( (size>8) && ((buf[0] & 128) == 128) && (((64 < buf[1]) & 127)||((buf[1] & 127) < 82)))
-		return payloadRtcp;
-	else
-		return payloadUdp;
+	uint8_t payload_id = 0;
+	if((buf[0] & 128) == 128){ // seems to be RTP or RTCP
+		if(size>8){ // FIXME RTP header can be 12 bytes long
+			payload_id = buf[1] & 127;
+			if( (payload_id <= 34) || (96 <= payload_id))
+				return dtmf_id == payload_id ? payloadRtpDtmf : payloadRtp;
+			else
+				return payloadRtcp;
+		}
+	}
+	return payloadUdp;
 }
 
 void raise_data_4(ErlDrvPort *port, ErlDrvTermData *type, ErlDrvTermData *dport, sock_peer *peer, uint8_t *buf, ssize_t s)
@@ -267,6 +274,7 @@ static ErlDrvData rtp_drv_start(ErlDrvPort port, char *buff)
 	d->txbytes2 = 0;
 	d->txpackets2 = 0;
 	d->ssrc = 0;
+	d->dtmf_id = 255; // Actual DTMF payload id will be less than 128
 	d->type = -1;
 	set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 	return (ErlDrvData)d;
@@ -299,11 +307,12 @@ static void rtp_drv_output(ErlDrvData handle, char *buf, int len)
 	if(d->rtp_port == 0)
 		return; // outgoing address isn't set yet
 
-	switch(get_type(len, buf))
+	switch(get_type(len, buf, d->dtmf_id))
 	{
 		case payloadRtp:
 			d->txpackets++;
 			d->txbytes += len - 12;
+		case payloadRtpDtmf:
 		case payloadUdp:
 			sendto(d->rtp_socket, buf, len, 0, (struct sockaddr *)&(d->peer), d->peer_len);
 			break;
@@ -376,7 +385,7 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 	d->lastseen = time(NULL);
 
 	/* Check for type */
-	ptype = get_type(s, d->buf);
+	ptype = get_type(s, d->buf, d->dtmf_id);
 	if(ptype == payloadRtp){
 		d->type = d->buf[1] & 127;
 		d->ssrc = ((uint32_t*)d->buf)[2]; // store it in network-order
@@ -444,6 +453,8 @@ static void rtp_drv_input(ErlDrvData handle, ErlDrvEvent event)
 
 		if(ptype == payloadRtcp)
 			type = &atom_rtcp;
+		else if(ptype == payloadRtpDtmf)
+			type = &atom_rtp;
 		else
 			type = &atom_udp;
 
@@ -574,6 +585,11 @@ static int rtp_drv_control(
 			memcpy(*rbuf+25, &txpackets2, 4);
 			ret = 29;
 			}
+			break;
+		case 6:
+			memcpy(&(d->dtmf_id), buf, 1);
+			memcpy(*rbuf, "ok", 2);
+			ret = 2;
 			break;
 		default:
 			break;
