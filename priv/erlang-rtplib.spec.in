@@ -28,7 +28,6 @@ BuildRequires:	erlang-rebar
 BuildRequires:	ilbc-devel
 BuildRequires:	libsamplerate-devel
 BuildRequires:	libtool
-# FIXME Opus available only in Fedora for now
 BuildRequires:	opus-devel >= 0.9.9
 # FIXME bcg729 isn't available in Fedora/EPEL for now
 BuildRequires:	bcg729-devel
