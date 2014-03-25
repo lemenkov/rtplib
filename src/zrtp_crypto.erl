@@ -234,7 +234,7 @@ crypto_hash_sha256(Data) ->
 crypto_hash_sha384(Data) ->
 	crypto:hash(sha384, Data).
 crypto_mac_sha256(Hash, Data) ->
-	crypto:sha256_mac(Hash, Data).
+	crypto:hmac(sha256, Hash, Data).
 crypto_mac_sha384(Hash, Data) ->
-	crypto:sha384_mac(Hash, Data).
+	crypto:hmac(sha384, Hash, Data).
 -endif.
