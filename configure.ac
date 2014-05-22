@@ -117,6 +117,7 @@ AC_CHECK_LIB([spandsp],
 	     ],
 	     [AC_MSG_ERROR([spandsp library missing])]
 )
+PKG_CHECK_MODULES([GLIB2], [glib-2.0])
 
 if test "$audiocodec_opus" = "yes"
 then

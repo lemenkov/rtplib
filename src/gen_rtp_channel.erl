@@ -49,6 +49,7 @@
 -include("../include/srtp.hrl").
 -include("../include/stun.hrl").
 -include("../include/zrtp.hrl").
+-include("../include/offloader_rtp.hrl").
 
 % Default value of RTP timeout in milliseconds.
 -define(INTERIM_UPDATE, 30000).
@@ -56,11 +57,13 @@
 -record(state, {
 		rtp_subscriber = null,
 		rtp,
+		rtcp,
 		ip = null,
 		rtpport = null,
 		rtcpport = null,
 		local,
-		peer = null,
+		tmod = null,
+		active = null,
 		ssrc = null,
 		type,
 		rxbytes = 0,
@@ -70,10 +73,12 @@
 		sr = null,
 		rr = null,
 		sendrecv,
+		mux,
 		zrtp = null,
 		ctxI = passthru,
 		ctxO = passthru,
 		other_ssrc = null,
+		lastseen = {0,0,0},
 		process_chain_up = [],
 		process_chain_down = [],
 		encoder = false,
@@ -82,7 +87,8 @@
 		% interval to wait for initial data
 		keepalive = true,
 		timeout = ?INTERIM_UPDATE,
-		counter = 0
+		counter = 0,
+		tref
 	}
 ).
 
@@ -125,28 +131,90 @@ handle_call({
 	CtxO = srtp:new_ctx(SSRCO, Cipher, Auth, KeyO, SaltO, TagLen),
 	{reply, ok, State#state{ctxI = CtxI, ctxO = CtxO}};
 
-handle_call(get_stats, _, #state{rtp = Port, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, sr = Sr, rr = Rr} = State) ->
-	<<SSRC:32, Type:8, RxBytes:32, RxPackets:32, TxBytes:32, TxPackets:32, TxBytes2:32, TxPackets2:32>> = port_control(Port, 5, <<>>),
-	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets, TxBytes2, TxPackets2, Sr, Rr}, State};
+handle_call(get_stats, _, #state{ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local, ssrc = SSRC, type = Type, rxbytes = RxBytes, rxpackets = RxPackets, txbytes = TxBytes, txpackets = TxPackets, sr = Sr, rr = Rr} = State) ->
+	{reply, {Local, {Ip, RtpPort, RtcpPort}, SSRC, Type, RxBytes, RxPackets, TxBytes, TxPackets, Sr, Rr}, State};
 
-handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = null} = State) ->
-	{reply, ok, State#state{rtp_subscriber = Subscriber}};
-handle_call({rtp_subscriber, {set, null}}, _, State) ->
-	{reply, ok, State#state{rtp_subscriber = null}};
-handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3} = Ip, Port}} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
-	{reply, ok, State#state{rtp_subscriber = Subscriber}};
-handle_call({rtp_subscriber, {set, Subscriber}}, _, #state{peer = {PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
+handle_call({rtp_subscriber, {set, Subscriber}}, _, State) ->
 	{reply, ok, State#state{rtp_subscriber = Subscriber}};
 handle_call({rtp_subscriber, {add, Subscriber}}, _, #state{rtp_subscriber = OldSubscriber} = State) ->
 	{reply, ok, State#state{rtp_subscriber = append_subscriber(OldSubscriber, Subscriber)}};
 
-handle_call(get_phy, _, #state{rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
+handle_call(get_phy, _, #state{tmod = TMod, rtp = Fd, ip = Ip, rtpport = RtpPort, rtcpport = RtcpPort, local = Local} = State) ->
 	{reply, {Fd, Local, {Ip, RtpPort, RtcpPort}}, State};
 
 handle_call(Request, From, State) ->
 	{reply, ok, State}.
+
+%%
+%% Other side's RTP handling - we should send it downstream
+%%
+
+handle_cast({Pkt, Ip, Port, {OtherLocalIp, OtherLocalPort}}, #state{rtp = Fd, local = {_, PortRtp, _}, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
+
+	% setup offloader
+	error_logger:warning_msg("~p: SET KERNEL: from ~p to (~p -> ~p)~n", [self(), PortRtp, {OtherLocalIp, OtherLocalPort}, {Ip, Port}]),
+	gen_server:call(offloader_rtp,
+		#mediaproxy_message{
+			cmd = add,
+			target = #mediaproxy_target_info{
+					target_port = PortRtp,
+					src_addr = #mediaproxy_address{ip = OtherLocalIp, port = OtherLocalPort},
+					dst_addr = #mediaproxy_address{ip = Ip, port = Port}
+			}
+		}
+	),
+
+	% If it's binary then treat it like RTP
+	send(TMod, Fd, Pkt, DefIp, DefPort, null, null),
+	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
+handle_cast(
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
+) ->
+	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
+	% Initial other party SSRC setup
+	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
+	% Changed SSRC on the other side
+	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
+	% FIXME needs ZRTP reset here
+	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
+handle_cast(
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
+) ->
+	% If muxing is enabled (either explicitly or with a 'auto' parameter
+	% then send RTCP muxed within RTP stream
+	NewPkt = rtcp:encode(Pkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	{noreply, State};
+handle_cast(
+	{#rtcp{} = Pkt, Ip, Port},
+	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod} = State
+) ->
+	NewPkt = rtcp:encode(Pkt),
+	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
+	{noreply, State};
+
+%%
+%% Other side's RTCP handling - we should send it downstream
+%%
+
+handle_cast(
+	{#zrtp{} = Pkt, Ip, Port},
+	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
+) ->
+	send(TMod, Fd, zrtp:encode(Pkt), DefIp, DefPort, Ip, Port),
+	{noreply, State};
 
 handle_cast({update, Params}, State) ->
 	SendRecvStrategy = get_send_recv_strategy(Params),
@@ -159,24 +227,30 @@ handle_cast({keepalive, enable}, State) ->
 handle_cast({keepalive, disable}, State) ->
 	{noreply, State#state{keepalive = false}};
 
-handle_cast({set_fd, Bin}, #state{rtp = Fd} = State) ->
-	port_control(Fd, 4, Bin),
-	{noreply, State};
-
 handle_cast(stop, State) ->
 	{stop, normal, State};
 
 handle_cast(Request, State) ->
-	error_logger:warning_msg("gen_rtp unmatched cast [~p] STATE[~p]", [Request, State]),
+	error_logger:error_msg("gen_rtp unmatched cast [~p] STATE[~p]", [Request, State]),
 	{noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
+terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, local = {_, PortRtp, _}, tmod = TMod, tref = TRef, encoder = Encoder, decoder = Decoder}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
+	timer:cancel(TRef),
+
+	gen_server:call(offloader_rtp,
+		#mediaproxy_message{
+			cmd = del,
+			target = #mediaproxy_target_info{target_port = PortRtp}
+		}
+	),
+
+	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here
-	Port == undefined orelse port_close(Port),
+	TMod:close(Fd1),
 	case Encoder of
 		false -> ok;
 		{_, E} -> codec:close(E)
@@ -185,7 +259,41 @@ terminate(Reason, #state{rtp = Port, encoder = Encoder, decoder = Decoder}) ->
 		false -> ok;
 		{_, D} -> codec:close(D)
 	end,
-	error_logger:warning_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
+	error_logger:error_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
+
+%% Handle short-circuit RTP message
+handle_info({#rtp{} = Msg, Ip, Port}, State) ->
+	handle_cast({Msg, Ip, Port}, State);
+handle_info({#rtcp{} = Msg, Ip, Port}, State) ->
+	handle_cast({Msg, Ip, Port}, State);
+handle_info({#zrtp{} = Msg, Ip, Port}, State) ->
+	handle_cast({Msg, Ip, Port}, State);
+handle_info({Msg, Ip, Port, {OtherLocalIp, OtherLocalPort}}, State) when is_binary(Msg) ->
+	handle_cast({Msg, Ip, Port, {OtherLocalIp, OtherLocalPort}}, State);
+
+%% Handle incoming RTP message
+handle_info({udp, Fd, Ip, Port, Msg}, #state{active = true} = State) ->
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+handle_info({udp, Fd, Ip, Port, Msg}, #state{active = once} = State) ->
+	% FIXME should we move it 1 line below?
+	inet:setopts(Fd, [{active, once}]),
+	NewState = process_data(Fd, Ip, Port, Msg, State),
+	{noreply, NewState};
+
+handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) ->
+	timer:cancel(TRef),
+	{ok, T} = timer:send_interval(1000, interim_update),
+	handle_info(interim_update, State#state{tref = T});
+handle_info(interim_update, #state{keepalive = false} = State) ->
+	error_logger:error_msg("gen_rtp_channel ignore timeout"),
+	{noreply, State};
+handle_info(interim_update, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
+	Now = os:timestamp(),
+	case timer:now_diff(Now, LS) div 1000 < Timeout of
+		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
+		false -> {stop, timeout, State}
+	end;
 
 handle_info({init, Params}, State) ->
 	% Choose udp, tcp, sctp, dccp - FIXME only udp is supported
@@ -208,20 +316,19 @@ handle_info({init, Params}, State) ->
 	MuxRtpRtcp = proplists:get_value(rtcpmux, Params, auto),
 
 	% Don't start timer if timeout value is set to zero
-	TimeoutMain = proplists:get_value(timeout, Params, ?INTERIM_UPDATE),
-	TimeoutEarly = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
-
-	load_library(rtp_drv),
-	Port = open_port({spawn, rtp_drv}, [binary]),
-	case IpAddr of
-		{I0, I1, I2, I3} ->
-			erlang:port_control(Port, 1, <<IpPort:16, 4:8, I0:8, I1:8, I2:8, I3:8, TimeoutEarly:32, TimeoutMain:32>>),
-			<<I0:8, I1:8, I2:8, I3:8, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>);
-		{I0, I1, I2, I3, I4, I5, I6, I7} ->
-			erlang:port_control(Port, 1, <<IpPort:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16, TimeoutEarly:32, TimeoutMain:32>>),
-			<<I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16, RtpPort:16, RtcpPort:16>> = port_control(Port, 2, <<>>)
+	{Timeout, TRef} = case proplists:get_value(timeout, Params, ?INTERIM_UPDATE) of
+		0 -> {0, null};
+		TimeoutMain ->
+			TimeoutEarly = proplists:get_value(timeout_early, Params, ?INTERIM_UPDATE),
+			{ok, T} = timer:send_interval(TimeoutEarly, pre_interim_update),
+			{TimeoutMain, T}
 	end,
-	erlang:port_set_data(Port, inet_udp),
+
+	{Fd0, Fd1} = get_fd_pair({TMod, IpAddr, IpPort, [{active, ActiveStrategy} | SockParams]}),
+
+	{ok, {Ip, PortRtp}} = inet:sockname(Fd0),
+	{ok, {Ip, PortRtcp}} = inet:sockname(Fd1),
+
 
 	% Select crypto scheme (none, srtp, zrtp)
 	Ctx = proplists:get_value(ctx, Params, none),
@@ -245,7 +352,9 @@ handle_info({init, Params}, State) ->
 
 	% Shall we entirely parse Rtp?
 	% In case of re-packetization or transcoding or crypto we require it anyway
-	{FunDecode, FunEncode} = case (Ctx /= none) or (Transcoding /= none)  of
+	RebuildRtp = proplists:get_value(rebuildrtp, Params, false),
+
+	{FunDecode, FunEncode} = case RebuildRtp or (Ctx /= none) or (Transcoding /= none)  of
 		false ->
 			{[], []};
 		true ->
@@ -256,7 +365,7 @@ handle_info({init, Params}, State) ->
 
 	% Set DTMF ID mapping
 	Dtmf = proplists:get_value(dtmf, Params, null),
-	Dtmf /= null andalso begin put(Dtmf, dtmf), port_control(Port, 6, <<Dtmf:8>>)  end,
+	Dtmf /= null andalso put(Dtmf, dtmf),
 
 	% Set codec ID mapping
 	lists:foreach(fun({Key, Val}) -> put(Key, Val) end, proplists:get_value(cmap, Params, [])),
@@ -275,98 +384,28 @@ handle_info({init, Params}, State) ->
 
 	{noreply, #state{
 			rtp_subscriber = null,
-			rtp = Port,
+			rtp = Fd0,
+			rtcp = Fd1,
 			ip = PreIp,
 			rtpport = PrePort,
-			local = {IpAddr, RtpPort, RtcpPort},
+			local = {Ip, PortRtp, PortRtcp},
 %			zrtp = Zrtp,
 %			ctxI = CtxI,
 %			ctxO = CtxO,
 %			ssrc = SSRC,
 %			other_ssrc = OtherSSRC,
+			% FIXME - properly set transport
+			tmod = TMod,
+			active = ActiveStrategy,
 			process_chain_up = FunDecode,
 			process_chain_down = FunTranscode ++ FunEncode,
 			encoder = Encoder,
+			mux = MuxRtpRtcp,
 			sendrecv = SendRecvStrategy,
-			timeout = ?INTERIM_UPDATE
+			tref = TRef,
+			timeout = Timeout
 		}
 	};
-
-%%
-%% Other side's RTP handling - we should send it downstream
-%%
-
-handle_info({Pkt, Ip, Port}, #state{rtp = Fd, ip = DefIp, rtpport = DefPort, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
-	% If it's binary then treat it like RTP
-	Fd ! {self(), {command, Pkt}},
-	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
-handle_info(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
-) ->
-	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
-	% Initial other party SSRC setup
-	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-handle_info({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
-	% Changed SSRC on the other side
-	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
-	% FIXME needs ZRTP reset here
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-
-%%
-%% Other side's RTCP handling - we should send it downstream
-%%
-
-handle_info(
-	{#rtcp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	NewPkt = rtcp:encode(Pkt),
-	Fd ! {self(), {command, NewPkt}},
-	{noreply, State};
-
-%%
-%% Other side's ZRTP handling - we should send it downstream
-%%
-
-handle_info(
-	{#zrtp{} = Pkt, Ip, Port},
-	#state{rtp = Fd, ip = DefIp, rtpport = DefPort} = State
-) ->
-	% FIXME don't rely ZRTP
-%	Fd ! {self(), {command, Pkt}},
-	{noreply, State};
-
-
-%% Handle incoming RTP message
-handle_info({rtp, Fd, Ip, Port, Msg}, #state{rtp_subscriber = Subscriber} = State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-handle_info({rtcp, Fd, Ip, Port, Msg}, State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-handle_info({udp, Fd, Ip, Port, Msg}, State) ->
-	NewState = process_data(Fd, Ip, Port, Msg, State),
-	{noreply, NewState};
-
-handle_info({peer, PosixFd, Ip, Port}, #state{rtp_subscriber = null} = State) ->
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-handle_info({peer, PosixFd, {I0, I1, I2, I3} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 4:8, I0:8, I1:8, I2:8, I3:8>>}),
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-handle_info({peer, PosixFd, {I0, I1, I2, I3, I4, I5, I6, I7} = Ip, Port}, #state{rtp_subscriber = Subscriber} = State) ->
-	gen_server:cast(Subscriber, {set_fd, <<PosixFd:32, Port:16, 6:8, I0:16, I1:16, I2:16, I3:16, I4:16, I5:16, I6:16, I7:16>>}),
-	{noreply, State#state{peer = {PosixFd, Ip, Port}}};
-
-handle_info({timeout, _Port}, #state{keepalive = false} = State) ->
-	error_logger:warning_msg("gen_rtp_channel ignore timeout"),
-	{noreply, State};
-handle_info({timeout, _Port}, State) ->
-	{stop, timeout, State};
 
 handle_info(Info, State) ->
 	error_logger:error_msg("gen_rtp unmatched info [~p]", [Info]),
@@ -377,21 +416,20 @@ handle_info(Info, State) ->
 %%
 
 %% Handle incoming RTP message
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{local = {LocalIp, LocalPortRtp, _}, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = [], rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
-			send_subscriber(Subscriber, Msg, Ip, Port),
-			rtp_utils:get_codec_from_payload(PType) == dtmf andalso begin {ok, Rtp} = rtp:decode(Msg), error_logger:warning_msg("DTMF: ~p~n", [rtp_utils:pp(Rtp)]) end,
-			State#state{ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
+			send_subscriber(Subscriber, Msg, Ip, Port, {LocalIp, LocalPortRtp}),
+			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
-process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
+process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{local = {LocalIp, LocalPortRtp, _}, rtp_subscriber = Subscriber, sendrecv = SendRecv, process_chain_up = Chain, rxbytes = RxBytes, rxpackets = RxPackets} = State) when PType =< 34; 96 =< PType ->
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
 			{NewMsg, NewState} = process_chain(Chain, Msg, State),
-			send_subscriber(Subscriber, NewMsg, Ip, Port),
-			NewState#state{ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
+			send_subscriber(Subscriber, NewMsg, Ip, Port, {LocalIp, LocalPortRtp}),
+			NewState#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC, type = PType, rxbytes = RxBytes + size(Msg) - 12, rxpackets = RxPackets + 1};
 		false ->
 			State
 	end;
@@ -399,17 +437,18 @@ process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/bina
 process_data(Fd, Ip, Port, <<?RTP_VERSION:2, _:7, PType:7, _:48, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv, rr = Rr0, sr = Sr0} = State) when 64 =< PType, PType =< 82 ->
 	case SendRecv(Ip, Port, SSRC,  State#state.ip, State#state.rtcpport, State#state.ssrc) of
 		true ->
+			Mux = (State#state.mux == true) or ((State#state.rtpport == Port) and (State#state.mux == auto)),
 			{ok, #rtcp{payloads = Rtcps} = NewMsg} = rtcp:decode(Msg),
-			send_subscriber(Subscriber, NewMsg, Ip, Port),
+			send_subscriber(Subscriber, NewMsg, Ip, Port, null),
 			% FIXME make a ring buffer
 			Sr = rtp_utils:take(Rtcps, sr),
 			Rr = rtp_utils:take(Rtcps, rr),
-			State#state{ip = Ip, rtcpport = Port, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
+			State#state{lastseen = os:timestamp(), ip = Ip, rtcpport = Port, mux = Mux, ssrc = SSRC, sr = case Sr of false -> Sr0; _ -> Sr end, rr = case Rr of false -> Rr0; _ -> Rr end};
 		false ->
 			State
 	end;
 %% Handle incoming ZRTP message
-process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, #state{rtp_subscriber = Subscriber, sendrecv = SendRecv} = State) ->
+process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:32, _/binary>> = Msg, #state{local = {LocalIp, LocalPortRtp, _}, rtp_subscriber = Subscriber, sendrecv = SendRecv} = State) ->
 	% Treat ZRTP in the same way as RTP
 	case SendRecv(Ip, Port, SSRC, State#state.ip, State#state.rtpport, State#state.ssrc) of
 		true ->
@@ -417,10 +456,10 @@ process_data(Fd, Ip, Port, <<?ZRTP_MARKER:16, _:16, ?ZRTP_MAGIC_COOKIE:32, SSRC:
 			case State#state.zrtp of
 				% If we didn't setup ZRTP FSM then we are acting
 				% as pass-thru ZRTP proxy
-				null -> send_subscriber(Subscriber, Zrtp, Ip, Port);
+				null -> send_subscriber(Subscriber, Zrtp, Ip, Port, {LocalIp, LocalPortRtp});
 				ZrtpFsm -> gen_server:cast(self(), {gen_server:call(ZrtpFsm, Zrtp), Ip, Port})
 			end,
-			State#state{ip = Ip, rtpport = Port, ssrc = SSRC};
+			State#state{lastseen = os:timestamp(), ip = Ip, rtpport = Port, ssrc = SSRC};
 		false ->
 			State
 	end;
@@ -431,6 +470,53 @@ process_data(Fd, Ip, Port, <<?STUN_MARKER:2, _:30, ?STUN_MAGIC_COOKIE:32, _/bina
 %% Handle incoming UKNOWN message
 process_data(_, _, _, _, State) ->
 	State.
+
+-define(SOL_SOCKET, 1).
+-define(SO_NO_CHECK, 11).
+-define(ON, <<1:32/native>>).
+
+%% Open a pair of UDP ports - N and N+1 (for RTP and RTCP consequently)
+get_fd_pair({TMod, {I0,I1,I2,I3,I4,I5,I6,I7} = IPv6, Port, SockParams}) when
+	is_integer(I0), 0 =< I0, I0 < 65536,
+	is_integer(I1), 0 =< I1, I1 < 65536,
+	is_integer(I2), 0 =< I2, I2 < 65536,
+	is_integer(I3), 0 =< I3, I3 < 65536,
+	is_integer(I4), 0 =< I4, I4 < 65536,
+	is_integer(I5), 0 =< I5, I5 < 65536,
+	is_integer(I6), 0 =< I6, I6 < 65536,
+	is_integer(I7), 0 =< I7, I7 < 65536 ->
+	get_fd_pair(TMod, IPv6, Port, proplists:delete(ipv6, SockParams) ++ [inet6], 10);
+get_fd_pair({TMod, {I0,I1,I2,I3} = IPv4, Port, SockParams}) when
+	is_integer(I0), 0 =< I0, I0 < 256,
+	is_integer(I1), 0 =< I1, I1 < 256,
+	is_integer(I2), 0 =< I2, I2 < 256,
+	is_integer(I3), 0 =< I3, I3 < 256 ->
+	get_fd_pair(TMod, IPv4, Port, proplists:delete(ipv6, SockParams), 10).
+
+get_fd_pair(_, I, P, SockParams, 0) ->
+	error_logger:error_msg("Create new socket at ~s:~b FAILED (~p)", [inet_parse:ntoa(I), P,  SockParams]),
+	error;
+get_fd_pair(gen_udp, I, P, SockParams, NTry) ->
+	case gen_udp:open(P, [binary, {ip, I}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
+		{ok, Fd} ->
+			{ok, {Ip,Port}} = inet:sockname(Fd),
+			Port2 = case Port rem 2 of
+				0 -> Port + 1;
+				1 -> Port - 1
+			end,
+			case gen_udp:open(Port2, [binary, {ip, Ip}, {raw, ?SOL_SOCKET, ?SO_NO_CHECK, ?ON} |  SockParams]) of
+				{ok, Fd2} ->
+					if
+						Port > Port2 -> {Fd2, Fd};
+						Port < Port2 -> {Fd, Fd2}
+					end;
+				{error, _} ->
+					gen_udp:close(Fd),
+					get_fd_pair(gen_udp, I, P, SockParams, NTry - 1)
+			end;
+		{error, _} ->
+			get_fd_pair(gen_udp, I, P, SockParams, NTry - 1)
+	end.
 
 get_send_recv_strategy(Params) ->
 	case proplists:get_value(sendrecv, Params, roaming) of
@@ -511,34 +597,27 @@ transcode(#rtp{payload_type = OldPayloadType} = Rtp, State = #state{decoder = fa
 transcode(Pkt, State) ->
 	{Pkt, State}.
 
-send_subscriber(null, _, _, _) ->
+send(gen_udp, _, _, _, null, _, null) ->
+	ok;
+send(gen_udp, Fd, Pkt, Ip, Port, null, null) ->
+	prim_inet:sendto(Fd, Ip, Port, Pkt);
+send(gen_udp, Fd, Pkt, _, _, Ip, Port) ->
+	prim_inet:sendto(Fd, Ip, Port, Pkt);
+send(gen_tcp, Fd, Pkt, _, _, _, _) ->
+	prim_inet:send(Fd, Pkt, []).
+
+send_subscriber(null, _, _, _, _) ->
 		ok;
-send_subscriber(Subscribers, Data, Ip, Port) when is_list(Subscribers) ->
-		lists:foreach(fun(X) -> send_subscriber(X, Data, Ip, Port) end, Subscribers);
+send_subscriber(Subscribers, Data, Ip, Port, Local) when is_list(Subscribers) ->
+		lists:foreach(fun(X) -> send_subscriber(X, Data, Ip, Port, Local) end, Subscribers);
 %send_subscriber(Subscriber, Data, Ip, Port) ->
 %		Subscriber ! {Data, Ip, Port};
-send_subscriber({Type, Fd, Ip, Port}, Pkt, _, _) ->
-		Fd ! {self(), {command, Pkt}};
-send_subscriber(Subscriber, Pkt, _, _) ->
-		Subscriber ! {Pkt, null, null}.
+send_subscriber({Type, Fd, Ip, Port}, Data, _, _, _) ->
+		send(Type, Fd, Data, Ip, Port, null, null);
+send_subscriber(Subscriber, Data, FromIp, FromPort, Local) ->
+		Subscriber ! {Data, FromIp, FromPort, Local}.
 
 append_subscriber(null, Subscriber) -> Subscriber;
 append_subscriber(Subscribers, Subscriber) when is_list(Subscribers) -> [S || S <- Subscribers, S /= Subscriber] ++ [Subscriber];
 append_subscriber(Subscriber, Subscriber) -> Subscriber;
 append_subscriber(OldSubscriber, Subscriber) -> [OldSubscriber, Subscriber].
-
-load_library(Name) ->
-        case erl_ddll:load_driver(get_priv(), Name) of
-                ok -> ok;
-                {error, already_loaded} -> ok;
-                {error, permanent} -> ok;
-                {error, Error} ->
-                        error_logger:error_msg("Can't load ~p library: ~s~n", [Name, erl_ddll:format_error(Error)]),
-                        {error, Error}
-        end.
-
--ifdef(TEST).
-get_priv() -> "../priv". % Probably eunit session
--else.
-get_priv() -> code:lib_dir(rtplib, priv).
--endif.
