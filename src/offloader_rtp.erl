@@ -192,8 +192,9 @@ binary_to_hmac(<<1:32/little>>) -> null;
 binary_to_hmac(<<2:32/little>>) -> sha1.
 
 binary_to_mediaproxy_list_entry(<<TargetInfo:?SIZEOF_MEDIAPROXY_TARGET_INFO/binary, Packets:64/little, Bytes:64/little, Errors:64/little>>) ->
+	{ok, Target} = binary_to_target(TargetInfo),
 	{ok, #mediaproxy_list_entry{
-		target = binary_to_target(TargetInfo),
+		target = Target,
 		stats = #mediaproxy_stats{
 					packets = Packets,
 					bytes = Bytes,
