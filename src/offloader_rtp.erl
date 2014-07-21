@@ -42,7 +42,8 @@ handle_call(Call, _From, State) ->
 	{stop, {error, {unknown_call, Call}}, State}.
 
 handle_cast(#mediaproxy_message{} = Msg, #state{port = Fd} = State) ->
-	ok = file:write(Fd, message_to_binary(Msg)),
+	%ok = file:write(Fd, message_to_binary(Msg)),
+	file:write(Fd, message_to_binary(Msg)),
 	{noreply, State};
 
 handle_cast(Cast, State) ->
