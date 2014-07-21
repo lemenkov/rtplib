@@ -288,11 +288,18 @@ handle_info(pre_interim_update, #state{tref = TRef, timeout = Timeout} = State) 
 handle_info(interim_update, #state{keepalive = false} = State) ->
 	error_logger:error_msg("gen_rtp_channel ignore timeout"),
 	{noreply, State};
-handle_info(interim_update, #state{timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
+handle_info(interim_update, #state{local = {_, LocalPortRtp, _}, timeout = Timeout, lastseen = LS, keepalive = KA, counter = C} = State) ->
 	Now = os:timestamp(),
 	case timer:now_diff(Now, LS) div 1000 < Timeout of
-		true -> {noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
-		false -> {stop, timeout, State}
+		true ->
+			{noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
+		false ->
+			case gen_server:call(offloader_rtp, {is_online, LocalPortRtp}) of
+				true ->
+					{noreply, State#state{counter = case C of 0 -> Timeout div 1000; _ -> C - 1 end}};
+				_ ->
+					{stop, timeout, State}
+			end
 	end;
 
 handle_info({init, Params}, State) ->
