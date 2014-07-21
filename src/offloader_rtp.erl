@@ -31,7 +31,6 @@ init(Params) ->
 	% Deferred init
 	self() ! {init, Params},
 
-	error_logger:warning_msg("offloader_rtp: started at ~p.~n", [node()]),
 	{ok, #state{}}.
 
 handle_call(#mediaproxy_message{} = Msg, _From, #state{port = Fd} = State) ->
@@ -67,6 +66,8 @@ handle_info({init, Params}, _) ->
 
 	% Ping our connection
 	ok = file:write(Fd, message_to_binary(#mediaproxy_message{})),
+
+	error_logger:info_msg("~s: started at ~p.~n", [?MODULE, node()]),
 
 	{noreply, #state{port = Fd, tableid = TableId}};
 
