@@ -189,3 +189,24 @@ binary_to_cipher(<<3:32/little>>) -> aes_f8.
 binary_to_hmac(<<0:32/little>>) -> invalid;
 binary_to_hmac(<<1:32/little>>) -> null;
 binary_to_hmac(<<2:32/little>>) -> sha1.
+
+binary_to_mediaproxy_list_entry(<<TargetInfo:?SIZEOF_MEDIAPROXY_TARGET_INFO/binary, Packets:64/little, Bytes:64/little, Errors:64/little>>) ->
+	{ok, #mediaproxy_list_entry{
+		target = binary_to_target(TargetInfo),
+		stats = #mediaproxy_stats{
+					packets = Packets,
+					bytes = Bytes,
+					errors = Errors
+		}
+	}}.
+
+file_read_recursively(Fd) ->
+	file_read_recursively(Fd, []).
+file_read_recursively(Fd, Ret) ->
+	case file:read(Fd, ?SIZEOF_MEDIAPROXY_LIST_ENTRY) of
+		{ok, Data} when size(Data) == ?SIZEOF_MEDIAPROXY_LIST_ENTRY ->
+			{ok, ListEntry} = binary_to_mediaproxy_list_entry(Data),
+			file_read_recursively(Fd, [ListEntry|Ret]);
+		_ ->
+			{ok, lists:reverse(Ret)}
+	end.

@@ -42,6 +42,8 @@
 
 -type mediaproxy_srtp() :: #mediaproxy_srtp{}.
 
+-define(SIZEOF_MEDIAPROXY_TARGET_INFO, 216).
+
 -record(mediaproxy_target_info, {
 	target_port = 0 :: inet:port_number(),
 	src_addr = null :: null | mediaproxy_address(),
@@ -68,3 +70,20 @@
 }).
 
 -type mediaproxy_message() :: #mediaproxy_message{}.
+
+-record(mediaproxy_stats, {
+	packets = 0 :: non_neg_integer(),
+	bytes = 0 :: non_neg_integer(),
+	errors = 0 :: non_neg_integer()
+}).
+
+-type mediaproxy_stats() :: #mediaproxy_stats{}.
+
+-define(SIZEOF_MEDIAPROXY_LIST_ENTRY, 240).
+
+-record(mediaproxy_list_entry, {
+	target = null :: null | #mediaproxy_target_info{},
+	stats = null :: null | #mediaproxy_stats{}
+}).
+
+-type mediaproxy_list_entry() :: #mediaproxy_list_entry{}.
