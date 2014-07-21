@@ -166,14 +166,16 @@ binary_to_target(<<TP:16/little, 0:16, SABin:24/binary, DABin:24/binary, MABin:2
 
 
 binary_to_address(<<0:192>>) ->
-	{ok, #mediaproxy_address{ip = null, port = 0}};
+	% FIXME
+%	{ok, #mediaproxy_address{ip = null, port = 0}};
+	{ok, null};
 binary_to_address(<<?NFPROTO_IPV4:32/little, I0:8, I1:8, I2:8, I3:8, 0:96, Port:16/little, 0:16>>) ->
 	{ok, #mediaproxy_address{ip = {I0, I1, I2, I3}, port = Port}};
 binary_to_address(<<?NFPROTO_IPV6:32/little, I0:16/little, I1:16/little, I2:16/little, I3:16/little, I4:16/little, I5:16/little, I6:16/little, I7:16/little, Port:16/little, 0:16>>) ->
 	{ok, #mediaproxy_address{ip = {I0, I1, I2, I3, I4, I5, I6, I7}, port = Port}}.
 
 binary_to_srtp(<<0:8/little-unsigned-integer-unit:64>>) ->
-	{ok, null};
+	{ok, #mediaproxy_srtp{}};
 binary_to_srtp(<<CBin:4/binary, HBin:4/binary, MK:16/binary, MS:14/binary, 0:16, MKI:64/little, LI:64/little, ATL:32/little, MKIL:32/little>>) ->
 	C = binary_to_cipher(CBin),
 	H = binary_to_hmac(HBin),
