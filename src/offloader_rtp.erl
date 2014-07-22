@@ -6,7 +6,6 @@
 
 -record(state, {
 	port = null,
-	bport = null,
 	tableid = $0
 }).
 %% ------------------------------------------------------------------
@@ -38,13 +37,24 @@ handle_call(#mediaproxy_message{} = Msg, _From, #state{port = Fd} = State) ->
 	ok = file:write(Fd, message_to_binary(Msg)),
 	{reply, ok, State};
 
-handle_call(get_stats, _From, #state{bport = BFd} = State) ->
-	{ok, List} = file_read_recursively(BFd),
-	{reply, {ok, List}, State};
+handle_call(get_stats, _From, #state{tableid = TableId} = State) ->
+	% Open stats connection
+	{ok, BFd} = file:open( <<"/proc/mediaproxy/", TableId:8, "/blist">>, [read, raw, binary]),
+	{ok, Stats} = file_read_recursively(BFd),
+	file:close(BFd),
+	{reply, {ok, Stats}, State};
 
-handle_call({is_online, LocalPort}, _From, #state{bport = BFd} = State) ->
-	{ok, List} = file_read_recursively(BFd),
-	{reply, lists:any(fun(#mediaproxy_list_entry{target = #mediaproxy_target_info{target_port = TP}} = Elem) -> TP == LocalPort end, List) , State};
+handle_call({is_online, LocalPort}, _From, #state{tableid = TableId} = State) ->
+	% Open stats connection
+	{ok, BFd} = file:open( <<"/proc/mediaproxy/", TableId:8, "/blist">>, [read, raw, binary]),
+	{ok, Stats} = file_read_recursively(BFd),
+	file:close(BFd),
+	{reply, lists:any(
+		fun(#mediaproxy_list_entry{target = #mediaproxy_target_info{target_port = TP}}) ->
+			TP == LocalPort
+			end,
+		Stats),
+	State};
 
 handle_call(Call, _From, State) ->
 	error_logger:error_msg("offloader_rtp: unmatched call [~p]", [Call]),
@@ -77,20 +87,16 @@ handle_info({init, Params}, _) ->
 	% Ping our connection
 	ok = file:write(Fd, message_to_binary(#mediaproxy_message{})),
 
-	% Open stat connection
-	{ok, BFd} = file:open( <<"/proc/mediaproxy/", TableId:8, "/blist">>, [read, raw, binary]),
-
 	error_logger:info_msg("~s: started at ~p.~n", [?MODULE, node()]),
 
-	{noreply, #state{port = Fd, bport = BFd, tableid = TableId}};
+	{noreply, #state{port = Fd, tableid = TableId}};
 
 handle_info(_Info, State) ->
 	{noreply, State}.
 
-terminate(Reason, #state{port = Fd, bport = BFd}) ->
+terminate(Reason, #state{port = Fd}) ->
 	{memory, Bytes} = erlang:process_info(self(), memory),
 	file:close(Fd),
-	file:close(BFd),
 	error_logger:warning_msg("offloader_rtp: terminated due to reason [~p] (allocated ~b bytes)", [Reason, Bytes]).
 
 code_change(_OldVsn, State, _Extra) ->
