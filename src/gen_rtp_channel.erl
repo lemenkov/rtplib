@@ -150,19 +150,8 @@ handle_call(Request, From, State) ->
 %%
 
 handle_cast({Pkt, Ip, Port, {OtherLocalIp, OtherLocalPort}}, #state{rtp = Fd, local = {_, PortRtp, _}, ip = DefIp, rtpport = DefPort, tmod = TMod, txbytes = TxBytes, txpackets = TxPackets} = State) when is_binary(Pkt) ->
-
-	% setup offloader
-	error_logger:warning_msg("~p: SET KERNEL: from ~p to (~p -> ~p)~n", [self(), PortRtp, {OtherLocalIp, OtherLocalPort}, {Ip, Port}]),
-	gen_server:call(offloader_rtp,
-		#mediaproxy_message{
-			cmd = add,
-			target = #mediaproxy_target_info{
-					target_port = PortRtp,
-					src_addr = #mediaproxy_address{ip = OtherLocalIp, port = OtherLocalPort},
-					dst_addr = #mediaproxy_address{ip = Ip, port = Port}
-			}
-		}
-	),
+	% setup RTP in-kernel offloader (if available)
+	gen_server:cast(offloader_rtp, {add, [{target_port, PortRtp}, {src_addr, {OtherLocalIp, OtherLocalPort}}, {dst_addr, {Ip, Port}}]}),
 
 	% If it's binary then treat it like RTP
 	send(TMod, Fd, Pkt, DefIp, DefPort, null, null),
@@ -241,12 +230,8 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, local = {_, PortRtp, _}, tmod = 
 	{memory, Bytes} = erlang:process_info(self(), memory),
 	timer:cancel(TRef),
 
-	gen_server:call(offloader_rtp,
-		#mediaproxy_message{
-			cmd = del,
-			target = #mediaproxy_target_info{target_port = PortRtp}
-		}
-	),
+	% Tear down RTP in-kernel offloader (if available)
+	gen_server:cast(offloader_rtp, {del, PortRtp}),
 
 	TMod:close(Fd0),
 	% FIXME We must send RTCP bye here

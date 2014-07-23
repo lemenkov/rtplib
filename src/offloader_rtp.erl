@@ -6,6 +6,7 @@
 
 -record(state, {
 	port = null,
+	ets = null,
 	tableid = $0
 }).
 %% ------------------------------------------------------------------
@@ -33,10 +34,6 @@ init(Params) ->
 
 	{ok, #state{}}.
 
-handle_call(#mediaproxy_message{} = Msg, _From, #state{port = Fd} = State) ->
-	ok = file:write(Fd, message_to_binary(Msg)),
-	{reply, ok, State};
-
 handle_call(get_stats, _From, #state{tableid = TableId} = State) ->
 	% Open stats connection
 	{ok, BFd} = file:open( <<"/proc/mediaproxy/", TableId:8, "/blist">>, [read, raw, binary]),
@@ -60,9 +57,51 @@ handle_call(Call, _From, State) ->
 	error_logger:error_msg("offloader_rtp: unmatched call [~p]", [Call]),
 	{stop, {error, {unknown_call, Call}}, State}.
 
-handle_cast(#mediaproxy_message{} = Msg, #state{port = Fd} = State) ->
+handle_cast({add, Params}, #state{port = Fd, ets = Ets} = State) when is_list(Params) ->
+	PortRtp = proplists:get_value(target_port, Params),
+	{OtherLocalIp, OtherLocalPort} = proplists:get_value(src_addr, Params),
+	{Ip, Port} = proplists:get_value(dst_addr, Params),
+
+	case ets:lookup(Ets, {stream, {PortRtp, OtherLocalPort}}) of
+		[] ->
+			ets:insert_new(Ets, {{stream, {PortRtp, OtherLocalPort}}, {{src_addr, {OtherLocalIp, OtherLocalPort}}, {dst_addr, {Ip, Port}}}}),
+			case ets:lookup(Ets, {stream, {OtherLocalPort, PortRtp}}) of
+				[] ->
+					% Still no other side data
+					ok;
+				[{{stream, {OtherLocalPort, PortRtp}}, {{src_addr, {OtherLocalIp2, OtherLocalPort2}}, {dst_addr, {Ip2, Port2}}}}] ->
+					Msg = #mediaproxy_message{
+						cmd = add,
+						target = #mediaproxy_target_info{
+								target_port = PortRtp,
+								src_addr = #mediaproxy_address{ip = OtherLocalIp, port = OtherLocalPort},
+								dst_addr = #mediaproxy_address{ip = Ip, port = Port}
+						}
+					},
+					%ok = file:write(Fd, message_to_binary(Msg)),
+					file:write(Fd, message_to_binary(Msg)),
+					Msg2 = #mediaproxy_message{
+						cmd = add,
+						target = #mediaproxy_target_info{
+								target_port = OtherLocalPort,
+								src_addr = #mediaproxy_address{ip = OtherLocalIp2, port = OtherLocalPort2},
+								dst_addr = #mediaproxy_address{ip = Ip2, port = Port2}
+						}
+					},
+					%ok = file:write(Fd, message_to_binary(Msg2)),
+					file:write(Fd, message_to_binary(Msg2))
+			end;
+		_ ->
+			% Already inserted
+			ok
+	end,
+	{noreply, State};
+
+handle_cast({del, PortRtp}, #state{port = Fd, ets = Ets} = State) ->
+	Msg = #mediaproxy_message{cmd = del, target = #mediaproxy_target_info{target_port = PortRtp}},
 	%ok = file:write(Fd, message_to_binary(Msg)),
 	file:write(Fd, message_to_binary(Msg)),
+	ets:delete(Ets, {stream, {PortRtp, '_'}}),
 	{noreply, State};
 
 handle_cast(Cast, State) ->
@@ -87,9 +126,11 @@ handle_info({init, Params}, _) ->
 	% Ping our connection
 	ok = file:write(Fd, message_to_binary(#mediaproxy_message{})),
 
+	Ets = ets:new(offloader_rtp, [public, named_table]),
+
 	error_logger:info_msg("~s: started at ~p.~n", [?MODULE, node()]),
 
-	{noreply, #state{port = Fd, tableid = TableId}};
+	{noreply, #state{port = Fd, tableid = TableId, ets = Ets}};
 
 handle_info(_Info, State) ->
 	{noreply, State}.
