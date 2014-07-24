@@ -157,28 +157,28 @@ handle_cast({Pkt, Ip, Port, {OtherLocalIp, OtherLocalPort}}, #state{rtp = Fd, lo
 	send(TMod, Fd, Pkt, DefIp, DefPort, null, null),
 	{noreply, State#state{txbytes = TxBytes + size(Pkt) - 12, txpackets = TxPackets + 1}};
 handle_cast(
-	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port},
+	{#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port, _},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, process_chain_down = Chain, other_ssrc = OtherSSRC, txbytes = TxBytes, txpackets = TxPackets} = State
 ) ->
 	{NewPkt, NewState} = process_chain(Chain, Pkt, State),
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, NewState#state{txbytes = TxBytes + size(NewPkt) - 12, txpackets = TxPackets + 1}};
-handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port, _}, #state{other_ssrc = null, zrtp = ZrtpFsm} = State) ->
 	% Initial other party SSRC setup
 	(ZrtpFsm == null) orelse gen_server:call(ZrtpFsm, {ssrc, OtherSSRC}),
 	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
-handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port}, #state{other_ssrc = OtherSSRC2} = State) ->
+handle_cast({#rtp{ssrc = OtherSSRC} = Pkt, Ip, Port, Local}, #state{other_ssrc = OtherSSRC2} = State) ->
 	% Changed SSRC on the other side
 	error_logger:warning_msg("gen_rtp SSRC changed from [~p] to [~p] (call transfer/music-on-hold?)", [OtherSSRC2, OtherSSRC]),
 	% FIXME needs ZRTP reset here
-	handle_cast({Pkt, Ip, Port}, State#state{other_ssrc = OtherSSRC});
+	handle_cast({Pkt, Ip, Port, Local}, State#state{other_ssrc = OtherSSRC});
 
 %%
 %% Other side's RTCP handling - we should send it downstream
 %%
 
 handle_cast(
-	{#rtcp{} = Pkt, Ip, Port},
+	{#rtcp{} = Pkt, Ip, Port, _},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod, mux = true} = State
 ) ->
 	% If muxing is enabled (either explicitly or with a 'auto' parameter
@@ -187,7 +187,7 @@ handle_cast(
 	send(TMod, Fd, NewPkt, DefIp, DefPort, Ip, Port),
 	{noreply, State};
 handle_cast(
-	{#rtcp{} = Pkt, Ip, Port},
+	{#rtcp{} = Pkt, Ip, Port, _},
 	#state{rtcp = Fd, ip = DefIp, rtcpport = DefPort, tmod = TMod} = State
 ) ->
 	NewPkt = rtcp:encode(Pkt),
@@ -199,7 +199,7 @@ handle_cast(
 %%
 
 handle_cast(
-	{#zrtp{} = Pkt, Ip, Port},
+	{#zrtp{} = Pkt, Ip, Port, _},
 	#state{rtp = Fd, ip = DefIp, rtpport = DefPort, tmod = TMod} = State
 ) ->
 	send(TMod, Fd, zrtp:encode(Pkt), DefIp, DefPort, Ip, Port),
@@ -247,12 +247,12 @@ terminate(Reason, #state{rtp = Fd0, rtcp = Fd1, local = {_, PortRtp, _}, tmod = 
 	error_logger:error_msg("gen_rtp ~p: terminated due to reason [~p] (allocated ~b bytes)", [self(), Reason, Bytes]).
 
 %% Handle short-circuit RTP message
-handle_info({#rtp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
-handle_info({#rtcp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
-handle_info({#zrtp{} = Msg, Ip, Port}, State) ->
-	handle_cast({Msg, Ip, Port}, State);
+handle_info({#rtp{} = Msg, Ip, Port, Local}, State) ->
+	handle_cast({Msg, Ip, Port, Local}, State);
+handle_info({#rtcp{} = Msg, Ip, Port, Local}, State) ->
+	handle_cast({Msg, Ip, Port, Local}, State);
+handle_info({#zrtp{} = Msg, Ip, Port, Local}, State) ->
+	handle_cast({Msg, Ip, Port, Local}, State);
 handle_info({Msg, Ip, Port, {OtherLocalIp, OtherLocalPort}}, State) when is_binary(Msg) ->
 	handle_cast({Msg, Ip, Port, {OtherLocalIp, OtherLocalPort}}, State);
 
