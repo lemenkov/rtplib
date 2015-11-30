@@ -17,7 +17,6 @@ License:	BSD
 URL:		http://github.com/lemenkov/rtplib
 # wget --content-disposition http://github.com/lemenkov/rtplib/tarball/%VSN%
 Source0:	%{upstream}-%{realname}-%{version}-%{patchnumber}-g%{git_tag}.tar.gz
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	erlang >= R16B
@@ -31,16 +30,13 @@ BuildRequires:	opus-devel >= 0.9.9
 # FIXME bcg729 isn't available in Fedora/EPEL for now
 BuildRequires:	bcg729-devel
 BuildRequires:	spandsp-devel
-%if 0%{?el6}%{?fedora}
-# speex on EL-5 is too old and unreliable
 BuildRequires:	speex-devel
 # In fact that's not required for operation and it will be ignored by rpmbuild.
-# Unfortunately a speex-devel package in RHEL 5 has an issue - it explicitly requires
-# libogg-devel to work:
+# Unfortunately a speex-devel package in RHEL 5 / 6 / 7 has an issue. It
+# doesn't requires libogg-devel:
 # https://bugzilla.redhat.com/804674
 # FIXME remove it as soon as RH folks will fix the bug above.
 BuildRequires:	libogg-devel
-%endif
 #BuildRequires:	webrtc-devel
 Requires:	erlang
 Requires:	erlang-skerl
@@ -52,29 +48,20 @@ Erlang RTP/RTCP codec library.
 
 %prep
 %setup -q -n %{upstream}-%{realname}-%{git_tag}
-%if 0%{?el5}
-# Remove Opus- and SPEEX-related stuff if building for RHEL5
-rm -rf test/codec_opus_test.erl test/codec_speex_test.erl
-%endif
 sh ./autogen.sh
 
 
 %build
-%configure %{?el5:--with-audiocodec-speex=no}
+%configure
 make %{?_smp_mflags}
 
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %check
 make check
-
-
-%clean
-rm -rf $RPM_BUILD_ROOT
 
 
 %files
