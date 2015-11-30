@@ -275,7 +275,7 @@ zrtp_complex_test_() ->
 		{"Compute hvi which will be used within COMMIT message",
 			fun() -> ?assertEqual(
 						<<191,42,166,117,108,247,80,187,84,5,165,235,67,92,41,134,220,5,136,28,64,33,206,232,225,82,115,165,37,76,197,111>>,
-						zrtp_fsm:calculate_hvi(HelloMessage, Dhpart2Message, fun zrtp_crypto:crypto_hash_sha256/1)
+						zrtp_fsm:calculate_hvi(HelloMessage, Dhpart2Message, fun(Data) -> crypto:hash(sha256, Data) end)
 					) end
 		}
 	].
