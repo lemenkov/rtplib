@@ -11,9 +11,11 @@ c_src/.deps/
 c_src/.libs/
 c_src/Makefile
 c_src/Makefile.in
+compile
 config.*
 configure
 depcomp
+deps/
 ebin/
 erl_crash.dump
 install-sh
