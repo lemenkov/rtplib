@@ -3,6 +3,7 @@ SUBDIRS = c_src
 all:
 	$(mkdir_p) ./priv/
 	$(install_sh_PROGRAM) c_src/.libs/*.so ./priv/
+	@VSN="@PACKAGE_VERSION@" $(REBAR) get-deps
 	@VSN="@PACKAGE_VERSION@" $(REBAR) compile
 check:
 	$(mkdir_p) ./priv/
@@ -11,6 +12,7 @@ check:
 
 clean-local:
 	@rm -f priv/*.so priv/erlang-rtplib.spec
+	@$(REBAR) delete-deps
 	@$(REBAR) clean
 
 install-exec-local:
